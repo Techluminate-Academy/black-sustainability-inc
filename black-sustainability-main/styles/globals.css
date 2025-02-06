@@ -1,0 +1,122 @@
+@import url("https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  font-family: "Work Sans", sans-seri;
+}
+
+.container {
+  height: 100vh;
+}
+
+.map-container {
+  width: 100%;
+  height: 100vh;
+}
+.map {
+  width: 100%;
+  height: 100vh;
+}
+
+.pin {
+  border-radius: 48% 52% 51% 49% / 31% 31% 69% 69%;
+}
+
+.pin-location {
+  border-radius: 52% 52% 100% 0% / 95% 38% 62% 5%;
+  transform: rotate(-35deg);
+  box-shadow: 0px 5px 10px #3a3a3a;
+}
+.reverse-rotate-on-img {
+  transform: rotate(35deg);
+}
+/* .gm-style .gm-style-iw-d::-webkit-scrollbar-track,
+.gm-style .gm-style-iw-d::-webkit-scrollbar-track-piece,
+.gm-style .gm-style-iw-c,
+.gm-style .gm-style-iw-t::after {
+  background: red;
+}
+.gm-style-iw .gm-style-iw-c {
+  background-color: red !important;
+} */
+.gm-style-iw button {
+  margin-top: 1.1rem !important;
+  color: black !important;
+  margin-right: 1.1rem !important;
+  font-size: 2rem;
+  /* display: none !important; */
+}
+/* LEAFLET POP UP OVERRIDES  */
+.leaflet-popup-content-wrapper {
+  max-width: 530px !important;
+  min-width: 460px !important;
+  width: 100% !important;
+}
+.popup-info-card {
+  max-width: 480px !important;
+  min-width: 420px !important;
+  padding: 10px;
+}
+.leaflet-container a.leaflet-popup-close-button {
+  top: 3px !important;
+  right: 2px !important;
+  width: 30px !important;
+  height: 30px !important;
+  font-size: 20px !important;
+  color: #000 !important;
+}
+/* get rid of box behind the markers */
+.leaflet-div-icon {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+}
+.max-container {
+  max-width: 1366px;
+  margin: 0 auto;
+  padding-right: 3rem;
+  padding-left: 3rem;
+}
+.bg-filter {
+  background: rgba(26, 26, 26, 0.4);
+  backdrop-filter: blur(2.5px);
+}
+.glass {
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background-color: rgba(19, 17, 31, 0.2);
+  /* border-radius: 30px; */
+  border: 1px solid rgba(255, 255, 255, 0.125);
+  box-shadow: 2px 3px 4px #888888;
+}
+.progress {
+  height: 4.5px;
+  width: 145.6px;
+  background: linear-gradient(#ffbf23 0 0), linear-gradient(#ffbf23 0 0),
+    #dbdcef;
+  background-size: 60% 100%;
+  background-repeat: no-repeat;
+  animation: progress-7x9cg2 3s infinite;
+}
+
+@keyframes progress-7x9cg2 {
+  0% {
+    background-position: -150% 0, -150% 0;
+  }
+
+  66% {
+    background-position: 250% 0, -150% 0;
+  }
+
+  100% {
+    background-position: 250% 0, 250% 0;
+  }
+}
+@media screen and (max-width: 768px) {
+  .max-container {
+    padding-right: 1rem;
+    padding-left: 1rem;
+  }
+}
