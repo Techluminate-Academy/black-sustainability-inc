@@ -46,7 +46,7 @@ export default function Home() {
 
   const route = useRouter();
   // useEffect(() => {
-  
+
   //   // Create mock user data and set it as a cookie
   //   const mockUser = {
   //     id: "123",
@@ -97,6 +97,7 @@ export default function Home() {
     const fetchData = async () => {
       performance.mark("mapFetchStart");
       setLoading(true);
+      // setPreloaderSidebar(true);
       fetch("/api/getData?page=1&limit=100")
         .then((response) => response.json())
         .then(async (result) => {
@@ -125,6 +126,7 @@ export default function Home() {
         })
         .finally(() => {
           setLoading(false);
+          setPreloaderSidebar(false);
         });
     };
 
@@ -177,13 +179,13 @@ export default function Home() {
   // --------------------------------------------------------------------
   // 4. Sidebar Loader: Hide once initial data is loaded
   // --------------------------------------------------------------------
-  useEffect(() => {
-    if (filteredData.length > 0) {
-      setPreloaderSidebar(false);
-    } else {
-      setPreloaderSidebar(false); // Set to false so that Sidebar renders and shows "No results found"
-    }
-  }, [filteredData]);
+  // useEffect(() => {
+  //   if (filteredData.length > 0) {
+  //     setPreloaderSidebar(false);
+  //   } else {
+  //     setPreloaderSidebar(false); // Set to false so that Sidebar renders and shows "No results found"
+  //   }
+  // }, [filteredData]);
 
   // --------------------------------------------------------------------
   // 5. Infinite Scrolling for Sidebar via "Load More" Button
@@ -207,12 +209,23 @@ export default function Home() {
     }
   };
 
+
+  useEffect(() => {
+    if (isAuthenticated === false) {
+      setTimeout(() => {
+        if (loadedData?.length === filteredData?.length) {
+          setIsPopUpActive(true);
+        }
+      }, 6000);
+    }
+  }, []);
   // --------------------------------------------------------------------
   // 6. Search Filtering: Call the search API when searchQuery changes
   // --------------------------------------------------------------------
   useEffect(() => {
     if (searchQuery.trim() !== "") {
       setLoading(true);
+            setPreloaderSidebar(true);
       fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}`)
         .then((response) => response.json())
         .then((result) => {
@@ -230,6 +243,7 @@ export default function Home() {
         })
         .finally(() => {
           setLoading(false);
+          setPreloaderSidebar(false);
         });
     } else {
       // If search query is empty, reset to original data
@@ -279,11 +293,13 @@ export default function Home() {
       return;
     }
     try {
+      setPreloaderSidebar(true);
       const res = await fetch(`/api/filterData?page=1&limit=100&industryHouse=${encodeURIComponent(selectedValue)}`);
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
         setFilteredData(result.data);
         setTotalCount(filteredData.length);
+        setPreloaderSidebar(false);
       } else {
         console.error("Filter API did not return valid data", result);
       }
@@ -323,9 +339,12 @@ export default function Home() {
                       <p className="text-sm lg:text-sm font-medium leading-tight">
                         Sit back while we search around the globe.
                       </p>
-                      <p className="text-sm lg:text-base">
+                      {/* <p className="text-sm lg:text-base">
                         We've found {loadedData.length} so far!
-                      </p>
+                      </p> */}
+                      <p className="text-sm lg:text-base">
+              We've loaded all {totalCount} records!
+            </p>
                     </div>
                   </div>
                 </div>
