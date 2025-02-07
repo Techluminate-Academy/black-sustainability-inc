@@ -45,49 +45,50 @@ export default function Home() {
   const [totalCount, setTotalCount] = useState(0);
 
   const route = useRouter();
-  useEffect(() => {
-    // Create mock user data and set it as a cookie
-    const mockUser = {
-      id: "123",
-      name: "Fake User",
-      email: "fakeuser@example.com",
-    };
+  // useEffect(() => {
   
-    const cookieValue = encodeURIComponent(JSON.stringify(mockUser));
-    document.cookie = `bsn_user=${cookieValue}; path=/`;
+  //   // Create mock user data and set it as a cookie
+  //   const mockUser = {
+  //     id: "123",
+  //     name: "Fake User",
+  //     email: "fakeuser@example.com",
+  //   };
   
-    // Helper function to read a cookie by name
-    const getCookie = (cname: string): string => {
-      const name = `${cname}=`;
-      const decodedCookie = decodeURIComponent(document.cookie);
-      const cookies = decodedCookie.split(";");
-      for (let i = 0; i < cookies.length; i++) {
-        let c = cookies[i];
-        while (c.charAt(0) === " ") {
-          c = c.substring(1);
-        }
-        if (c.indexOf(name) === 0) {
-          return c.substring(name.length, c.length);
-        }
-      }
-      return "";
-    };
+  //   const cookieValue = encodeURIComponent(JSON.stringify(mockUser));
+  //   document.cookie = `bsn_user=${cookieValue}; path=/`;
+  
+  //   // Helper function to read a cookie by name
+  //   const getCookie = (cname: string): string => {
+  //     const name = `${cname}=`;
+  //     const decodedCookie = decodeURIComponent(document.cookie);
+  //     const cookies = decodedCookie.split(";");
+  //     for (let i = 0; i < cookies.length; i++) {
+  //       let c = cookies[i];
+  //       while (c.charAt(0) === " ") {
+  //         c = c.substring(1);
+  //       }
+  //       if (c.indexOf(name) === 0) {
+  //         return c.substring(name.length, c.length);
+  //       }
+  //     }
+  //     return "";
+  //   };
     
   
-    const userCookie = getCookie("bsn_user");
-    if (userCookie) {
-      try {
-        const parsedUser = JSON.parse(userCookie);
-        setAuthenticatedUser(parsedUser);
-        setIsAuthenticated(true);
-        console.log("Authenticated user:", parsedUser);
-      } catch (error) {
-        console.error("Error parsing user cookie:", error);
-      }
-    } else {
-      console.log("No user cookie found");
-    }
-  }, []);
+  //   const userCookie = getCookie("bsn_user");
+  //   if (userCookie) {
+  //     try {
+  //       const parsedUser = JSON.parse(userCookie);
+  //       setAuthenticatedUser(parsedUser);
+  //       setIsAuthenticated(true);
+  //       console.log("Authenticated user:", parsedUser);
+  //     } catch (error) {
+  //       console.error("Error parsing user cookie:", error);
+  //     }
+  //   } else {
+  //     console.log("No user cookie found");
+  //   }
+  // }, []);
   
   // --------------------------------------------------------------------
   // 1. Initial Data Fetch for Map & Sidebar
