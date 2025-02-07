@@ -196,4 +196,4 @@ const LeafletMap: React.FC<IProps> = ({
   );
 };
 
-export default LeafletMap;
+export default React.memo( LeafletMap);
