@@ -100,7 +100,7 @@ export default function Home() {
         .then((response) => response.json())
         .then(async (result) => {
           if (result.success && Array.isArray(result.data)) {
-            const filteredNullData = result.data.filter((item) => item !== null);
+            const filteredNullData = result.data.filter((item: any) => item !== null);
             console.log("Filtered data count:", filteredNullData.length);
               // Save the full total count
           setFullTotalCount(result.totalCount);
