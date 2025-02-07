@@ -42,7 +42,11 @@ const Sidebar: React.FC<IProps> = ({
                     : ""
                 }
                 PRIMARY_INDUSTRY_HOUSE={data.fields["PRIMARY INDUSTRY HOUSE"]}
-                imgUrl={data.fields?.userphoto || "/png/default.png"}
+                imgUrl={
+                  data.fields?.PHOTO && data.fields.PHOTO.length > 0
+                    ? data.fields.PHOTO[0].url
+                    : "/png/default.png"
+                }
                 isAuthenticated={isAuthenticated}
                 ConnectLink={data.fields["ConnectLink"]} // UPDATE WHEN AIRTABLE IS UPDATED
               />

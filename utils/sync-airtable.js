@@ -37,15 +37,12 @@ const fetchDataFromAirtable = async (offset = "") => {
     });
 
     // Remove large image fields from each record
-    const cleanedRecords = response.data.records.map((record) => {
-      const { fields } = record;
-      const { userphoto, attachments, PHOTO, ...restFields } = fields;
-      return {
-        ...record,
-        fields: restFields,
-      };
-    });
-
+   // Instead of removing image fields, we now keep them.
+   const cleanedRecords = response.data.records.map((record) => {
+    // If you need any additional processing of image fields, you can do it here.
+    // For now, we simply return the entire record with all its fields intact.
+    return record;
+  });
     return {
       records: cleanedRecords,
       offset: response.data.offset || "",
