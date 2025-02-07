@@ -57,18 +57,22 @@ export default function Home() {
     document.cookie = `bsn_user=${cookieValue}; path=/`;
   
     // Helper function to read a cookie by name
-    const getCookie = (cname) => {
+    const getCookie = (cname: string): string => {
       const name = `${cname}=`;
       const decodedCookie = decodeURIComponent(document.cookie);
       const cookies = decodedCookie.split(";");
-      for (let c of cookies) {
-        c = c.trim();
+      for (let i = 0; i < cookies.length; i++) {
+        let c = cookies[i];
+        while (c.charAt(0) === " ") {
+          c = c.substring(1);
+        }
         if (c.indexOf(name) === 0) {
-          return c.substring(name.length);
+          return c.substring(name.length, c.length);
         }
       }
       return "";
     };
+    
   
     const userCookie = getCookie("bsn_user");
     if (userCookie) {
