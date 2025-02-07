@@ -193,10 +193,10 @@ export default function Home() {
       const res = await fetch(`/api/getData?page=${nextPage}&limit=100`);
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
-        const newRecords = result.data.filter((item) => item !== null);
+        const newRecords = result.data.filter((item:any) => item !== null);
         console.log(`Fetched page ${nextPage}: ${newRecords.length} records`);
-        setFilteredData((prev) => [...prev, ...newRecords]);
-        setOriginalData((prev) => [...prev, ...newRecords]);
+        setFilteredData((prev:any) => [...prev, ...newRecords]);
+        setOriginalData((prev:any) => [...prev, ...newRecords]);
         setSidebarPage(nextPage);
       } else {
         console.error("Infinite scroll: API did not return valid data", result);
