@@ -47,3 +47,15 @@ export default async function handler(req, res) {
     await client.close();
   }
 }
+// pages/api/getData.js
+// import { getData } from '../../lib/getData';
+
+// export default async function handler(req, res) {
+//   try {
+//     const result = await getData(req.query);
+//     res.status(200).json({ success: true, ...result });
+//   } catch (error) {
+//     console.error("Error retrieving data from MongoDB:", error);
+//     res.status(500).json({ success: false, error: error.message });
+//   }
+// }

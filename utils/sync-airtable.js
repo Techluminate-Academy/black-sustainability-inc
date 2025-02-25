@@ -1,6 +1,8 @@
 // utils/sync-airtable.js
 
 // Use require instead of import
+require('dotenv').config();
+
 const axios = require("axios");
 const { MongoClient } = require("mongodb");
 
@@ -8,7 +10,9 @@ const { MongoClient } = require("mongodb");
 // const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
 // const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
 // const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
-
+const AIRTABLE_API_KEY = 'pat38lz8MgA9beOdR.216dd36a6aefde7f3ac3063e11cb0ea1d645131195be277237b6e776d8f8c88f';
+const BASE_ID = 'appixDz0HieCrwdUq';
+const TABLE_NAME = 'tblYq1mA17iTZ5DRb';
 // Optionally, you could add a view parameter if needed:
 // const VIEW_ID = process.env.NEXT_PUBLIC_AIRTABLE_VIEW_ID_NOT_SORTED;
 console.log(AIRTABLE_API_KEY, BASE_ID, TABLE_NAME)
@@ -18,6 +22,46 @@ console.log(AIRTABLE_API_KEY, BASE_ID, TABLE_NAME)
  *  - Removes image fields (userphoto, attachments, PHOTO, etc.)
  *  - Returns {records, offset} or null on error.
  */
+// const fetchDataFromAirtable = async (offset = "") => {
+//   const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}`;
+
+//   try {
+//     const response = await axios.get(url, {
+//       headers: {
+//         Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+//       },
+//       params: {
+//         pageSize: 100, // up to 100 per request
+//         offset,
+//         // Uncomment the next line if you want to fetch from a specific view:
+//         // view: VIEW_ID,
+//       },
+//     });
+
+//     // Remove large image fields from each record
+//     const cleanedRecords = response.data.records.map((record) => {
+//       const { fields } = record;
+//       const { userphoto, attachments, PHOTO, ...restFields } = fields;
+//       return {
+//         ...record,
+//         fields: restFields,
+//       };
+//     });
+
+//     return {
+//       records: cleanedRecords,
+//       offset: response.data.offset || "",
+//     };
+//   } catch (error) {
+//     console.error(
+//       "Error fetching data from Airtable:",
+//       error?.response?.data || error
+//     );
+//     return null;
+//   }
+// };
+
+
 const fetchDataFromAirtable = async (offset = "") => {
   const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}`;
 
@@ -29,23 +73,15 @@ const fetchDataFromAirtable = async (offset = "") => {
       params: {
         pageSize: 100, // up to 100 per request
         offset,
-        // Uncomment the next line if you want to fetch from a specific view:
-        // view: VIEW_ID,
+        // view: VIEW_ID, // Uncomment if needed
       },
     });
 
-    // Remove large image fields from each record
-    const cleanedRecords = response.data.records.map((record) => {
-      const { fields } = record;
-      const { userphoto, attachments, PHOTO, ...restFields } = fields;
-      return {
-        ...record,
-        fields: restFields,
-      };
-    });
+    // Instead of removing image fields, retain all fields as is.
+    const records = response.data.records;
 
     return {
-      records: cleanedRecords,
+      records,
       offset: response.data.offset || "",
     };
   } catch (error) {
@@ -96,7 +132,7 @@ const syncAirtableToMongoDB = async () => {
   }
   
   // MongoDB configuration
-  const MONGODB_URI = 'mongodb+srv://jbony:HxK6MwXmPXr5bitY@cluster0.izvr3.mongodb.net/';
+  const MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI;
   if (!MONGODB_URI) {
     console.error("MONGODB_URI is not defined in environment variables.");
     return;
