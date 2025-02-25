@@ -19,11 +19,9 @@ export default async function handler(req, res) {
     const db = client.db(DATABASE_NAME);
     const collection = db.collection(COLLECTION_NAME);
 
-    // Read query parameters for search and pagination
+    // Read query parameters for search and filtering
     const {
       q,
-      page,
-      limit,
       timeZone,
       stateProvince,
       nameFromLocation,
@@ -36,31 +34,16 @@ export default async function handler(req, res) {
       bio,
     } = req.query;
 
-    const currentPage = parseInt(page) || 1;
-    const recordsPerPage = parseInt(limit) || 50;
-    const skip = (currentPage - 1) * recordsPerPage;
-
     // Build the search query object
     let query = {};
 
-    // If a general search term is provided, search across multiple fields
+    // Use text search if a general search term is provided.
+    // This leverages the text index (created separately) for optimized search.
     if (q) {
-      const searchRegex = new RegExp(q, "i"); // case-insensitive
-      query.$or = [
-        { "fields['Time zone']": searchRegex },
-        { "fields['State/Province']": searchRegex },
-        { "fields['Name (from Location)']": searchRegex },
-        { "fields.State": searchRegex },
-        { "fields['Location (Nearest City)']": searchRegex },
-        { "fields['FIRST NAME']": searchRegex },
-        { "fields['LAST NAME']": searchRegex },
-        { "fields['FULL NAME']": searchRegex },
-        { "fields.Country": searchRegex },
-        { "fields.BIO": searchRegex },
-      ];
+      query.$text = { $search: q };
     }
 
-    // Additionally, if individual filter parameters are provided, add them as conditions.
+    // Additionally, add individual filters as exact matches.
     if (timeZone) {
       query["fields['Time zone']"] = timeZone;
     }
@@ -92,15 +75,12 @@ export default async function handler(req, res) {
       query["fields.BIO"] = bio;
     }
 
-    // Retrieve matching documents with pagination
-    const totalCount = await collection.countDocuments(query);
-    const data = await collection.find(query).skip(skip).limit(recordsPerPage).toArray();
+    // Retrieve all matching documents without pagination.
+    const data = await collection.find(query).toArray();
+    const totalCount = data.length;
 
     res.status(200).json({
       success: true,
-      page: currentPage,
-      limit: recordsPerPage,
-      totalPages: Math.ceil(totalCount / recordsPerPage),
       totalCount,
       data,
     });

@@ -47,7 +47,7 @@ export default async function handler(req, res) {
     await client.close();
   }
 }
-// pages/api/getData.js
+// // pages/api/getData.js
 // import { getData } from '../../lib/getData';
 
 // export default async function handler(req, res) {
