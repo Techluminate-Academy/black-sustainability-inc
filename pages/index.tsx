@@ -24,7 +24,7 @@ export default function Home() {
   const [filteredData, setFilteredData] = useState<BsiUserObjectArray>([]);
   const [OriginalData, setOriginalData] = useState<BsiUserObjectArray>([]);
   const [authenticatedUser, setAuthenticatedUser] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [loading, setLoading] = useState(false);
   const [isPopUpActive, setIsPopUpActive] = useState(false);
   const [preloaderMap, setPreloaderMap] = useState(true);
