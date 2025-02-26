@@ -2,10 +2,9 @@
 import Nav from "@/components/layouts/Nav";
 import Footer from "@/components/layouts/Footer";
 import Sidebar from "@/components/layouts/Sidebar";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { customStyles } from "@/components/common/CustomSelect";
 import Select from "react-select";
-import { Head } from "next/document";
 import { IndustryHouses } from "@/utils/IndustryDetails";
 import dynamic from "next/dynamic";
 import icons from "@/icons";
@@ -93,7 +92,7 @@ export default function Home() {
   // --------------------------------------------------------------------
   // 1. Initial Data Fetch for Map & Sidebar
   // --------------------------------------------------------------------
-  useLayoutEffect(() => {
+  useEffect(() => {
     const fetchData = async () => {
       performance.mark("mapFetchStart");
       setLoading(true);
