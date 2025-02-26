@@ -16,7 +16,9 @@ interface FormData {
   memberLevel: string;
   bio: string;
   photo: File | null;
+  photoUrl?: string; 
   logo: File | null;
+  logoUrl?: string; 
   identification: string;
   gender: string;
   website: string;
@@ -96,6 +98,8 @@ const mapFormDataToAirtableFields = (formData: FormData) => {
     Featured: formData.includeOnMap,
     Latitude: formData.latitude ?? 0,
     Longitude: formData.longitude ?? 0,
+    ...(formData.photoUrl ? { "PHOTO": [{ url: formData.photoUrl }] } : {}),
+    ...(formData.logoUrl ? { "LOGO": [{ url: formData.logoUrl }] } : {}),
   };
 };
 
@@ -833,6 +837,16 @@ const BSNRegistrationForm: React.FC = () => {
   };
   const prevStep = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
+  };
+
+    // Helper to upload a file to Cloudinary via our /api/upload endpoint
+  const uploadFile = async (file: File): Promise<string> => {
+    const data = new FormData();
+    data.append("file", file);
+    const response = await axios.post("/api/upload", data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data.url;
   };
 
   // 5c. Final Submit
