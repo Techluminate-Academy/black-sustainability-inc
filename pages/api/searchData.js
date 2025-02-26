@@ -1,5 +1,9 @@
 // pages/api/searchData.js
 import { MongoClient } from "mongodb";
+import NodeCache from "node-cache";
+
+// Create a cache instance with a TTL of 60 seconds.
+const myCache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
 
 const MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI;
 const DATABASE_NAME = "members";
@@ -10,6 +14,15 @@ export default async function handler(req, res) {
     return res
       .status(500)
       .json({ success: false, error: "MONGODB_URI is not defined" });
+  }
+
+  // Create a cache key based on the request query parameters.
+  const cacheKey = `searchData:${JSON.stringify(req.query)}`;
+  const cachedResult = myCache.get(cacheKey);
+  if (cachedResult) {
+    // Set HTTP caching headers for CDN/proxy caching as well.
+    res.setHeader("Cache-Control", "public, max-age=60");
+    return res.status(200).json(cachedResult);
   }
 
   const client = new MongoClient(MONGODB_URI);
@@ -37,13 +50,9 @@ export default async function handler(req, res) {
     // Build the search query object
     let query = {};
 
-    // Use text search if a general search term is provided.
-    // This leverages the text index (created separately) for optimized search.
     if (q) {
       query.$text = { $search: q };
     }
-
-    // Additionally, add individual filters as exact matches.
     if (timeZone) {
       query["fields['Time zone']"] = timeZone;
     }
@@ -79,14 +88,20 @@ export default async function handler(req, res) {
     const data = await collection.find(query).toArray();
     const totalCount = data.length;
 
-    res.status(200).json({
+    const resultData = {
       success: true,
       totalCount,
       data,
-    });
+    };
+
+    // Cache the result for subsequent requests.
+    myCache.set(cacheKey, resultData);
+    res.setHeader("Cache-Control", "public, max-age=60");
+
+    return res.status(200).json(resultData);
   } catch (error) {
     console.error("Error retrieving filtered data from MongoDB:", error);
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   } finally {
     await client.close();
   }

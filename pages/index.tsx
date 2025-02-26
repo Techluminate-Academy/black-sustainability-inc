@@ -28,6 +28,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [isPopUpActive, setIsPopUpActive] = useState(false);
   const [preloaderMap, setPreloaderMap] = useState(true);
+  const [hasSearched, setHasSearched] = useState(false);
+
   const [preloaderSidebar, setPreloaderSidebar] = useState(true);
   const [loadedData, setLoadedData] = useState<any>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -42,52 +44,12 @@ export default function Home() {
 
   // New state for sidebar infinite scroll
   const [sidebarPage, setSidebarPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
+  // Modification: totalCount now initialized as null instead of 0.
+  const [totalCount, setTotalCount] = useState<number | null>(null);
 
   const route = useRouter();
   // useEffect(() => {
-
-  //   // Create mock user data and set it as a cookie
-  //   const mockUser = {
-  //     id: "123",
-  //     name: "Fake User",
-  //     email: "fakeuser@example.com",
-  //   };
-  
-  //   const cookieValue = encodeURIComponent(JSON.stringify(mockUser));
-  //   document.cookie = `bsn_user=${cookieValue}; path=/`;
-  
-  //   // Helper function to read a cookie by name
-  //   const getCookie = (cname: string): string => {
-  //     const name = `${cname}=`;
-  //     const decodedCookie = decodeURIComponent(document.cookie);
-  //     const cookies = decodedCookie.split(";");
-  //     for (let i = 0; i < cookies.length; i++) {
-  //       let c = cookies[i];
-  //       while (c.charAt(0) === " ") {
-  //         c = c.substring(1);
-  //       }
-  //       if (c.indexOf(name) === 0) {
-  //         return c.substring(name.length, c.length);
-  //       }
-  //     }
-  //     return "";
-  //   };
-    
-  
-  //   const userCookie = getCookie("bsn_user");
-  //   if (userCookie) {
-  //     try {
-  //       const parsedUser = JSON.parse(userCookie);
-  //       setAuthenticatedUser(parsedUser);
-  //       setIsAuthenticated(true);
-  //       console.log("Authenticated user:", parsedUser);
-  //     } catch (error) {
-  //       console.error("Error parsing user cookie:", error);
-  //     }
-  //   } else {
-  //     console.log("No user cookie found");
-  //   }
+  //   // ... user cookie code (omitted)
   // }, []);
   
   // --------------------------------------------------------------------
@@ -104,8 +66,8 @@ export default function Home() {
           if (result.success && Array.isArray(result.data)) {
             const filteredNullData = result.data.filter((item: any) => item !== null);
             console.log("Filtered data count:", filteredNullData);
-              // Save the full total count
-          setFullTotalCount(result.totalCount);
+            // Save the full total count
+            setFullTotalCount(result.totalCount);
             setTotalCount(result.totalCount);
             // Set data for sidebar and for map progressive loading
             setOriginalData(filteredNullData);
@@ -177,17 +139,6 @@ export default function Home() {
   }, [loadedData, filteredData]);
 
   // --------------------------------------------------------------------
-  // 4. Sidebar Loader: Hide once initial data is loaded
-  // --------------------------------------------------------------------
-  // useEffect(() => {
-  //   if (filteredData.length > 0) {
-  //     setPreloaderSidebar(false);
-  //   } else {
-  //     setPreloaderSidebar(false); // Set to false so that Sidebar renders and shows "No results found"
-  //   }
-  // }, [filteredData]);
-
-  // --------------------------------------------------------------------
   // 5. Infinite Scrolling for Sidebar via "Load More" Button
   // --------------------------------------------------------------------
   const handleLoadMore = async () => {
@@ -196,10 +147,10 @@ export default function Home() {
       const res = await fetch(`/api/getData?page=${nextPage}&limit=100`);
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
-        const newRecords = result.data.filter((item:any) => item !== null);
+        const newRecords = result.data.filter((item: any) => item !== null);
         console.log(`Fetched page ${nextPage}: ${newRecords.length} records`);
-        setFilteredData((prev:any) => [...prev, ...newRecords]);
-        setOriginalData((prev:any) => [...prev, ...newRecords]);
+        setFilteredData((prev: any) => [...prev, ...newRecords]);
+        setOriginalData((prev: any) => [...prev, ...newRecords]);
         setSidebarPage(nextPage);
       } else {
         console.error("Infinite scroll: API did not return valid data", result);
@@ -208,7 +159,6 @@ export default function Home() {
       console.error("Error fetching more sidebar data:", error);
     }
   };
-
 
   useEffect(() => {
     if (isAuthenticated === false) {
@@ -225,8 +175,8 @@ export default function Home() {
   useEffect(() => {
     if (searchQuery.trim() !== "") {
       setLoading(true);
-            setPreloaderSidebar(true);
-      fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}`)
+      setPreloaderSidebar(true);
+      fetch(`/api/searchData?q=${encodeURIComponent(searchQuery)}`)
         .then((response) => response.json())
         .then((result) => {
           if (result.success && Array.isArray(result.data)) {
@@ -234,7 +184,7 @@ export default function Home() {
             setFilteredData(result.data);
           } else {
             console.error("Search API did not return valid data", result);
-            setFilteredData([]); // Ensure we clear data on error
+            setFilteredData([]); // Clear data on error
           }
         })
         .catch((error) => {
@@ -244,47 +194,22 @@ export default function Home() {
         .finally(() => {
           setLoading(false);
           setPreloaderSidebar(false);
+          setHasSearched(true);
         });
     } else {
-      // If search query is empty, reset to original data
+      // Reset if search query is empty.
       setFilteredData(OriginalData);
+      setHasSearched(false);
     }
   }, [searchQuery, OriginalData]);
+  
 
   // --------------------------------------------------------------------
   // 7. Dropdown Filter (unchanged)
   // --------------------------------------------------------------------
-  // const filterByIndustryHouse = (selectedOption: any) => {
-  //   const selectedValue = selectedOption.value;
-  //   let filtered;
-  //   if (selectedValue === "") {
-  //     filtered = OriginalData;
-  //   } else {
-  //     filtered = OriginalData?.filter(
-  //       (item: any) => item.fields["PRIMARY INDUSTRY HOUSE"] === selectedValue
-  //     );
-  //   }
-  //   setFilteredData(filtered);
-  // };
-  // const filterByIndustryHouse = async (selectedOption: any) => {
-  //   const selectedValue = selectedOption.value;
-  //   // When a filter is applied, fetch filtered data from the new API
-  //   try {
-  //     const res = await fetch(`/api/filterData?page=1&limit=100&industryHouse=${encodeURIComponent(selectedValue)}`);
-  //     const result = await res.json();
-  //     if (result.success && Array.isArray(result.data)) {
-  //       setFilteredData(result.data);
-  //     } else {
-  //       console.error("Filter API did not return valid data", result);
-  //     }
-  //   } catch (error) {
-  //     console.error("Error fetching filtered data:", error);
-  //   }
-  // };
-  
   const filterByIndustryHouse = async (selectedOption: any) => {
     const selectedValue = selectedOption.value;
-    console.log(selectedValue)
+    console.log(selectedValue);
     setSelectedIndustry(selectedValue);
     if (selectedValue === "") {
       setFilteredData(OriginalData);
@@ -339,12 +264,9 @@ export default function Home() {
                       <p className="text-sm lg:text-sm font-medium leading-tight">
                         Sit back while we search around the globe.
                       </p>
-                      {/* <p className="text-sm lg:text-base">
-                        We've found {loadedData.length} so far!
-                      </p> */}
                       <p className="text-sm lg:text-base">
-              We've loaded all {totalCount} records!
-            </p>
+                        We've loaded all {totalCount} records!
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -383,7 +305,7 @@ export default function Home() {
               </div>
             </div>
 
-            {preloaderSidebar ? (
+            {preloaderSidebar || totalCount === null ? (
               <div className="flex items-center justify-center h-[80vh]">
                 <img
                   src="/gif/loading.gif"
@@ -398,22 +320,24 @@ export default function Home() {
                   isAuthenticated={isAuthenticated}
                   totalNumber={
                     searchQuery.trim() === "" && selectedIndustry === ""
-                      ? totalCount
+                      ? totalCount!
                       : filteredData.length
                   }
                   loading={loading}
+                  hasSearched={hasSearched}
                 />
-                {/* Load More Button */}
-                {filteredData.length < totalCount && (
-                  <div className="py-4">
-                    <button
-                      onClick={handleLoadMore}
-                      className="px-6 py-3 bg-[#FFBF23] text-black font-semibold rounded-full shadow-md hover:bg-yellow-500 transition duration-200 ease-in-out"
-                    >
-                      Load More
-                    </button>
-                  </div>
-                )}
+                {filteredData.length > 0 &&
+                  totalCount !== null &&
+                  filteredData.length < totalCount && (
+                    <div className="py-4">
+                      <button
+                        onClick={handleLoadMore}
+                        className="px-6 py-3 bg-[#FFBF23] text-black font-semibold rounded-full shadow-md hover:bg-yellow-500 transition duration-200 ease-in-out"
+                      >
+                        Load More
+                      </button>
+                    </div>
+                  )}
               </>
             )}
           </div>
@@ -442,8 +366,7 @@ export default function Home() {
                     Are you encountering issues viewing profile pictures?
                   </p>
                   <p className="md:max-w-md w-full sm:text-base text-xs text-center text-black sm:leading-[20px] leading-3">
-                    Consider becoming a member to view our members' profile
-                    pictures.
+                    Consider becoming a member to view our members' profile pictures.
                   </p>
                   <div className="mt-2 flex gap-x-2 justify-center items-center">
                     <button
