@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+"use client";
+
+import { useState, useEffect } from "react";
 import axios from "axios";
 import GooglePlacesAutocomplete, {
   geocodeByPlaceId,
@@ -36,9 +38,10 @@ interface FormData {
   includeOnMap: string;
   latitude: number | null;
   longitude: number | null;
+  showDropdown?: boolean; // For dropdown visibility
 }
 
-// 2. Optional test data
+// 2. Optional test data (if needed)
 const testFormData: FormData = {
   email: "test@example.com",
   firstName: "John",
@@ -65,6 +68,7 @@ const testFormData: FormData = {
   includeOnMap: "checked",
   latitude: null,
   longitude: null,
+  showDropdown: false,
 };
 
 // 3. Map formData -> Airtable fields
@@ -118,7 +122,7 @@ function getCountryCode(countryName: string): string {
 const Step1: React.FC<{
   formData: FormData;
   handleInputChange: (field: keyof FormData, value: any) => void;
-  errors: { [key in keyof FormData]?: string };
+  errors: Partial<Record<keyof FormData, string>>;
   handleFileChange: (field: keyof FormData, file: File | null) => void;
 }> = ({ formData, handleInputChange, errors, handleFileChange }) => (
   <>
@@ -198,7 +202,7 @@ const Step1: React.FC<{
 const Step2: React.FC<{
   formData: FormData;
   handleInputChange: (field: keyof FormData, value: any) => void;
-  errors: { [key in keyof FormData]?: string };
+  errors: Partial<Record<keyof FormData, string>>;
   memberLevelOptions: { id: string; name: string; icon: string | null }[];
   identificationOptions: any[];
   genderOptions: any[];
@@ -368,7 +372,7 @@ const Step2: React.FC<{
 const Step3: React.FC<{
   formData: FormData;
   handleInputChange: (field: keyof FormData, value: any) => void;
-  errors: { [key in keyof FormData]?: string };
+  errors: Partial<Record<keyof FormData, string>>;
   locationCountryOptions: any[];
   nameFromLocationOptions: any[];
   similarCategoriesOptions: any[];
@@ -546,20 +550,27 @@ const Step3: React.FC<{
       </div>
       <div>
         <label className="inline-flex items-center">
-          <input
-            type="checkbox"
-            checked={formData.includeOnMap === true || formData.includeOnMap === "checked"}
-            onChange={(e) => handleInputChange("includeOnMap", e.target.checked ? "checked" : "")}
-            className="rounded border-gray-300 text-blue-600"
-          />
-          <span className="ml-2 text-sm font-medium text-gray-700">Include me on Global BSN Map</span>
+        <input
+  type="checkbox"
+  checked={formData.includeOnMap === "checked"}
+  onChange={(e) =>
+    handleInputChange("includeOnMap", e.target.checked ? "checked" : "")
+  }
+  className="rounded border-gray-300 text-blue-600"
+/>
+
+          <span className="ml-2 text-sm font-medium text-gray-700">
+            Include me on Global BSN Map
+          </span>
         </label>
       </div>
     </>
   );
 };
 
+//
 // 5. MAIN MULTI-STEP COMPONENT
+//
 const BSNRegistrationForm: React.FC = () => {
   const [formData, setFormData] = useState<FormData>({
     email: "",
@@ -587,10 +598,12 @@ const BSNRegistrationForm: React.FC = () => {
     includeOnMap: "",
     latitude: null,
     longitude: null,
+    showDropdown: false,
   });
   const [currentStep, setCurrentStep] = useState<number>(1);
   const totalSteps = 3;
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Dropdown Data
   const [memberLevelOptions, setMemberLevelOptions] = useState<{ id: string; name: string; icon: string | null }[]>([]);
@@ -601,8 +614,8 @@ const BSNRegistrationForm: React.FC = () => {
   const [nameFromLocationOptions, setNameFromLocationOptions] = useState<any[]>([]);
   const [similarCategoriesOptions, setSimilarCategoriesOptions] = useState<any[]>([]);
 
-  // Errors
-  const [errors, setErrors] = useState<{ [key in keyof FormData]?: string }>({});
+  // Errors (using Partial<Record<keyof FormData, string>> for error messages)
+  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
   const [additionalFocusOpen, setAdditionalFocusOpen] = useState<boolean>(false);
 
@@ -646,7 +659,7 @@ const BSNRegistrationForm: React.FC = () => {
   }, []);
 
   const validateStep = (): boolean => {
-    const newErrors: Partial<FormData> = {};
+    const newErrors: Partial<Record<keyof FormData, string>> = {};
     if (currentStep === 1) {
       if (!formData.email) newErrors.email = "Email is required.";
       if (!formData.firstName) newErrors.firstName = "First Name is required.";
@@ -683,17 +696,16 @@ const BSNRegistrationForm: React.FC = () => {
     return response.data.url;
   };
 
-  // Final Submit handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateStep()) return;
+    setIsSubmitting(true);
     try {
       // Upload photo and logo if provided and not already uploaded
       let photoUrl = formData.photoUrl;
       let logoUrl = formData.logoUrl;
       if (formData.photo && !formData.photoUrl) {
         photoUrl = await uploadFile(formData.photo);
-        // Update local variable and state if needed
         setFormData((prev) => ({ ...prev, photoUrl }));
       }
       if (formData.logo && !formData.logoUrl) {
@@ -714,11 +726,12 @@ const BSNRegistrationForm: React.FC = () => {
           ...prev,
           locationCity: "Invalid location. Please check city/zip and try again.",
         }));
+        setIsSubmitting(false);
         return;
       }
       const { lat, lng } = geocodeResult;
 
-      // Build final data using the local photoUrl and logoUrl variables
+      // Build final data using the updated photoUrl and logoUrl values
       const finalAirtableFields = mapFormDataToAirtableFields({
         ...formData,
         photoUrl,
@@ -734,6 +747,8 @@ const BSNRegistrationForm: React.FC = () => {
     } catch (error) {
       console.error("Error submitting data:", error);
       alert("Failed to register. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -801,14 +816,22 @@ const BSNRegistrationForm: React.FC = () => {
             </p>
             <p className="text-gray-700 italic">
               <strong>*Not Black AND Green?</strong> Email{" "}
-              <a href="mailto:info@blacksustainability.org" className="text-blue-500 underline">
+              <a
+                href="mailto:info@blacksustainability.org"
+                className="text-blue-500 underline"
+              >
                 info@blacksustainability.org
               </a>{" "}
               to connect with us.
             </p>
           </div>
           {currentStep === 1 && (
-            <Step1 formData={formData} handleInputChange={handleInputChange} errors={errors} handleFileChange={handleFileChange} />
+            <Step1
+              formData={formData}
+              handleInputChange={handleInputChange}
+              errors={errors}
+              handleFileChange={handleFileChange}
+            />
           )}
           {currentStep === 2 && (
             <Step2
@@ -839,17 +862,36 @@ const BSNRegistrationForm: React.FC = () => {
           )}
           <div className="flex justify-between pt-4">
             {currentStep > 1 && (
-              <button type="button" onClick={prevStep} className="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600">
+              <button
+                type="button"
+                onClick={prevStep}
+                className="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600"
+              >
                 Previous
               </button>
             )}
             {currentStep < totalSteps ? (
-              <button type="button" onClick={nextStep} className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600">
+              <button
+                type="button"
+                onClick={nextStep}
+                className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600"
+              >
                 Next
               </button>
             ) : (
-              <button type="submit" className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600">
-                Submit
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="animate-spin border-2 border-t-transparent border-white rounded-full w-5 h-5" />
+                    Processing...
+                  </>
+                ) : (
+                  "Submit"
+                )}
               </button>
             )}
           </div>
