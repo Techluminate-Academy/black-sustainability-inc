@@ -1,10 +1,8 @@
+import redis from "../../lib/redis";
 import { MongoClient } from "mongodb";
-import Redis from "ioredis";
-
 const MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI;
 const DATABASE_NAME = "members";
 const COLLECTION_NAME = "airtableRecords";
-const redis = new Redis("rediss://red-cuvmm8t6l47c738urcs0:VsrYJ5it5JBVgAoH4DC9RJR7b725aEtW@oregon-keyvalue.render.com:6379");
 
 export default async function handler(req, res) {
   if (!MONGODB_URI) {
@@ -30,8 +28,6 @@ export default async function handler(req, res) {
       return res.status(200).json(JSON.parse(cachedData));
     }
 
-    console.log('honwai')
-
     // Build the search query object
     let query = {};
 
@@ -54,7 +50,7 @@ export default async function handler(req, res) {
     const responseData = { success: true, totalCount, data };
 
     // Cache the search result for 5 minutes
-    await redis.set(cacheKey, JSON.stringify(responseData), "EX", 300);
+    await redis.set(cacheKey, JSON.stringify(responseData), "EX", 2592000);
 
     return res.status(200).json(responseData);
   } catch (error) {

@@ -21,11 +21,10 @@ export default async function handler(req, res) {
     console.log(`Redis Fetch Time: ${Date.now() - cacheStart}ms`);
 
     if (cachedData) {
-      console.log("✅ Serving from Cache");
+      // console.log("✅ Serving from Cache");
       return res.status(200).json(JSON.parse(cachedData));
     }
 
-    console.log("❌ Cache Miss - Fetching from MongoDB...");
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 

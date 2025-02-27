@@ -222,34 +222,43 @@ export default function Home() {
   // --------------------------------------------------------------------
   // 6. Search Filtering: Call the search API when searchQuery changes
   // --------------------------------------------------------------------
+
+  const DEBOUNCE_DELAY = 500; // Adjust debounce delay as needed
+  
   useEffect(() => {
-    if (searchQuery.trim() !== "") {
-      setLoading(true);
-            setPreloaderSidebar(true);
-      fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}`)
-        .then((response) => response.json())
-        .then((result) => {
-          if (result.success && Array.isArray(result.data)) {
-            console.log("Search API returned:", result.data.length, "records");
-            setFilteredData(result.data);
-          } else {
-            console.error("Search API did not return valid data", result);
-            setFilteredData([]); // Ensure we clear data on error
-          }
-        })
-        .catch((error) => {
-          console.error("Error fetching search data:", error);
-          setFilteredData([]);
-        })
-        .finally(() => {
-          setLoading(false);
-          setPreloaderSidebar(false);
-        });
-    } else {
-      // If search query is empty, reset to original data
-      setFilteredData(OriginalData);
-    }
+    const handler = setTimeout(() => {
+      if (searchQuery.trim() !== "") {
+        setLoading(true);
+        setPreloaderSidebar(true);
+  
+        fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}`)
+          .then((response) => response.json())
+          .then((result) => {
+            if (result.success && Array.isArray(result.data)) {
+              console.log("Search API returned:", result.data.length, "records");
+              setFilteredData(result.data);
+            } else {
+              console.error("Search API did not return valid data", result);
+              setFilteredData([]); // Ensure we clear data on error
+            }
+          })
+          .catch((error) => {
+            console.error("Error fetching search data:", error);
+            setFilteredData([]);
+          })
+          .finally(() => {
+            setLoading(false);
+            setPreloaderSidebar(false);
+          });
+      } else {
+        // If search query is empty, reset to original data
+        setFilteredData(OriginalData);
+      }
+    }, DEBOUNCE_DELAY);
+  
+    return () => clearTimeout(handler); // Cleanup previous timeout
   }, [searchQuery, OriginalData]);
+  
 
   // --------------------------------------------------------------------
   // 7. Dropdown Filter (unchanged)

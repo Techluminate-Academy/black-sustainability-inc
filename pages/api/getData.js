@@ -2,7 +2,8 @@ import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
 
 const COLLECTION_NAME = "airtableRecords";
-const CACHE_EXPIRY = 60; // Cache expires in 60 seconds
+const CACHE_EXPIRY = 2592000; // 1 month in seconds
+
 
 export default async function handler(req, res) {
   try {
@@ -45,11 +46,10 @@ export default async function handler(req, res) {
     console.log(`Redis Fetch Time: ${Date.now() - cacheStart}ms`);
 
     if (cachedData) {
-      console.log("✅ Serving from Cache");
+      // console.log("✅ Serving from Cache");
       return res.status(200).json(JSON.parse(cachedData));
     }
 
-    console.log("❌ Cache Miss - Fetching from MongoDB...");
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
     const mongoStart = Date.now();
     const totalCount = await collection.countDocuments(query);
     const data = await collection.find(query).skip(skip).limit(recordsPerPage).toArray();
-    console.log(`MongoDB Fetch Time: ${Date.now() - mongoStart}ms`);
+    // console.log(`MongoDB Fetch Time: ${Date.now() - mongoStart}ms`);
 
     const response = {
       success: true,
