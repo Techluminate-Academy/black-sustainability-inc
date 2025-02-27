@@ -2,8 +2,7 @@ import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
 
 const COLLECTION_NAME = "airtableRecords";
-const CACHE_EXPIRY = 2592000; // 1 month in seconds
-
+import CACHE_EXPIRY from '../../constants/CacheExpiry'
 
 export default async function handler(req, res) {
   try {
@@ -43,7 +42,6 @@ export default async function handler(req, res) {
     
     const cacheStart = Date.now();
     const cachedData = await redis.get(cacheKey);
-    console.log(`Redis Fetch Time: ${Date.now() - cacheStart}ms`);
 
     if (cachedData) {
       // console.log("✅ Serving from Cache");
