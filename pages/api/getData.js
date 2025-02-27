@@ -1,61 +1,85 @@
-// pages/api/getData.js
-import { MongoClient } from 'mongodb';
+import redis from "../../lib/redis";
+import { connectToDatabase } from "../../lib/mongodb";
 
-
-
-const MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI;
-
-const DATABASE_NAME = 'members';
-const COLLECTION_NAME = 'airtableRecords';
+const COLLECTION_NAME = "airtableRecords";
+const CACHE_EXPIRY = 60; // Cache expires in 60 seconds
 
 export default async function handler(req, res) {
-  if (!MONGODB_URI) {
-    res.status(500).json({ success: false, error: 'MONGODB_URI is not defined' });
-    return;
-  }
-
-  // Parse pagination query parameters; default to page 1 with 50 records per page
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 50;
-  const skip = (page - 1) * limit;
-
-  const client = new MongoClient(MONGODB_URI);
-
   try {
-    await client.connect();
-    const db = client.db(DATABASE_NAME);
+    const { industryHouse, page, limit } = req.query;
+    const currentPage = parseInt(page) || 1;
+    const recordsPerPage = parseInt(limit) || 50;
+    const skip = (currentPage - 1) * recordsPerPage;
+
+    // 🔹 Build cache key dynamically
+    const cacheKey = `filterData:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
+
+    // async function deleteKeysByPattern(pattern) {
+    //   let cursor = "0";
+    //   do {
+    //     const [nextCursor, keys] = await redis.scan(cursor, "MATCH", pattern, "COUNT", 100);
+    //     cursor = nextCursor;
+    
+    //     if (keys.length > 0) {
+    //       await redis.del(...keys);
+    //       console.log(`Deleted keys: ${keys}`);
+    //     }
+    //   } while (cursor !== "0");
+    // }
+  
+    // deleteKeysByPattern("*")
+    //   .then(() => console.log("Deletion complete"))
+    //   .catch(err => console.error("Error deleting keys:", err));
+
+
+    // 🔹 Check Redis cache first
+
+    // redis.keys("*").then((keys) => {
+    //   console.log("All keys:", keys);
+    // }).catch((err) => {
+    //   console.error("Error fetching keys:", err);
+    // });
+    
+    const cacheStart = Date.now();
+    const cachedData = await redis.get(cacheKey);
+    console.log(`Redis Fetch Time: ${Date.now() - cacheStart}ms`);
+
+    if (cachedData) {
+      console.log("✅ Serving from Cache");
+      return res.status(200).json(JSON.parse(cachedData));
+    }
+
+    console.log("❌ Cache Miss - Fetching from MongoDB...");
+    const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 
-    // Retrieve paginated documents
-    const data = await collection.find({}).skip(skip).limit(limit).toArray();
+    // 🔹 Build MongoDB query
+    let query = {};
+    if (industryHouse && industryHouse !== "") {
+      query["fields.PRIMARY INDUSTRY HOUSE"] = industryHouse;
+    }
 
-    // Optionally, you can return metadata for pagination
-    const totalCount = await collection.countDocuments();
+    // 🔹 Fetch data from MongoDB
+    const mongoStart = Date.now();
+    const totalCount = await collection.countDocuments(query);
+    const data = await collection.find(query).skip(skip).limit(recordsPerPage).toArray();
+    console.log(`MongoDB Fetch Time: ${Date.now() - mongoStart}ms`);
 
-    res.status(200).json({
+    const response = {
       success: true,
-      page,
-      limit,
-      totalPages: Math.ceil(totalCount / limit),
+      page: currentPage,
+      limit: recordsPerPage,
+      totalPages: Math.ceil(totalCount / recordsPerPage),
       totalCount,
       data,
-    });
+    };
+
+    // 🔹 Store response in Redis cache
+    await redis.setex(cacheKey, CACHE_EXPIRY, JSON.stringify(response));
+
+    res.status(200).json(response);
   } catch (error) {
-    console.error("Error retrieving data from MongoDB:", error);
+    console.error("❌ Error retrieving data:", error);
     res.status(500).json({ success: false, error: error.message });
-  } finally {
-    await client.close();
   }
 }
-// // pages/api/getData.js
-// import { getData } from '../../lib/getData';
-
-// export default async function handler(req, res) {
-//   try {
-//     const result = await getData(req.query);
-//     res.status(200).json({ success: true, ...result });
-//   } catch (error) {
-//     console.error("Error retrieving data from MongoDB:", error);
-//     res.status(500).json({ success: false, error: error.message });
-//   }
-// }

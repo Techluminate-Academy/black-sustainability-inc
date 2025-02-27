@@ -19,6 +19,7 @@
     "dotenv": "^16.4.4",
     "env-cmd": "^10.1.0",
     "fs": "^0.0.1-security",
+    "ioredis": "^5.5.0",
     "isomorphic-unfetch": "^4.0.2",
     "leaflet": "^1.9.4",
     "mongodb": "^6.13.0",

@@ -1,15 +1,14 @@
-// pages/api/searchData.js
 import { MongoClient } from "mongodb";
+import Redis from "ioredis";
 
 const MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI;
 const DATABASE_NAME = "members";
 const COLLECTION_NAME = "airtableRecords";
+const redis = new Redis("rediss://red-cuvmm8t6l47c738urcs0:VsrYJ5it5JBVgAoH4DC9RJR7b725aEtW@oregon-keyvalue.render.com:6379");
 
 export default async function handler(req, res) {
   if (!MONGODB_URI) {
-    return res
-      .status(500)
-      .json({ success: false, error: "MONGODB_URI is not defined" });
+    return res.status(500).json({ success: false, error: "MONGODB_URI is not defined" });
   }
 
   const client = new MongoClient(MONGODB_URI);
@@ -20,73 +19,47 @@ export default async function handler(req, res) {
     const collection = db.collection(COLLECTION_NAME);
 
     // Read query parameters for search and filtering
-    const {
-      q,
-      timeZone,
-      stateProvince,
-      nameFromLocation,
-      state,
-      nearestCity,
-      firstName,
-      lastName,
-      fullName,
-      country,
-      bio,
-    } = req.query;
+    const queryParams = req.query;
+
+    // Generate a cache key based on the search query
+    const cacheKey = `search:${JSON.stringify(queryParams)}`;
+    
+    // Check Redis cache first
+    const cachedData = await redis.get(cacheKey);
+    if (cachedData) {
+      return res.status(200).json(JSON.parse(cachedData));
+    }
+
+    console.log('honwai')
 
     // Build the search query object
     let query = {};
 
-    // Use text search if a general search term is provided.
-    // This leverages the text index (created separately) for optimized search.
-    if (q) {
-      query.$text = { $search: q };
-    }
+    if (queryParams.q) query.$text = { $search: queryParams.q };
+    if (queryParams.timeZone) query["fields['Time zone']"] = queryParams.timeZone;
+    if (queryParams.stateProvince) query["fields['State/Province']"] = queryParams.stateProvince;
+    if (queryParams.nameFromLocation) query["fields['Name (from Location)']"] = queryParams.nameFromLocation;
+    if (queryParams.state) query["fields.State"] = queryParams.state;
+    if (queryParams.nearestCity) query["fields['Location (Nearest City)']"] = queryParams.nearestCity;
+    if (queryParams.firstName) query["fields['FIRST NAME']"] = queryParams.firstName;
+    if (queryParams.lastName) query["fields['LAST NAME']"] = queryParams.lastName;
+    if (queryParams.fullName) query["fields['FULL NAME']"] = queryParams.fullName;
+    if (queryParams.country) query["fields.Country"] = queryParams.country;
+    if (queryParams.bio) query["fields.BIO"] = queryParams.bio;
 
-    // Additionally, add individual filters as exact matches.
-    if (timeZone) {
-      query["fields['Time zone']"] = timeZone;
-    }
-    if (stateProvince) {
-      query["fields['State/Province']"] = stateProvince;
-    }
-    if (nameFromLocation) {
-      query["fields['Name (from Location)']"] = nameFromLocation;
-    }
-    if (state) {
-      query["fields.State"] = state;
-    }
-    if (nearestCity) {
-      query["fields['Location (Nearest City)']"] = nearestCity;
-    }
-    if (firstName) {
-      query["fields['FIRST NAME']"] = firstName;
-    }
-    if (lastName) {
-      query["fields['LAST NAME']"] = lastName;
-    }
-    if (fullName) {
-      query["fields['FULL NAME']"] = fullName;
-    }
-    if (country) {
-      query["fields.Country"] = country;
-    }
-    if (bio) {
-      query["fields.BIO"] = bio;
-    }
-
-    // Retrieve all matching documents without pagination.
+    // Retrieve matching documents
     const data = await collection.find(query).toArray();
     const totalCount = data.length;
 
-    res.status(200).json({
-      success: true,
-      totalCount,
-      data,
-    });
+    const responseData = { success: true, totalCount, data };
+
+    // Cache the search result for 5 minutes
+    await redis.set(cacheKey, JSON.stringify(responseData), "EX", 300);
+
+    return res.status(200).json(responseData);
   } catch (error) {
     console.error("Error retrieving filtered data from MongoDB:", error);
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   } finally {
     await client.close();
   }

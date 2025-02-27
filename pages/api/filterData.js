@@ -1,57 +1,59 @@
-// pages/api/filterData.js
-import { MongoClient } from "mongodb";
+import redis from "../../lib/redis";
+import { connectToDatabase } from "../../lib/mongodb";
 
-const MONGODB_URI =  process.env.NEXT_PUBLIC_MONGODB_URI;
-const DATABASE_NAME = "members";
 const COLLECTION_NAME = "airtableRecords";
+const CACHE_EXPIRY = 2592000; // 1 month in seconds
+
 
 export default async function handler(req, res) {
-  if (!MONGODB_URI) {
-    return res
-      .status(500)
-      .json({ success: false, error: "MONGODB_URI is not defined" });
-  }
-
-  const client = new MongoClient(MONGODB_URI);
-
   try {
-    await client.connect();
-    const db = client.db(DATABASE_NAME);
-    const collection = db.collection(COLLECTION_NAME);
-
-    // Read query parameters: the dropdown selection and pagination parameters.
     const { industryHouse, page, limit } = req.query;
     const currentPage = parseInt(page) || 1;
     const recordsPerPage = parseInt(limit) || 50;
     const skip = (currentPage - 1) * recordsPerPage;
 
-    // Build the query object.
-    // If a non-empty industryHouse is provided, filter based on it.
+    // Build cache key
+    const cacheKey = `filterData:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
+
+    // Check Redis cache
+    const cacheStart = Date.now();
+    const cachedData = await redis.get(cacheKey);
+    console.log(`Redis Fetch Time: ${Date.now() - cacheStart}ms`);
+
+    if (cachedData) {
+      console.log("✅ Serving from Cache");
+      return res.status(200).json(JSON.parse(cachedData));
+    }
+
+    console.log("❌ Cache Miss - Fetching from MongoDB...");
+    const { db } = await connectToDatabase();
+    const collection = db.collection(COLLECTION_NAME);
+
+    // Build the query object
     let query = {};
     if (industryHouse && industryHouse !== "") {
       query["fields.PRIMARY INDUSTRY HOUSE"] = industryHouse;
     }
 
-    // Retrieve matching documents with pagination
+    // Fetch data from MongoDB
     const totalCount = await collection.countDocuments(query);
-    const data = await collection
-      .find(query)
-      .skip(skip)
-      .limit(recordsPerPage)
-      .toArray();
+    const data = await collection.find(query).skip(skip).limit(recordsPerPage).toArray();
 
-    res.status(200).json({
+    const response = {
       success: true,
       page: currentPage,
       limit: recordsPerPage,
       totalPages: Math.ceil(totalCount / recordsPerPage),
       totalCount,
       data,
-    });
+    };
+
+    // Store in Redis
+    await redis.setex(cacheKey, CACHE_EXPIRY, JSON.stringify(response));
+
+    res.status(200).json(response);
   } catch (error) {
-    console.error("Error filtering data from MongoDB:", error);
+    console.error("Error filtering data:", error);
     res.status(500).json({ success: false, error: error.message });
-  } finally {
-    await client.close();
   }
 }
