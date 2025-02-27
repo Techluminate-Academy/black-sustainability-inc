@@ -3,6 +3,7 @@ import { MongoClient } from "mongodb";
 const MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI;
 const DATABASE_NAME = "members";
 const COLLECTION_NAME = "airtableRecords";
+import CACHE_EXPIRY from '../../constants/CacheExpiry'
 
 export default async function handler(req, res) {
   if (!MONGODB_URI) {
@@ -50,7 +51,7 @@ export default async function handler(req, res) {
     const responseData = { success: true, totalCount, data };
 
     // Cache the search result for 5 minutes
-    await redis.set(cacheKey, JSON.stringify(responseData), "EX", 2592000);
+    await redis.set(cacheKey, JSON.stringify(responseData), "EX", CACHE_EXPIRY);
 
     return res.status(200).json(responseData);
   } catch (error) {

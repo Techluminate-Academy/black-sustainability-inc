@@ -1,9 +1,7 @@
 import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
-
+import CACHE_EXPIRY from '../../constants/CacheExpiry'
 const COLLECTION_NAME = "airtableRecords";
-const CACHE_EXPIRY = 2592000; // 1 month in seconds
-
 
 export default async function handler(req, res) {
   try {
