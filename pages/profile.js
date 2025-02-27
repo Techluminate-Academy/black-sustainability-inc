@@ -16,7 +16,7 @@ export default function Profile() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
-
+console.log(session)
   // Redirect if there is no session (and we're not loading)
   useEffect(() => {
     if (status !== 'loading' && !session) {
