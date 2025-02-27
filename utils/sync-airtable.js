@@ -10,9 +10,9 @@ const { MongoClient } = require("mongodb");
 // const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
 // const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
 // const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
-const AIRTABLE_API_KEY = 'pat38lz8MgA9beOdR.216dd36a6aefde7f3ac3063e11cb0ea1d645131195be277237b6e776d8f8c88f';
-const BASE_ID = 'appixDz0HieCrwdUq';
-const TABLE_NAME = 'tblYq1mA17iTZ5DRb';
+const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
+const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
+const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
 // Optionally, you could add a view parameter if needed:
 // const VIEW_ID = process.env.NEXT_PUBLIC_AIRTABLE_VIEW_ID_NOT_SORTED;
 console.log(AIRTABLE_API_KEY, BASE_ID, TABLE_NAME)

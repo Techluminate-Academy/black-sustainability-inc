@@ -4,7 +4,6 @@ const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
 const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
 const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
 const VIEW_ID_NOT_SORTED = process.env.NEXT_PUBLIC_AIRTABLE_VIEW_ID_NOT_SORTED;
-
 /**
  * Submits data to Airtable
  * @param fields - Object containing the fields to be submitted
@@ -57,17 +56,34 @@ const submitToAirtable = async (dataToSubmit) => {
         throw new Error(`Table '${TABLE_NAME}' not found.`);
       }
   
-      // Return ALL fields, including those that are not single/multi-select.
+      // Return ALL fields, including those that are not single/multiple select.
       return targetTable.fields.map((field) => {
         let options = [];
   
         // If it's single/multi-select, extract choices
-        if (field.type === "singleSelect" || field.type === "multiSelect") {
-          options = field.options.choices.map((choice) => ({
-            id: choice.id,
-            name: choice.name,
-            icon: choice.icon || null,
-          }));
+        if (
+          field.type === "singleSelect" ||
+          field.type === "multipleSelects" // or "multiSelect" if that's what Airtable returns
+        ) {
+          options = field.options.choices
+            .filter((choice) => choice.name && choice.name.trim() !== "")
+            .map((choice) => ({
+              id: choice.id,
+              name: choice.name,
+              icon: choice.icon || null,
+            }));
+                // For the gender field, exclude options "Uganda" and "GENDER"
+        if (field.name === "GENDER") {
+            options = options.filter(
+              (choice) => choice.name !== "Uganda" && choice.name !== "GENDER"
+            );
+          }
+          if (field.name === "Name (from Location)") {
+            options = options.filter(
+              (choice) => choice.name !== "Name (from Location)"
+            );
+          }
+    
         }
   
         return {

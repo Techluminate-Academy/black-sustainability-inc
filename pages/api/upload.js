@@ -1,41 +1,54 @@
-import nextConnect from "next-connect";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 
-// Configure Cloudinary with your NEXT_PUBLIC_ variables (note: exposing your API secret on the client is not recommended)
+// Configure Cloudinary (using environment variables; be cautious exposing secrets with NEXT_PUBLIC_)
 cloudinary.config({
   cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
   api_key: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
   api_secret: process.env.NEXT_PUBLIC_CLOUDINARY_API_SECRET,
 });
 
-// Disable Next.js's built-in body parser so multer can handle the multipart form data
+// Disable Next.js body parsing so that multer can handle the form-data
 export const config = {
   api: {
     bodyParser: false,
   },
 };
 
-// Set up multer to parse the file data; using memory storage so we can get a buffer
+// Set up multer to use memory storage so that we can access the file buffer
 const upload = multer({ storage: multer.memoryStorage() });
 
-const apiRoute = nextConnect({
-  onError(error, req, res) {
-    console.error("Error in API route:", error);
-    res.status(501).json({ error: `Sorry something happened! ${error.message}` });
-  },
-  onNoMatch(req, res) {
-    res.status(405).json({ error: `Method '${req.method}' Not Allowed` });
-  },
-});
+// A helper function to run middleware in Next.js API routes
+function runMiddleware(req, res, fn) {
+  return new Promise((resolve, reject) => {
+    fn(req, res, (result) => {
+      if (result instanceof Error) {
+        return reject(result);
+      }
+      return resolve(result);
+    });
+  });
+}
 
-// Use multer middleware to handle a single file under the field name "file"
-apiRoute.use(upload.single("file"));
+export default async function handler(req, res) {
+  // Allow only POST method
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
+  }
 
-apiRoute.post(async (req, res) => {
   try {
-    // The file is now available on req.file
+    // Run the multer middleware to process the file upload
+    await runMiddleware(req, res, upload.single("file"));
+
+    // Check if a file is present
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: "No file uploaded" });
+    }
+
+    // Use the file buffer from multer
     const fileBuffer = req.file.buffer;
+
+    // Upload to Cloudinary using a stream
     const result = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         { folder: "your_folder_name" }, // Replace with your desired folder name
@@ -51,6 +64,4 @@ apiRoute.post(async (req, res) => {
     console.error("Error uploading to Cloudinary:", error);
     res.status(500).json({ success: false, error: error.message });
   }
-});
-
-export default apiRoute;
+}

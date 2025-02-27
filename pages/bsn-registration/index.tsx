@@ -1,0 +1,862 @@
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import GooglePlacesAutocomplete, {
+  geocodeByPlaceId,
+  getLatLng,
+} from "react-google-places-autocomplete";
+import { geocodeAddress } from "@/utils/geocode.js"; // <-- Our geocoding helper
+import AirtableUtils from "@/pages/api/submitForm";
+
+// 1. TYPES & INTERFACES
+interface FormData {
+  email: string;
+  firstName: string;
+  lastName: string;
+  memberLevel: string;
+  bio: string;
+  photo: File | null;
+  photoUrl?: string; // URL returned from Cloudinary
+  logo: File | null;
+  logoUrl?: string;  // URL returned from Cloudinary
+  identification: string;
+  gender: string;
+  website: string;
+  phone: string;
+  additionalFocus: string[];
+  primaryIndustry: string;
+  locationCountry: string;  // e.g. "United States"
+  locationCity: string;     // e.g. "Chicago, IL, USA"
+  zipCode: number;
+  youtube: string;
+  nearestCity: string;
+  nameFromLocation: string;
+  fundingGoal: string;
+  similarCategories: string[];
+  naicsCode: string;
+  includeOnMap: string;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+// 2. Optional test data
+const testFormData: FormData = {
+  email: "test@example.com",
+  firstName: "John",
+  lastName: "Doe",
+  memberLevel: "Young Environmental Scholar",
+  bio: "I am a sustainability advocate...",
+  photo: null,
+  logo: null,
+  identification: "Mixed",
+  gender: "Male",
+  website: "https://example.com",
+  phone: "123-456-7890",
+  primaryIndustry: "Environmental Justice/Advocacy",
+  additionalFocus: ["Community Development", "Green Lifestyle"],
+  locationCountry: "United States",
+  locationCity: "New York",
+  zipCode: 10001,
+  youtube: "https://youtube.com/example",
+  nearestCity: "Newark",
+  nameFromLocation: "USA",
+  fundingGoal: "Seeking funding to scale up sustainable housing.",
+  similarCategories: ["Author"],
+  naicsCode: "12345",
+  includeOnMap: "checked",
+  latitude: null,
+  longitude: null,
+};
+
+// 3. Map formData -> Airtable fields
+const mapFormDataToAirtableFields = (formData: FormData) => {
+  console.log(formData.similarCategories);
+  return {
+    "EMAIL ADDRESS": formData.email,
+    "FIRST NAME": formData.firstName,
+    "LAST NAME": formData.lastName,
+    "MEMBER LEVEL": formData.memberLevel,
+    "BIO": formData.bio,
+    "IDENTIFICATION": formData.identification,
+    "GENDER": formData.gender,
+    "WEBSITE": formData.website,
+    "PHONE US/CAN ONLY": formData.phone,
+    "PRIMARY INDUSTRY HOUSE": formData.primaryIndustry,
+    "ADDITIONAL FOCUS AREAS": formData.additionalFocus.join(", "),
+    Country: formData.locationCountry,
+    "Zip/Postal Code": formData.zipCode,
+    YOUTUBE: formData.youtube,
+    "Location (Nearest City)": formData.nearestCity,
+    "Name (from Location)": formData.nameFromLocation,
+    "FUNDING GOAL": formData.fundingGoal,
+    "Similar Categories": formData.similarCategories.filter(
+      (cat) => cat && cat.trim() !== ""
+    ),
+    "NAICS Code": formData.naicsCode,
+    Featured: formData.includeOnMap,
+    Latitude: formData.latitude ?? 0,
+    Longitude: formData.longitude ?? 0,
+    ...(formData.photoUrl ? { "PHOTO": formData.photoUrl } : {}),
+    ...(formData.logoUrl ? { "LOGO": formData.logoUrl } : {}),
+  };
+};
+
+// Helper to map country names to ISO Alpha-2 codes used by Google Places
+function getCountryCode(countryName: string): string {
+  const lower = countryName.toLowerCase();
+  if (lower.includes("united states")) return "us";
+  if (lower.includes("united kingdom")) return "gb";
+  if (lower.includes("south africa")) return "za";
+  if (lower.includes("nigeria")) return "ng";
+  return "";
+}
+
+//
+// 4. SUB-FORMS / STEPS
+//
+
+// Step1: Basic Info
+const Step1: React.FC<{
+  formData: FormData;
+  handleInputChange: (field: keyof FormData, value: any) => void;
+  errors: { [key in keyof FormData]?: string };
+  handleFileChange: (field: keyof FormData, file: File | null) => void;
+}> = ({ formData, handleInputChange, errors, handleFileChange }) => (
+  <>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">
+        Email Address *
+      </label>
+      <input
+        type="email"
+        value={formData.email}
+        onChange={(e) => handleInputChange("email", e.target.value)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">
+        First Name *
+      </label>
+      <input
+        type="text"
+        value={formData.firstName}
+        onChange={(e) => handleInputChange("firstName", e.target.value)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">
+        Last Name *
+      </label>
+      <input
+        type="text"
+        value={formData.lastName}
+        onChange={(e) => handleInputChange("lastName", e.target.value)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">Photo *</label>
+      <input
+        type="file"
+        onChange={(e) =>
+          handleFileChange("photo", e.target.files ? e.target.files[0] : null)
+        }
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      {errors.photo && <p className="text-red-500 text-sm mt-1">{errors.photo}</p>}
+    </div>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Logo</label>
+      <input
+        type="file"
+        onChange={(e) =>
+          handleFileChange("logo", e.target.files ? e.target.files[0] : null)
+        }
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+    </div>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Phone</label>
+      <p className="text-xs text-gray-600">
+        OPTIONAL: We want to ensure you receive BSN membership info...
+      </p>
+      <input
+        type="tel"
+        value={formData.phone}
+        onChange={(e) => handleInputChange("phone", e.target.value)}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+    </div>
+  </>
+);
+
+// Step2: Membership & Focus
+const Step2: React.FC<{
+  formData: FormData;
+  handleInputChange: (field: keyof FormData, value: any) => void;
+  errors: { [key in keyof FormData]?: string };
+  memberLevelOptions: { id: string; name: string; icon: string | null }[];
+  identificationOptions: any[];
+  genderOptions: any[];
+  primaryIndustryOptions: any[];
+  handleToggleFocus: (value: string) => void;
+  additionalFocusOpen: boolean;
+  setFormData: React.Dispatch<React.SetStateAction<FormData>>;
+}> = ({
+  formData,
+  handleInputChange,
+  errors,
+  memberLevelOptions,
+  identificationOptions,
+  genderOptions,
+  primaryIndustryOptions,
+  handleToggleFocus,
+  additionalFocusOpen,
+  setFormData,
+}) => (
+  <>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Member Level *</label>
+      <select
+        value={formData.memberLevel}
+        onChange={(e) => handleInputChange("memberLevel", e.target.value)}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      >
+        <option value="">Select</option>
+        {memberLevelOptions.map((option) => (
+          <option key={option.id} value={option.name}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+      {errors.memberLevel && <p className="text-red-500 text-sm mt-1">{errors.memberLevel}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">Bio/Profile *</label>
+      <textarea
+        value={formData.bio}
+        onChange={(e) => handleInputChange("bio", e.target.value)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      {errors.bio && <p className="text-red-500 text-sm mt-1">{errors.bio}</p>}
+    </div>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Identification *</label>
+      <select
+        value={formData.identification}
+        onChange={(e) => handleInputChange("identification", e.target.value)}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      >
+        <option value="">Select</option>
+        {identificationOptions.map((option) => (
+          <option key={option.id} value={option.name}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+      {errors.identification && <p className="text-red-500 text-sm mt-1">{errors.identification}</p>}
+    </div>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Gender *</label>
+      <select
+        value={formData.gender}
+        onChange={(e) => handleInputChange("gender", e.target.value)}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      >
+        <option value="">Select</option>
+        {genderOptions.map((option) => (
+          <option key={option.id} value={option.name}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+      {errors.gender && <p className="text-red-500 text-sm mt-1">{errors.gender}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">Website</label>
+      <input
+        type="url"
+        value={formData.website}
+        onChange={(e) => handleInputChange("website", e.target.value)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2"
+      />
+    </div>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Primary Industry *</label>
+      <select
+        value={formData.primaryIndustry}
+        onChange={(e) => handleInputChange("primaryIndustry", e.target.value)}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      >
+        <option value="">Select</option>
+        {primaryIndustryOptions.map((option) => (
+          <option key={option.id} value={option.name}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+      {errors.primaryIndustry && <p className="text-red-500 text-sm mt-1">{errors.primaryIndustry}</p>}
+    </div>
+    <div className="space-y-2 relative">
+      <label className="block text-sm font-medium text-gray-700">Additional Focus Areas</label>
+      <div
+        className="w-full border border-gray-300 rounded-lg p-2 cursor-pointer"
+        onClick={() =>
+          setFormData((prev) => ({
+            ...prev,
+            showDropdown: !prev.showDropdown,
+          }))
+        }
+      >
+        <div className="flex flex-wrap gap-2">
+          {formData.additionalFocus.map((focus) => (
+            <span
+              key={focus}
+              className="bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded-full cursor-pointer"
+              onClick={(evt) => {
+                evt.stopPropagation();
+                handleToggleFocus(focus);
+              }}
+            >
+              {focus} ✕
+            </span>
+          ))}
+        </div>
+      </div>
+      {formData.showDropdown && (
+        <div className="absolute z-10 bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-auto w-full">
+          {[
+            "Agriculture/Sustainable Food Production / Land Management",
+            "Alternative Energy",
+            "Alternative Economics",
+            "Community Development",
+            "Eco-friendly Building",
+            "Education & Cultural Preservation",
+            "Environmental Justice",
+            "Green Lifestyle",
+            "Other",
+            "Water",
+            "Technology",
+            "Waste",
+            "Wholistic Health",
+            "Climate",
+            "Spirituality",
+            "Survival/Preparedness",
+            "Youth",
+            "Africa",
+          ].map((focus) => (
+            <div
+              key={focus}
+              className="px-4 py-2 hover:bg-blue-100 cursor-pointer"
+              onClick={() => handleToggleFocus(focus)}
+            >
+              {focus}
+            </div>
+          ))}
+        </div>
+      )}
+      {errors.additionalFocus && <span className="text-red-500 text-sm">{errors.additionalFocus}</span>}
+    </div>
+  </>
+);
+
+// Step3: Location & Categories
+const Step3: React.FC<{
+  formData: FormData;
+  handleInputChange: (field: keyof FormData, value: any) => void;
+  errors: { [key in keyof FormData]?: string };
+  locationCountryOptions: any[];
+  nameFromLocationOptions: any[];
+  similarCategoriesOptions: any[];
+  showDropdown: boolean;
+  setShowDropdown: React.Dispatch<React.SetStateAction<boolean>>;
+  handleToggleCategory: (field: keyof FormData, value: string) => void;
+}> = ({
+  formData,
+  handleInputChange,
+  errors,
+  locationCountryOptions,
+  nameFromLocationOptions,
+  similarCategoriesOptions,
+  showDropdown,
+  setShowDropdown,
+  handleToggleCategory,
+}) => {
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+  const handleCityChange = async (val: any) => {
+    if (!val) {
+      handleInputChange("locationCity", "");
+      return;
+    }
+    handleInputChange("locationCity", val.label);
+    try {
+      const results = await geocodeByPlaceId(val.value.place_id);
+      const latLng = await getLatLng(results[0]);
+      handleInputChange("latitude", latLng.lat);
+      handleInputChange("longitude", latLng.lng);
+    } catch (error) {
+      console.error("Error getting lat/lng from place", error);
+    }
+  };
+
+  return (
+    <>
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Location (Country) *</label>
+        <select
+          value={formData.locationCountry}
+          onChange={(e) => {
+            handleInputChange("locationCountry", e.target.value);
+            handleInputChange("locationCity", "");
+            handleInputChange("latitude", null);
+            handleInputChange("longitude", null);
+          }}
+          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="">Select a country</option>
+          {locationCountryOptions.map((option) => (
+            <option key={option.id} value={option.name}>
+              {option.name}
+            </option>
+          ))}
+        </select>
+        {errors.locationCountry && <span className="text-red-500 text-sm">{errors.locationCountry}</span>}
+      </div>
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Location (City) *</label>
+        <GooglePlacesAutocomplete
+          apiKey={googleMapsApiKey}
+          selectProps={{
+            value: formData.locationCity
+              ? { label: formData.locationCity, value: formData.locationCity }
+              : null,
+            onChange: handleCityChange,
+            placeholder: "Start typing your city...",
+          }}
+          autocompletionRequest={{
+            types: ["(cities)"],
+            componentRestrictions: {
+              country: getCountryCode(formData.locationCountry),
+            },
+          }}
+        />
+        {errors.locationCity && <span className="text-red-500 text-sm">{errors.locationCity}</span>}
+      </div>
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Zip/Postal Code</label>
+        <input
+          type="text"
+          value={formData.zipCode === 0 ? "" : formData.zipCode}
+          onChange={(e) => {
+            const numericValue = parseInt(e.target.value, 10);
+            handleInputChange("zipCode", isNaN(numericValue) ? 0 : numericValue);
+          }}
+          placeholder="e.g., 60628"
+          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        {errors.zipCode && <span className="text-red-500 text-sm">{errors.zipCode}</span>}
+      </div>
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">YouTube</label>
+        <p className="text-xs text-gray-600">Do you have a video to share/showcase your work...</p>
+        <input
+          type="url"
+          value={formData.youtube}
+          onChange={(e) => handleInputChange("youtube", e.target.value)}
+          placeholder="Enter YouTube link"
+          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        {errors.youtube && <p className="text-red-500 text-sm mt-1">{errors.youtube}</p>}
+      </div>
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Location (Nearest City)</label>
+        <input
+          type="text"
+          value={formData.nearestCity}
+          onChange={(e) => handleInputChange("nearestCity", e.target.value)}
+          placeholder="Enter nearest city"
+          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        {errors.nearestCity && <p className="text-red-500 text-sm mt-1">{errors.nearestCity}</p>}
+      </div>
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Name (from Location)</label>
+        <select
+          value={formData.nameFromLocation}
+          onChange={(e) => handleInputChange("nameFromLocation", e.target.value)}
+          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="">Find an option</option>
+          {nameFromLocationOptions.map((option) => (
+            <option key={option.id} value={option.name}>
+              {option.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Funding Goal</label>
+        <textarea
+          value={formData.fundingGoal}
+          onChange={(e) => handleInputChange("fundingGoal", e.target.value)}
+          placeholder="Any project that needs funding..."
+          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        {errors.fundingGoal && <span className="text-red-500 text-sm">{errors.fundingGoal}</span>}
+      </div>
+      <div className="space-y-2 relative">
+        <label className="block text-sm font-medium text-gray-700">Similar Categories</label>
+        <div
+          className="w-full border border-gray-300 rounded-lg p-2 cursor-pointer"
+          onClick={() => setShowDropdown(!showDropdown)}
+        >
+          <div className="flex flex-wrap gap-2">
+            {formData.similarCategories.map((category) => (
+              <span
+                key={category}
+                className="bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded-full cursor-pointer"
+                onClick={(evt) => {
+                  evt.stopPropagation();
+                  handleToggleCategory("similarCategories", category);
+                }}
+              >
+                {category} ✕
+              </span>
+            ))}
+          </div>
+        </div>
+        {showDropdown && (
+          <div className="absolute z-10 bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-auto w-full">
+            {similarCategoriesOptions.map((option) => (
+              <div
+                key={option.id}
+                className="px-4 py-2 hover:bg-blue-100 cursor-pointer"
+                onClick={() => handleToggleCategory("similarCategories", option.name)}
+              >
+                {option.name}
+              </div>
+            ))}
+          </div>
+        )}
+        {errors.similarCategories && <span className="text-red-500 text-sm">{errors.similarCategories}</span>}
+      </div>
+      <div>
+        <label className="inline-flex items-center">
+          <input
+            type="checkbox"
+            checked={formData.includeOnMap === true || formData.includeOnMap === "checked"}
+            onChange={(e) => handleInputChange("includeOnMap", e.target.checked ? "checked" : "")}
+            className="rounded border-gray-300 text-blue-600"
+          />
+          <span className="ml-2 text-sm font-medium text-gray-700">Include me on Global BSN Map</span>
+        </label>
+      </div>
+    </>
+  );
+};
+
+// 5. MAIN MULTI-STEP COMPONENT
+const BSNRegistrationForm: React.FC = () => {
+  const [formData, setFormData] = useState<FormData>({
+    email: "",
+    firstName: "",
+    lastName: "",
+    memberLevel: "",
+    bio: "",
+    photo: null,
+    logo: null,
+    identification: "",
+    gender: "",
+    website: "",
+    phone: "",
+    primaryIndustry: "",
+    additionalFocus: [],
+    locationCountry: "",
+    locationCity: "",
+    zipCode: 0,
+    youtube: "",
+    nearestCity: "",
+    nameFromLocation: "",
+    fundingGoal: "",
+    similarCategories: [],
+    naicsCode: "",
+    includeOnMap: "",
+    latitude: null,
+    longitude: null,
+  });
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const totalSteps = 3;
+  const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
+
+  // Dropdown Data
+  const [memberLevelOptions, setMemberLevelOptions] = useState<{ id: string; name: string; icon: string | null }[]>([]);
+  const [identificationOptions, setIdentificationOptions] = useState<any[]>([]);
+  const [genderOptions, setGenderOptions] = useState<any[]>([]);
+  const [locationCountryOptions, setLocationCountryOptions] = useState<any[]>([]);
+  const [primaryIndustryOptions, setPrimaryIndustryOptions] = useState<any[]>([]);
+  const [nameFromLocationOptions, setNameFromLocationOptions] = useState<any[]>([]);
+  const [similarCategoriesOptions, setSimilarCategoriesOptions] = useState<any[]>([]);
+
+  // Errors
+  const [errors, setErrors] = useState<{ [key in keyof FormData]?: string }>({});
+  const [showDropdown, setShowDropdown] = useState<boolean>(false);
+  const [additionalFocusOpen, setAdditionalFocusOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const fetchDropdownOptions = async () => {
+      try {
+        const dropdownData = await AirtableUtils.fetchTableMetadata();
+        console.log("Dropdown data:", dropdownData);
+        const memberLevelField = dropdownData.find((f: any) => f.fieldName === "MEMBER LEVEL");
+        if (memberLevelField) {
+          const allowedOptions = [
+            "👓 Enthusiast -Excited to Learn",
+            "🥋 Expert - Experienced Professional",
+            "🏢 Entity - Black & Green Organization",
+            "Young Environmental Scholar",
+          ];
+          const filteredOptions = memberLevelField.options.filter((o: any) =>
+            allowedOptions.includes(o.name)
+          );
+          setMemberLevelOptions(filteredOptions);
+        }
+        const countryField = dropdownData.find((f: any) => f.fieldName === "Country");
+        if (countryField) {
+          setLocationCountryOptions(countryField.options);
+        }
+        const identificationField = dropdownData.find((f: any) => f.fieldName === "IDENTIFICATION");
+        setIdentificationOptions(identificationField?.options || []);
+        const genderField = dropdownData.find((f: any) => f.fieldName === "GENDER");
+        setGenderOptions(genderField?.options || []);
+        const primaryIndustryField = dropdownData.find((f: any) => f.fieldName === "PRIMARY INDUSTRY HOUSE");
+        setPrimaryIndustryOptions(primaryIndustryField?.options || []);
+        const nameFromLocationField = dropdownData.find((f: any) => f.fieldName === "Name (from Location)");
+        setNameFromLocationOptions(nameFromLocationField?.options || []);
+        const similarCategoriesField = dropdownData.find((f: any) => f.fieldName === "Similar Categories");
+        setSimilarCategoriesOptions(similarCategoriesField?.options || []);
+      } catch (error) {
+        console.error("Error fetching dropdown options:", error);
+      }
+    };
+    fetchDropdownOptions();
+  }, []);
+
+  const validateStep = (): boolean => {
+    const newErrors: Partial<FormData> = {};
+    if (currentStep === 1) {
+      if (!formData.email) newErrors.email = "Email is required.";
+      if (!formData.firstName) newErrors.firstName = "First Name is required.";
+      if (!formData.lastName) newErrors.lastName = "Last Name is required.";
+      if (!formData.photo) newErrors.photo = "Photo is required.";
+    } else if (currentStep === 2) {
+      if (!formData.memberLevel) newErrors.memberLevel = "Member level is required.";
+      if (!formData.bio) newErrors.bio = "Bio is required.";
+      if (!formData.identification) newErrors.identification = "Identification is required.";
+      if (!formData.gender) newErrors.gender = "Gender is required.";
+      if (!formData.primaryIndustry) newErrors.primaryIndustry = "Primary industry is required.";
+    } else if (currentStep === 3) {
+      if (!formData.locationCountry) newErrors.locationCountry = "Location (Country) is required.";
+      if (!formData.locationCity) newErrors.locationCity = "Location (City) is required.";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const nextStep = () => {
+    if (validateStep()) setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
+  };
+  const prevStep = () => {
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
+  };
+
+  // Helper to upload a file to Cloudinary via our /api/upload endpoint
+  const uploadFile = async (file: File): Promise<string> => {
+    const data = new FormData();
+    data.append("file", file);
+    const response = await axios.post("/api/upload", data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data.url;
+  };
+
+  // Final Submit handler
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateStep()) return;
+    try {
+      // Upload photo and logo if provided and not already uploaded
+      let photoUrl = formData.photoUrl;
+      let logoUrl = formData.logoUrl;
+      if (formData.photo && !formData.photoUrl) {
+        photoUrl = await uploadFile(formData.photo);
+        // Update local variable and state if needed
+        setFormData((prev) => ({ ...prev, photoUrl }));
+      }
+      if (formData.logo && !formData.logoUrl) {
+        logoUrl = await uploadFile(formData.logo);
+        setFormData((prev) => ({ ...prev, logoUrl }));
+      }
+
+      // Perform geocoding
+      const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_API_KEY";
+      const geocodeResult = await geocodeAddress(
+        formData.locationCountry,
+        formData.locationCity,
+        formData.zipCode,
+        googleMapsApiKey
+      );
+      if (!geocodeResult) {
+        setErrors((prev) => ({
+          ...prev,
+          locationCity: "Invalid location. Please check city/zip and try again.",
+        }));
+        return;
+      }
+      const { lat, lng } = geocodeResult;
+
+      // Build final data using the local photoUrl and logoUrl variables
+      const finalAirtableFields = mapFormDataToAirtableFields({
+        ...formData,
+        photoUrl,
+        logoUrl,
+        latitude: lat,
+        longitude: lng,
+      });
+
+      // Submit to Airtable
+      const response = await AirtableUtils.submitToAirtable(finalAirtableFields);
+      console.log("Data submitted successfully:", response);
+      setIsSubmitted(true);
+    } catch (error) {
+      console.error("Error submitting data:", error);
+      alert("Failed to register. Please try again.");
+    }
+  };
+
+  const handleInputChange = (field: keyof FormData, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+  const handleFileChange = (field: keyof FormData, file: File | null) => {
+    setFormData((prev) => ({ ...prev, [field]: file }));
+  };
+  const handleToggleFocus = (value: string) => {
+    setFormData((prev) => {
+      const alreadySelected = prev.additionalFocus.includes(value);
+      return {
+        ...prev,
+        additionalFocus: alreadySelected
+          ? prev.additionalFocus.filter((f) => f !== value)
+          : [...prev.additionalFocus, value],
+      };
+    });
+  };
+  const handleToggleCategory = (field: keyof FormData, value: string) => {
+    setFormData((prev) => {
+      const selected = prev[field] as string[];
+      const alreadySelected = selected.includes(value);
+      return {
+        ...prev,
+        [field]: alreadySelected
+          ? selected.filter((cat) => cat !== value)
+          : [...selected, value],
+      };
+    });
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 py-12">
+      {isSubmitted ? (
+        <div className="max-w-xl bg-white p-6 rounded-lg shadow-md text-center">
+          <h2 className="text-2xl font-bold text-green-600 mb-4">
+            Thank you for your submission!
+          </h2>
+          <p className="text-gray-700 mb-4">
+            Please allow five (5) business days for our team to review your application to join our network. If you do not hear from us, contact <strong>members@blacksustainability.org</strong>.
+          </p>
+          <p className="text-gray-700 mb-4">
+            Meanwhile, you can visit{" "}
+            <a
+              href="https://www.blacksustainability.org/join-our-network"
+              target="_blank"
+              rel="noreferrer"
+              className="text-blue-500 underline"
+            >
+              our network page
+            </a>{" "}
+            for more info. Interested in <strong>upgrading</strong> to get full access as a paid member? Stay tuned for membership details inside your email or check out our website for more options!
+          </p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="w-full max-w-3xl bg-white p-6 rounded-lg shadow-md space-y-6">
+          <div className="text-center space-y-4">
+            <h1 className="text-2xl font-bold text-gray-800">
+              Black Sustainability Network (BSN) Member Registration
+            </h1>
+            <p className="text-gray-700">
+              Welcome to our community of sustainability practitioners...
+            </p>
+            <p className="text-gray-700 italic">
+              <strong>*Not Black AND Green?</strong> Email{" "}
+              <a href="mailto:info@blacksustainability.org" className="text-blue-500 underline">
+                info@blacksustainability.org
+              </a>{" "}
+              to connect with us.
+            </p>
+          </div>
+          {currentStep === 1 && (
+            <Step1 formData={formData} handleInputChange={handleInputChange} errors={errors} handleFileChange={handleFileChange} />
+          )}
+          {currentStep === 2 && (
+            <Step2
+              formData={formData}
+              handleInputChange={handleInputChange}
+              errors={errors}
+              memberLevelOptions={memberLevelOptions}
+              identificationOptions={identificationOptions}
+              genderOptions={genderOptions}
+              primaryIndustryOptions={primaryIndustryOptions}
+              handleToggleFocus={handleToggleFocus}
+              additionalFocusOpen={formData.showDropdown || false}
+              setFormData={setFormData}
+            />
+          )}
+          {currentStep === 3 && (
+            <Step3
+              formData={formData}
+              handleInputChange={handleInputChange}
+              errors={errors}
+              locationCountryOptions={locationCountryOptions}
+              nameFromLocationOptions={nameFromLocationOptions}
+              similarCategoriesOptions={similarCategoriesOptions}
+              showDropdown={showDropdown}
+              setShowDropdown={setShowDropdown}
+              handleToggleCategory={handleToggleCategory}
+            />
+          )}
+          <div className="flex justify-between pt-4">
+            {currentStep > 1 && (
+              <button type="button" onClick={prevStep} className="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600">
+                Previous
+              </button>
+            )}
+            {currentStep < totalSteps ? (
+              <button type="button" onClick={nextStep} className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600">
+                Next
+              </button>
+            ) : (
+              <button type="submit" className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600">
+                Submit
+              </button>
+            )}
+          </div>
+        </form>
+      )}
+    </div>
+  );
+};
+
+export default BSNRegistrationForm;
