@@ -2,13 +2,12 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import GooglePlacesAutocomplete, {
   geocodeByPlaceId,
-  getLatLng
+  getLatLng,
 } from "react-google-places-autocomplete";
-import { geocodeAddress } from "@/utils/geocode.js";      // <-- Our geocoding helper
-import AirtableUtils from "@/pages/api/submitForm"
-//
+import { geocodeAddress } from "@/utils/geocode.js"; // <-- Our geocoding helper
+import AirtableUtils from "@/pages/api/submitForm";
+
 // 1. TYPES & INTERFACES
-//
 interface FormData {
   email: string;
   firstName: string;
@@ -16,9 +15,9 @@ interface FormData {
   memberLevel: string;
   bio: string;
   photo: File | null;
-  photoUrl?: string; 
+  photoUrl?: string; // URL returned from Cloudinary
   logo: File | null;
-  logoUrl?: string; 
+  logoUrl?: string;  // URL returned from Cloudinary
   identification: string;
   gender: string;
   website: string;
@@ -35,7 +34,6 @@ interface FormData {
   similarCategories: string[];
   naicsCode: string;
   includeOnMap: string;
-  // newly added
   latitude: number | null;
   longitude: number | null;
 }
@@ -71,7 +69,7 @@ const testFormData: FormData = {
 
 // 3. Map formData -> Airtable fields
 const mapFormDataToAirtableFields = (formData: FormData) => {
-  console.log(formData.similarCategories)
+  console.log(formData.similarCategories);
   return {
     "EMAIL ADDRESS": formData.email,
     "FIRST NAME": formData.firstName,
@@ -90,7 +88,6 @@ const mapFormDataToAirtableFields = (formData: FormData) => {
     "Location (Nearest City)": formData.nearestCity,
     "Name (from Location)": formData.nameFromLocation,
     "FUNDING GOAL": formData.fundingGoal,
-    // Instead of joining, pass the array directly (and filter out empty strings)
     "Similar Categories": formData.similarCategories.filter(
       (cat) => cat && cat.trim() !== ""
     ),
@@ -98,21 +95,19 @@ const mapFormDataToAirtableFields = (formData: FormData) => {
     Featured: formData.includeOnMap,
     Latitude: formData.latitude ?? 0,
     Longitude: formData.longitude ?? 0,
-    ...(formData.photoUrl ? { "PHOTO": [{ url: formData.photoUrl }] } : {}),
-    ...(formData.logoUrl ? { "LOGO": [{ url: formData.logoUrl }] } : {}),
+    ...(formData.photoUrl ? { "PHOTO": formData.photoUrl } : {}),
+    ...(formData.logoUrl ? { "LOGO": formData.logoUrl } : {}),
   };
 };
 
-
-// A small helper to map country names to ISO Alpha-2 codes used by Google Places
+// Helper to map country names to ISO Alpha-2 codes used by Google Places
 function getCountryCode(countryName: string): string {
   const lower = countryName.toLowerCase();
   if (lower.includes("united states")) return "us";
   if (lower.includes("united kingdom")) return "gb";
   if (lower.includes("south africa")) return "za";
   if (lower.includes("nigeria")) return "ng";
-  // Add more as needed...
-  return ""; // if not found, no restriction
+  return "";
 }
 
 //
@@ -125,102 +120,79 @@ const Step1: React.FC<{
   handleInputChange: (field: keyof FormData, value: any) => void;
   errors: { [key in keyof FormData]?: string };
   handleFileChange: (field: keyof FormData, file: File | null) => void;
-}> = ({ formData, handleInputChange, errors, handleFileChange }) => {
-  return (
-    <>
-      {/* Email */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Email Address *
-        </label>
-        <input
-          type="email"
-          value={formData.email}
-          onChange={(e) => handleInputChange("email", e.target.value)}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        {errors.email && (
-          <p className="text-red-500 text-sm mt-1">{errors.email}</p>
-        )}
-      </div>
-
-      {/* First Name */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          First Name *
-        </label>
-        <input
-          type="text"
-          value={formData.firstName}
-          onChange={(e) => handleInputChange("firstName", e.target.value)}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        {errors.firstName && (
-          <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>
-        )}
-      </div>
-
-      {/* Last Name */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Last Name *
-        </label>
-        <input
-          type="text"
-          value={formData.lastName}
-          onChange={(e) => handleInputChange("lastName", e.target.value)}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        {errors.lastName && (
-          <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>
-        )}
-      </div>
-
-      {/* Photo */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Photo *
-        </label>
-        <input
-          type="file"
-          onChange={(e) =>
-            handleFileChange("photo", e.target.files ? e.target.files[0] : null)
-          }
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        {errors.photo && (
-          <p className="text-red-500 text-sm mt-1">{errors.photo}</p>
-        )}
-      </div>
-
-      {/* Logo (optional) */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Logo</label>
-        <input
-          type="file"
-          onChange={(e) =>
-            handleFileChange("logo", e.target.files ? e.target.files[0] : null)
-          }
-          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-      </div>
-
-      {/* Phone */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Phone</label>
-        <p className="text-xs text-gray-600">
-          OPTIONAL: We want to ensure you receive BSN membership info...
-        </p>
-        <input
-          type="tel"
-          value={formData.phone}
-          onChange={(e) => handleInputChange("phone", e.target.value)}
-          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-      </div>
-    </>
-  );
-};
+}> = ({ formData, handleInputChange, errors, handleFileChange }) => (
+  <>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">
+        Email Address *
+      </label>
+      <input
+        type="email"
+        value={formData.email}
+        onChange={(e) => handleInputChange("email", e.target.value)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">
+        First Name *
+      </label>
+      <input
+        type="text"
+        value={formData.firstName}
+        onChange={(e) => handleInputChange("firstName", e.target.value)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">
+        Last Name *
+      </label>
+      <input
+        type="text"
+        value={formData.lastName}
+        onChange={(e) => handleInputChange("lastName", e.target.value)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">Photo *</label>
+      <input
+        type="file"
+        onChange={(e) =>
+          handleFileChange("photo", e.target.files ? e.target.files[0] : null)
+        }
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      {errors.photo && <p className="text-red-500 text-sm mt-1">{errors.photo}</p>}
+    </div>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Logo</label>
+      <input
+        type="file"
+        onChange={(e) =>
+          handleFileChange("logo", e.target.files ? e.target.files[0] : null)
+        }
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+    </div>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Phone</label>
+      <p className="text-xs text-gray-600">
+        OPTIONAL: We want to ensure you receive BSN membership info...
+      </p>
+      <input
+        type="tel"
+        value={formData.phone}
+        onChange={(e) => handleInputChange("phone", e.target.value)}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+    </div>
+  </>
+);
 
 // Step2: Membership & Focus
 const Step2: React.FC<{
@@ -245,194 +217,152 @@ const Step2: React.FC<{
   handleToggleFocus,
   additionalFocusOpen,
   setFormData,
-}) => {
-  return (
-    <>
-      {/* Member Level */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Member Level *
-        </label>
-        <select
-          value={formData.memberLevel}
-          onChange={(e) => handleInputChange("memberLevel", e.target.value)}
-          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="">Select</option>
-          {memberLevelOptions.map((option) => (
-            <option key={option.id} value={option.name}>
-              {option.name}
-            </option>
+}) => (
+  <>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Member Level *</label>
+      <select
+        value={formData.memberLevel}
+        onChange={(e) => handleInputChange("memberLevel", e.target.value)}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      >
+        <option value="">Select</option>
+        {memberLevelOptions.map((option) => (
+          <option key={option.id} value={option.name}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+      {errors.memberLevel && <p className="text-red-500 text-sm mt-1">{errors.memberLevel}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">Bio/Profile *</label>
+      <textarea
+        value={formData.bio}
+        onChange={(e) => handleInputChange("bio", e.target.value)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      {errors.bio && <p className="text-red-500 text-sm mt-1">{errors.bio}</p>}
+    </div>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Identification *</label>
+      <select
+        value={formData.identification}
+        onChange={(e) => handleInputChange("identification", e.target.value)}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      >
+        <option value="">Select</option>
+        {identificationOptions.map((option) => (
+          <option key={option.id} value={option.name}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+      {errors.identification && <p className="text-red-500 text-sm mt-1">{errors.identification}</p>}
+    </div>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Gender *</label>
+      <select
+        value={formData.gender}
+        onChange={(e) => handleInputChange("gender", e.target.value)}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      >
+        <option value="">Select</option>
+        {genderOptions.map((option) => (
+          <option key={option.id} value={option.name}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+      {errors.gender && <p className="text-red-500 text-sm mt-1">{errors.gender}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">Website</label>
+      <input
+        type="url"
+        value={formData.website}
+        onChange={(e) => handleInputChange("website", e.target.value)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2"
+      />
+    </div>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Primary Industry *</label>
+      <select
+        value={formData.primaryIndustry}
+        onChange={(e) => handleInputChange("primaryIndustry", e.target.value)}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      >
+        <option value="">Select</option>
+        {primaryIndustryOptions.map((option) => (
+          <option key={option.id} value={option.name}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+      {errors.primaryIndustry && <p className="text-red-500 text-sm mt-1">{errors.primaryIndustry}</p>}
+    </div>
+    <div className="space-y-2 relative">
+      <label className="block text-sm font-medium text-gray-700">Additional Focus Areas</label>
+      <div
+        className="w-full border border-gray-300 rounded-lg p-2 cursor-pointer"
+        onClick={() =>
+          setFormData((prev) => ({
+            ...prev,
+            showDropdown: !prev.showDropdown,
+          }))
+        }
+      >
+        <div className="flex flex-wrap gap-2">
+          {formData.additionalFocus.map((focus) => (
+            <span
+              key={focus}
+              className="bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded-full cursor-pointer"
+              onClick={(evt) => {
+                evt.stopPropagation();
+                handleToggleFocus(focus);
+              }}
+            >
+              {focus} ✕
+            </span>
           ))}
-        </select>
-        {errors.memberLevel && (
-          <p className="text-red-500 text-sm mt-1">{errors.memberLevel}</p>
-        )}
-      </div>
-
-      {/* Bio */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Bio/Profile *
-        </label>
-        <textarea
-          value={formData.bio}
-          onChange={(e) => handleInputChange("bio", e.target.value)}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        {errors.bio && (
-          <p className="text-red-500 text-sm mt-1">{errors.bio}</p>
-        )}
-      </div>
-
-      {/* Identification */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Identification *
-        </label>
-        <select
-          value={formData.identification}
-          onChange={(e) => handleInputChange("identification", e.target.value)}
-          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="">Select</option>
-          {identificationOptions.map((option) => (
-            <option key={option.id} value={option.name}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-        {errors.identification && (
-          <p className="text-red-500 text-sm mt-1">{errors.identification}</p>
-        )}
-      </div>
-
-      {/* Gender */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Gender *
-        </label>
-        <select
-          value={formData.gender}
-          onChange={(e) => handleInputChange("gender", e.target.value)}
-          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="">Select</option>
-          {genderOptions.map((option) => (
-            <option key={option.id} value={option.name}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-        {errors.gender && (
-          <p className="text-red-500 text-sm mt-1">{errors.gender}</p>
-        )}
-      </div>
-
-      {/* Website */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Website
-        </label>
-        <input
-          type="url"
-          value={formData.website}
-          onChange={(e) => handleInputChange("website", e.target.value)}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2"
-        />
-      </div>
-
-      {/* Primary Industry */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Primary Industry *
-        </label>
-        <select
-          value={formData.primaryIndustry}
-          onChange={(e) => handleInputChange("primaryIndustry", e.target.value)}
-          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="">Select</option>
-          {primaryIndustryOptions.map((option) => (
-            <option key={option.id} value={option.name}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-        {errors.primaryIndustry && (
-          <p className="text-red-500 text-sm mt-1">{errors.primaryIndustry}</p>
-        )}
-      </div>
-
-      {/* Additional Focus Areas */}
-      <div className="space-y-2 relative">
-        <label className="block text-sm font-medium text-gray-700">
-          Additional Focus Areas
-        </label>
-        <div
-          className="w-full border border-gray-300 rounded-lg p-2 cursor-pointer"
-          onClick={() =>
-            setFormData((prev) => ({
-              ...prev,
-              showDropdown: !prev.showDropdown,
-            }))
-          }
-        >
-          <div className="flex flex-wrap gap-2">
-            {formData.additionalFocus.map((focus) => (
-              <span
-                key={focus}
-                className="bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded-full cursor-pointer"
-                onClick={(evt) => {
-                  evt.stopPropagation();
-                  handleToggleFocus(focus);
-                }}
-              >
-                {focus} ✕
-              </span>
-            ))}
-          </div>
         </div>
-
-        {additionalFocusOpen && (
-          <div className="absolute z-10 bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-auto w-full">
-            {[
-              "Agriculture/Sustainable Food Production / Land Management",
-              "Alternative Energy",
-              "Alternative Economics",
-              "Community Development",
-              "Eco-friendly Building",
-              "Education & Cultural Preservation",
-              "Environmental Justice",
-              "Green Lifestyle",
-              "Other",
-              "Water",
-              "Technology",
-              "Waste",
-              "Wholistic Health",
-              "Climate",
-              "Spirituality",
-              "Survival/Preparedness",
-              "Youth",
-              "Africa",
-            ].map((focus) => (
-              <div
-                key={focus}
-                className="px-4 py-2 hover:bg-blue-100 cursor-pointer"
-                onClick={() => handleToggleFocus(focus)}
-              >
-                {focus}
-              </div>
-            ))}
-          </div>
-        )}
-        {errors.additionalFocus && (
-          <span className="text-red-500 text-sm">{errors.additionalFocus}</span>
-        )}
       </div>
-    </>
-  );
-};
+      {formData.showDropdown && (
+        <div className="absolute z-10 bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-auto w-full">
+          {[
+            "Agriculture/Sustainable Food Production / Land Management",
+            "Alternative Energy",
+            "Alternative Economics",
+            "Community Development",
+            "Eco-friendly Building",
+            "Education & Cultural Preservation",
+            "Environmental Justice",
+            "Green Lifestyle",
+            "Other",
+            "Water",
+            "Technology",
+            "Waste",
+            "Wholistic Health",
+            "Climate",
+            "Spirituality",
+            "Survival/Preparedness",
+            "Youth",
+            "Africa",
+          ].map((focus) => (
+            <div
+              key={focus}
+              className="px-4 py-2 hover:bg-blue-100 cursor-pointer"
+              onClick={() => handleToggleFocus(focus)}
+            >
+              {focus}
+            </div>
+          ))}
+        </div>
+      )}
+      {errors.additionalFocus && <span className="text-red-500 text-sm">{errors.additionalFocus}</span>}
+    </div>
+  </>
+);
 
 // Step3: Location & Categories
 const Step3: React.FC<{
@@ -442,7 +372,7 @@ const Step3: React.FC<{
   locationCountryOptions: any[];
   nameFromLocationOptions: any[];
   similarCategoriesOptions: any[];
-  showDropdown: boolean; // for Similar Categories
+  showDropdown: boolean;
   setShowDropdown: React.Dispatch<React.SetStateAction<boolean>>;
   handleToggleCategory: (field: keyof FormData, value: string) => void;
 }> = ({
@@ -456,25 +386,16 @@ const Step3: React.FC<{
   setShowDropdown,
   handleToggleCategory,
 }) => {
-  // Grab your Google Maps API key
   const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-
-  // Handler when user selects a city from Google Autocomplete
   const handleCityChange = async (val: any) => {
     if (!val) {
       handleInputChange("locationCity", "");
       return;
     }
-
-    // val looks like { label: "Chicago, IL, USA", value: { place_id, ... } }
-    // 1) Store the city label in formData
     handleInputChange("locationCity", val.label);
-
-    // 2) (Optional) fetch lat/lng now if you want immediate updates
     try {
       const results = await geocodeByPlaceId(val.value.place_id);
       const latLng = await getLatLng(results[0]);
-      // Store lat/lng
       handleInputChange("latitude", latLng.lat);
       handleInputChange("longitude", latLng.lng);
     } catch (error) {
@@ -484,16 +405,12 @@ const Step3: React.FC<{
 
   return (
     <>
-      {/* Location (Country) */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Location (Country) *
-        </label>
+        <label className="block text-sm font-medium text-gray-700">Location (Country) *</label>
         <select
           value={formData.locationCountry}
           onChange={(e) => {
             handleInputChange("locationCountry", e.target.value);
-            // If user changes country, optionally clear city & lat/lng
             handleInputChange("locationCity", "");
             handleInputChange("latitude", null);
             handleInputChange("longitude", null);
@@ -507,28 +424,19 @@ const Step3: React.FC<{
             </option>
           ))}
         </select>
-        {errors.locationCountry && (
-          <span className="text-red-500 text-sm">{errors.locationCountry}</span>
-        )}
+        {errors.locationCountry && <span className="text-red-500 text-sm">{errors.locationCountry}</span>}
       </div>
-
-      {/* Location (City) => Using Google Places Autocomplete */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Location (City) *
-        </label>
-
+        <label className="block text-sm font-medium text-gray-700">Location (City) *</label>
         <GooglePlacesAutocomplete
           apiKey={googleMapsApiKey}
           selectProps={{
-            // If formData.locationCity is set, feed that in as the 'value'
             value: formData.locationCity
               ? { label: formData.locationCity, value: formData.locationCity }
               : null,
             onChange: handleCityChange,
             placeholder: "Start typing your city...",
           }}
-          // Restrict to just "cities" in the selected country
           autocompletionRequest={{
             types: ["(cities)"],
             componentRestrictions: {
@@ -536,17 +444,10 @@ const Step3: React.FC<{
             },
           }}
         />
-
-        {errors.locationCity && (
-          <span className="text-red-500 text-sm">{errors.locationCity}</span>
-        )}
+        {errors.locationCity && <span className="text-red-500 text-sm">{errors.locationCity}</span>}
       </div>
-
-      {/* Zip/Postal Code */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Zip/Postal Code
-        </label>
+        <label className="block text-sm font-medium text-gray-700">Zip/Postal Code</label>
         <input
           type="text"
           value={formData.zipCode === 0 ? "" : formData.zipCode}
@@ -557,17 +458,11 @@ const Step3: React.FC<{
           placeholder="e.g., 60628"
           className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
         />
-        {errors.zipCode && (
-          <span className="text-red-500 text-sm">{errors.zipCode}</span>
-        )}
+        {errors.zipCode && <span className="text-red-500 text-sm">{errors.zipCode}</span>}
       </div>
-
-      {/* YouTube */}
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">YouTube</label>
-        <p className="text-xs text-gray-600">
-          Do you have a video to share/showcase your work...
-        </p>
+        <p className="text-xs text-gray-600">Do you have a video to share/showcase your work...</p>
         <input
           type="url"
           value={formData.youtube}
@@ -575,16 +470,10 @@ const Step3: React.FC<{
           placeholder="Enter YouTube link"
           className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
         />
-        {errors.youtube && (
-          <p className="text-red-500 text-sm mt-1">{errors.youtube}</p>
-        )}
+        {errors.youtube && <p className="text-red-500 text-sm mt-1">{errors.youtube}</p>}
       </div>
-
-      {/* Location (Nearest City) */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Location (Nearest City)
-        </label>
+        <label className="block text-sm font-medium text-gray-700">Location (Nearest City)</label>
         <input
           type="text"
           value={formData.nearestCity}
@@ -592,21 +481,13 @@ const Step3: React.FC<{
           placeholder="Enter nearest city"
           className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
         />
-        {errors.nearestCity && (
-          <p className="text-red-500 text-sm mt-1">{errors.nearestCity}</p>
-        )}
+        {errors.nearestCity && <p className="text-red-500 text-sm mt-1">{errors.nearestCity}</p>}
       </div>
-
-      {/* Name (from Location) */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Name (from Location)
-        </label>
+        <label className="block text-sm font-medium text-gray-700">Name (from Location)</label>
         <select
           value={formData.nameFromLocation}
-          onChange={(e) =>
-            handleInputChange("nameFromLocation", e.target.value)
-          }
+          onChange={(e) => handleInputChange("nameFromLocation", e.target.value)}
           className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="">Find an option</option>
@@ -617,28 +498,18 @@ const Step3: React.FC<{
           ))}
         </select>
       </div>
-
-      {/* Funding Goal */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Funding Goal
-        </label>
+        <label className="block text-sm font-medium text-gray-700">Funding Goal</label>
         <textarea
           value={formData.fundingGoal}
           onChange={(e) => handleInputChange("fundingGoal", e.target.value)}
           placeholder="Any project that needs funding..."
           className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
         />
-        {errors.fundingGoal && (
-          <span className="text-red-500 text-sm">{errors.fundingGoal}</span>
-        )}
+        {errors.fundingGoal && <span className="text-red-500 text-sm">{errors.fundingGoal}</span>}
       </div>
-
-      {/* Similar Categories */}
       <div className="space-y-2 relative">
-        <label className="block text-sm font-medium text-gray-700">
-          Similar Categories
-        </label>
+        <label className="block text-sm font-medium text-gray-700">Similar Categories</label>
         <div
           className="w-full border border-gray-300 rounded-lg p-2 cursor-pointer"
           onClick={() => setShowDropdown(!showDropdown)}
@@ -648,61 +519,47 @@ const Step3: React.FC<{
               <span
                 key={category}
                 className="bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded-full cursor-pointer"
-                onClick={() =>
-                  handleToggleCategory("similarCategories", category)
-                }
+                onClick={(evt) => {
+                  evt.stopPropagation();
+                  handleToggleCategory("similarCategories", category);
+                }}
               >
                 {category} ✕
               </span>
             ))}
           </div>
         </div>
-
         {showDropdown && (
           <div className="absolute z-10 bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-auto w-full">
             {similarCategoriesOptions.map((option) => (
               <div
                 key={option.id}
                 className="px-4 py-2 hover:bg-blue-100 cursor-pointer"
-                onClick={() =>
-                  handleToggleCategory("similarCategories", option.name)
-                }
+                onClick={() => handleToggleCategory("similarCategories", option.name)}
               >
                 {option.name}
               </div>
             ))}
           </div>
         )}
-        {errors.similarCategories && (
-          <span className="text-red-500 text-sm">{errors.similarCategories}</span>
-        )}
+        {errors.similarCategories && <span className="text-red-500 text-sm">{errors.similarCategories}</span>}
       </div>
-
-      {/* Include Map */}
       <div>
         <label className="inline-flex items-center">
           <input
             type="checkbox"
-            checked={
-              formData.includeOnMap === true || formData.includeOnMap === "checked"
-            }
-            onChange={(e) =>
-              handleInputChange("includeOnMap", e.target.checked ? "checked" : "")
-            }
+            checked={formData.includeOnMap === true || formData.includeOnMap === "checked"}
+            onChange={(e) => handleInputChange("includeOnMap", e.target.checked ? "checked" : "")}
             className="rounded border-gray-300 text-blue-600"
           />
-          <span className="ml-2 text-sm font-medium text-gray-700">
-            Include me on Global BSN Map
-          </span>
+          <span className="ml-2 text-sm font-medium text-gray-700">Include me on Global BSN Map</span>
         </label>
       </div>
     </>
   );
 };
 
-//
 // 5. MAIN MULTI-STEP COMPONENT
-//
 const BSNRegistrationForm: React.FC = () => {
   const [formData, setFormData] = useState<FormData>({
     email: "",
@@ -731,15 +588,12 @@ const BSNRegistrationForm: React.FC = () => {
     latitude: null,
     longitude: null,
   });
-
   const [currentStep, setCurrentStep] = useState<number>(1);
   const totalSteps = 3;
-
-  // Track whether the form is submitted
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
 
   // Dropdown Data
-  const [memberLevelOptions, setMemberLevelOptions] = useState<{id:string;name:string;icon:string|null}[]>([]);
+  const [memberLevelOptions, setMemberLevelOptions] = useState<{ id: string; name: string; icon: string | null }[]>([]);
   const [identificationOptions, setIdentificationOptions] = useState<any[]>([]);
   const [genderOptions, setGenderOptions] = useState<any[]>([]);
   const [locationCountryOptions, setLocationCountryOptions] = useState<any[]>([]);
@@ -752,15 +606,12 @@ const BSNRegistrationForm: React.FC = () => {
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
   const [additionalFocusOpen, setAdditionalFocusOpen] = useState<boolean>(false);
 
-  // 5a. Fetch dropdown data
   useEffect(() => {
     const fetchDropdownOptions = async () => {
       try {
         const dropdownData = await AirtableUtils.fetchTableMetadata();
-        console.log(dropdownData);
-
-        // Member Level
-        const memberLevelField = dropdownData.find((f:any) => f.fieldName === "MEMBER LEVEL");
+        console.log("Dropdown data:", dropdownData);
+        const memberLevelField = dropdownData.find((f: any) => f.fieldName === "MEMBER LEVEL");
         if (memberLevelField) {
           const allowedOptions = [
             "👓 Enthusiast -Excited to Learn",
@@ -768,50 +619,34 @@ const BSNRegistrationForm: React.FC = () => {
             "🏢 Entity - Black & Green Organization",
             "Young Environmental Scholar",
           ];
-          const filteredOptions = memberLevelField.options.filter((o:any) =>
+          const filteredOptions = memberLevelField.options.filter((o: any) =>
             allowedOptions.includes(o.name)
           );
           setMemberLevelOptions(filteredOptions);
         }
-
-        // Country
-        const countryField = dropdownData.find((f:any) => f.fieldName === "Country");
+        const countryField = dropdownData.find((f: any) => f.fieldName === "Country");
         if (countryField) {
           setLocationCountryOptions(countryField.options);
         }
-
-        // Identification
-        const identificationField = dropdownData.find((f:any) => f.fieldName === "IDENTIFICATION");
+        const identificationField = dropdownData.find((f: any) => f.fieldName === "IDENTIFICATION");
         setIdentificationOptions(identificationField?.options || []);
-
-        // Gender
-        const genderField = dropdownData.find((f:any) => f.fieldName === "GENDER");
+        const genderField = dropdownData.find((f: any) => f.fieldName === "GENDER");
         setGenderOptions(genderField?.options || []);
-
-        // Primary Industry
-        const primaryIndustryField = dropdownData.find((f:any) => f.fieldName === "PRIMARY INDUSTRY HOUSE");
+        const primaryIndustryField = dropdownData.find((f: any) => f.fieldName === "PRIMARY INDUSTRY HOUSE");
         setPrimaryIndustryOptions(primaryIndustryField?.options || []);
-
-        // Name (from Location)
-        const nameFromLocationField = dropdownData.find((f:any) => f.fieldName === "Name (from Location)");
+        const nameFromLocationField = dropdownData.find((f: any) => f.fieldName === "Name (from Location)");
         setNameFromLocationOptions(nameFromLocationField?.options || []);
-
-        // Similar Categories
-        const similarCategoriesField = dropdownData.find((f:any) => f.fieldName === "Similar Categories");
+        const similarCategoriesField = dropdownData.find((f: any) => f.fieldName === "Similar Categories");
         setSimilarCategoriesOptions(similarCategoriesField?.options || []);
-
       } catch (error) {
         console.error("Error fetching dropdown options:", error);
       }
     };
-
     fetchDropdownOptions();
   }, []);
 
-  // 5b. Validation per-step
   const validateStep = (): boolean => {
     const newErrors: Partial<FormData> = {};
-
     if (currentStep === 1) {
       if (!formData.email) newErrors.email = "Email is required.";
       if (!formData.firstName) newErrors.firstName = "First Name is required.";
@@ -827,7 +662,6 @@ const BSNRegistrationForm: React.FC = () => {
       if (!formData.locationCountry) newErrors.locationCountry = "Location (Country) is required.";
       if (!formData.locationCity) newErrors.locationCity = "Location (City) is required.";
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -839,7 +673,7 @@ const BSNRegistrationForm: React.FC = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
-    // Helper to upload a file to Cloudinary via our /api/upload endpoint
+  // Helper to upload a file to Cloudinary via our /api/upload endpoint
   const uploadFile = async (file: File): Promise<string> => {
     const data = new FormData();
     data.append("file", file);
@@ -849,17 +683,26 @@ const BSNRegistrationForm: React.FC = () => {
     return response.data.url;
   };
 
-  // 5c. Final Submit
+  // Final Submit handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // 1) local step validation
     if (!validateStep()) return;
-
-    // 2) Attempt geocoding (if you haven't already captured lat/lng above)
     try {
-      const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_API_KEY";
+      // Upload photo and logo if provided and not already uploaded
+      let photoUrl = formData.photoUrl;
+      let logoUrl = formData.logoUrl;
+      if (formData.photo && !formData.photoUrl) {
+        photoUrl = await uploadFile(formData.photo);
+        // Update local variable and state if needed
+        setFormData((prev) => ({ ...prev, photoUrl }));
+      }
+      if (formData.logo && !formData.logoUrl) {
+        logoUrl = await uploadFile(formData.logo);
+        setFormData((prev) => ({ ...prev, logoUrl }));
+      }
 
+      // Perform geocoding
+      const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_API_KEY";
       const geocodeResult = await geocodeAddress(
         formData.locationCountry,
         formData.locationCity,
@@ -875,18 +718,18 @@ const BSNRegistrationForm: React.FC = () => {
       }
       const { lat, lng } = geocodeResult;
 
-      // 3) Build final data
+      // Build final data using the local photoUrl and logoUrl variables
       const finalAirtableFields = mapFormDataToAirtableFields({
         ...formData,
-        latitude: lat,     // or use formData.latitude if already set
-        longitude: lng,    // or use formData.longitude if already set
+        photoUrl,
+        logoUrl,
+        latitude: lat,
+        longitude: lng,
       });
 
-      // 4) Submit to Airtable
+      // Submit to Airtable
       const response = await AirtableUtils.submitToAirtable(finalAirtableFields);
       console.log("Data submitted successfully:", response);
-
-      // 5) Show success message
       setIsSubmitted(true);
     } catch (error) {
       console.error("Error submitting data:", error);
@@ -894,7 +737,6 @@ const BSNRegistrationForm: React.FC = () => {
     }
   };
 
-  // 5d. Reusable handlers
   const handleInputChange = (field: keyof FormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -925,21 +767,15 @@ const BSNRegistrationForm: React.FC = () => {
     });
   };
 
-  //
-  // 6. Render
-  //
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 py-12">
       {isSubmitted ? (
-        // SUCCESS MESSAGE after final submission
         <div className="max-w-xl bg-white p-6 rounded-lg shadow-md text-center">
           <h2 className="text-2xl font-bold text-green-600 mb-4">
             Thank you for your submission!
           </h2>
           <p className="text-gray-700 mb-4">
-            Please allow five (5) business days for our team to review your
-            application to join our network. If you do not hear from us,
-            contact <strong>members@blacksustainability.org</strong>.
+            Please allow five (5) business days for our team to review your application to join our network. If you do not hear from us, contact <strong>members@blacksustainability.org</strong>.
           </p>
           <p className="text-gray-700 mb-4">
             Meanwhile, you can visit{" "}
@@ -951,18 +787,11 @@ const BSNRegistrationForm: React.FC = () => {
             >
               our network page
             </a>{" "}
-            for more info. Interested in <strong>upgrading</strong> to get full
-            access as a paid member? Stay tuned for membership details inside
-            your email or check out our website for more options!
+            for more info. Interested in <strong>upgrading</strong> to get full access as a paid member? Stay tuned for membership details inside your email or check out our website for more options!
           </p>
         </div>
       ) : (
-        // The multi-step form
-        <form
-          onSubmit={handleSubmit}
-          className="w-full max-w-3xl bg-white p-6 rounded-lg shadow-md space-y-6"
-        >
-          {/* Introductory Text */}
+        <form onSubmit={handleSubmit} className="w-full max-w-3xl bg-white p-6 rounded-lg shadow-md space-y-6">
           <div className="text-center space-y-4">
             <h1 className="text-2xl font-bold text-gray-800">
               Black Sustainability Network (BSN) Member Registration
@@ -972,24 +801,14 @@ const BSNRegistrationForm: React.FC = () => {
             </p>
             <p className="text-gray-700 italic">
               <strong>*Not Black AND Green?</strong> Email{" "}
-              <a
-                href="mailto:info@blacksustainability.org"
-                className="text-blue-500 underline"
-              >
+              <a href="mailto:info@blacksustainability.org" className="text-blue-500 underline">
                 info@blacksustainability.org
               </a>{" "}
               to connect with us.
             </p>
           </div>
-
-          {/* Step Content */}
           {currentStep === 1 && (
-            <Step1
-              formData={formData}
-              handleInputChange={handleInputChange}
-              errors={errors}
-              handleFileChange={handleFileChange}
-            />
+            <Step1 formData={formData} handleInputChange={handleInputChange} errors={errors} handleFileChange={handleFileChange} />
           )}
           {currentStep === 2 && (
             <Step2
@@ -1018,32 +837,18 @@ const BSNRegistrationForm: React.FC = () => {
               handleToggleCategory={handleToggleCategory}
             />
           )}
-
-          {/* Navigation Buttons */}
           <div className="flex justify-between pt-4">
             {currentStep > 1 && (
-              <button
-                type="button"
-                onClick={prevStep}
-                className="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600"
-              >
+              <button type="button" onClick={prevStep} className="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600">
                 Previous
               </button>
             )}
-
             {currentStep < totalSteps ? (
-              <button
-                type="button"
-                onClick={nextStep}
-                className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600"
-              >
+              <button type="button" onClick={nextStep} className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600">
                 Next
               </button>
             ) : (
-              <button
-                type="submit"
-                className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600"
-              >
+              <button type="submit" className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600">
                 Submit
               </button>
             )}
