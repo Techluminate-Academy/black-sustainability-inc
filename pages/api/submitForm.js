@@ -1,9 +1,9 @@
 
 import axios from "axios";
-const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN_DEV;
-const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID_DEV;
-const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME_DEV;
-const VIEW_ID_NOT_SORTED = process.env.NEXT_PUBLIC_AIRTABLE_VIEW_ID_NOT_SORTED_DEV;
+const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_DEV_AIRTABLE_ACCESS_TOKEN;
+const BASE_ID = process.env.NEXT_PUBLIC_DEV_AIRTABLE_BASE_ID;
+const TABLE_NAME = process.env.NEXT_PUBLIC_DEV_AIRTABLE_TABLE_NAME;
+const VIEW_ID_NOT_SORTED = process.env.NEXT_PUBLIC__DEV_AIRTABLE_VIEW_ID_NOT_SORTED;
 /**
  * Submits data to Airtable
  * @param fields - Object containing the fields to be submitted
