@@ -8,9 +8,11 @@ import GooglePlacesAutocomplete, {
 } from "react-google-places-autocomplete";
 import { geocodeAddress } from "@/utils/geocode.js"; // <-- Our geocoding helper
 import AirtableUtils from "@/pages/api/submitForm";
-import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { parsePhoneNumberFromString, CountryCode } from "libphonenumber-js";
 // Import allCountries from country-telephone-data
 import { allCountries } from "country-telephone-data";
+
+
 
 // 1. TYPES & INTERFACES
 interface FormData {
@@ -80,8 +82,9 @@ interface FormData {
 
 // 3. Map formData -> Airtable fields
 const mapFormDataToAirtableFields = (formData: FormData) => {
-  // Combine the international code and phone number here
-  const fullPhone = formData.phoneCountryCode + formData.phone;
+  // Extract the dial code from the stored value (e.g., from "+1-us" get "+1")
+  const dialCode = formData.phoneCountryCode.split("-")[0];
+  const fullPhone = dialCode + formData.phone;
   
   return {
     "EMAIL ADDRESS": formData.email,
@@ -93,7 +96,6 @@ const mapFormDataToAirtableFields = (formData: FormData) => {
     "IDENTIFICATION": formData.identification,
     "GENDER": formData.gender,
     "WEBSITE": formData.website,
-    // Use the full phone number here
     "PHONE US/CAN ONLY": fullPhone,
     "PRIMARY INDUSTRY HOUSE": formData.primaryIndustry,
     "ADDITIONAL FOCUS AREAS": formData.additionalFocus.join(", "),
@@ -119,6 +121,7 @@ const mapFormDataToAirtableFields = (formData: FormData) => {
 
 
 
+
 // Helper to map country names to ISO Alpha-2 codes used by Google Places
 function getCountryCode(countryName: string): string {
   const lower = countryName.toLowerCase();
@@ -132,6 +135,7 @@ function getCountryCode(countryName: string): string {
 // Use the full list of countries from country-telephone-data to build dropdown options.
 // Each object in allCountries has a "dialCode" and a "name".
 // Define an interface for country data (adjust properties as needed)
+// Define an interface for country data
 interface CountryData {
   dialCode: string;
   iso2: string;
@@ -139,12 +143,13 @@ interface CountryData {
 }
 
 // Build the international options array with explicit types
-const internationalOptions: { code: string; country: string }[] = allCountries.map(
-  (country: CountryData) => ({
+const internationalOptions: { code: string; country: string; iso2: string }[] =
+  allCountries.map((country: CountryData) => ({
     code: `+${country.dialCode}`,
     country: country.name,
-  })
-);
+    iso2: country.iso2,
+  }));
+
 
 console.log(internationalOptions)
 //
@@ -219,34 +224,34 @@ const Step1: React.FC<{
 
    {/* Phone input with international code dropdown */}
    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">Phone</label>
-      <p className="text-xs text-gray-600">
-        We want to ensure you receive BSN info via SMS (no SPAM we promise)...
-      </p>
-      <div className="flex">
-      <select
-  value={formData.phoneCountryCode}
-  onChange={(e) => handleInputChange("phoneCountryCode", e.target.value)}
-  className="mr-2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-  style={{ minWidth: "120px", width: "auto" }}
->
-  {internationalOptions.map((item) => (
-    <option key={`${item.code}-${item.country}`} value={item.code}>
-      {item.code} ({item.country})
-    </option>
-  ))}
-</select>
+  <label className="block text-sm font-medium text-gray-700">Phone</label>
+  <p className="text-xs text-gray-600">
+    We want to ensure you receive BSN info via SMS (no SPAM we promise)...
+  </p>
+  <div className="flex">
+    <select
+      value={formData.phoneCountryCode}
+      onChange={(e) => handleInputChange("phoneCountryCode", e.target.value)}
+      className="mr-2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      style={{ minWidth: "120px", width: "auto" }}
+    >
+      {internationalOptions.map((item) => (
+        <option key={`${item.code}-${item.iso2}`} value={`${item.code}-${item.iso2}`}>
+          {item.code} ({item.country})
+        </option>
+      ))}
+    </select>
+    <input
+      type="tel"
+      value={formData.phone}
+      onChange={(e) => handleInputChange("phone", e.target.value)}
+      className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      placeholder="Enter phone number"
+    />
+  </div>
+  {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
+</div>
 
-        <input
-          type="tel"
-          value={formData.phone}
-          onChange={(e) => handleInputChange("phone", e.target.value)}
-          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-          placeholder="Enter phone number"
-        />
-      </div>
-      {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
-    </div>
   </>
 );
 
@@ -701,7 +706,7 @@ const BSNRegistrationForm: React.FC = () => {
     identification: "",
     gender: "",
     website: "",
-    phoneCountryCode: "+1",
+    phoneCountryCode: "+1-us",
     phone: "",
     primaryIndustry: "",
     additionalFocus: [],
@@ -720,6 +725,7 @@ const BSNRegistrationForm: React.FC = () => {
     longitude: null,
     showDropdown: false,
   });
+  console.log(formData.phone, formData.phoneCountryCode)
   const [currentStep, setCurrentStep] = useState<number>(1);
   const totalSteps = 3;
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
@@ -786,11 +792,13 @@ const BSNRegistrationForm: React.FC = () => {
       if (!formData.lastName) newErrors.lastName = "Last Name is required.";
       if (!formData.photo) newErrors.photo = "Photo is required.";
           // Combine country code and phone and validate using libphonenumber-js
-          const fullPhone = formData.phoneCountryCode + formData.phone;
-          const phoneNumber = parsePhoneNumberFromString(fullPhone);
+          const fullPhone = formData.phoneCountryCode.split("-")[0] + formData.phone;
+          const defaultCountry: CountryCode = (formData.phoneCountryCode.split("-")[1]?.toUpperCase() || "US") as CountryCode;
+          const phoneNumber = parsePhoneNumberFromString(fullPhone, defaultCountry);
           if (!phoneNumber || !phoneNumber.isValid()) {
             newErrors.phone = "Please enter a valid phone number including country code.";
           }
+          
     } else if (currentStep === 2) {
       if (!formData.memberLevel) newErrors.memberLevel = "Member level is required.";
       if (!formData.bio) newErrors.bio = "Bio is required.";
@@ -838,7 +846,7 @@ const BSNRegistrationForm: React.FC = () => {
         logoUrl = await uploadFile(formData.logo);
         setFormData((prev) => ({ ...prev, logoUrl }));
       }
-
+console.log(formData.phone, 'phone')
       // Perform geocoding
       // const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_API_KEY";
       // const geocodeResult = await geocodeAddress(
