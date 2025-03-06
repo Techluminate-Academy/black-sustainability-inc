@@ -10,15 +10,6 @@ export default async function handler(req, res) {
     return res.status(500).json({ success: false, error: "MONGODB_URI is not defined" });
   }
 
-  // Create a cache key based on the request query parameters.
-  const cacheKey = `searchData:${JSON.stringify(req.query)}`;
-  const cachedResult = myCache.get(cacheKey);
-  if (cachedResult) {
-    // Set HTTP caching headers for CDN/proxy caching as well.
-    res.setHeader("Cache-Control", "public, max-age=60");
-    return res.status(200).json(cachedResult);
-  }
-
   const client = new MongoClient(MONGODB_URI);
 
   try {
