@@ -15,6 +15,7 @@ import { BsiUserObjectArray } from "@/typings";
 import { getAllRecordsFromAirtable } from "@/utils/airtable";
 import Loader from "@/components/common/loader";
 
+
 export default function Home() {
   const BsiMap = dynamic(() => import("@/components/common/LeafletMap"), {
     ssr: false,

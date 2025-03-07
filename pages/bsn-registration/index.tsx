@@ -10,7 +10,9 @@ import { geocodeAddress } from "@/utils/geocode.js"; // <-- Our geocoding helper
 import AirtableUtils from "@/pages/api/submitForm";
 import { parsePhoneNumberFromString, CountryCode } from "libphonenumber-js";
 // Import allCountries from country-telephone-data
+import Image from 'next/image';
 import { allCountries } from "country-telephone-data";
+import logo from '@/public/png/bsn-logo.png'
 
 
 
@@ -34,8 +36,8 @@ interface FormData {
   phone: string;
   additionalFocus: string[];
   primaryIndustry: string;
-  locationCountry: string;  // e.g. "United States"
-  locationCity: string;     // e.g. "Chicago, IL, USA"
+  // locationCountry: string;  // e.g. "United States"
+  // locationCity: string;     // e.g. "Chicago, IL, USA"
   address: string; 
   zipCode: number;
   youtube: string;
@@ -99,7 +101,7 @@ const mapFormDataToAirtableFields = (formData: FormData) => {
     "PHONE US/CAN ONLY": fullPhone,
     "PRIMARY INDUSTRY HOUSE": formData.primaryIndustry,
     "ADDITIONAL FOCUS AREAS": formData.additionalFocus.join(", "),
-    Country: formData.locationCountry,
+    // Country: formData.locationCountry,
     "Zip/Postal Code": formData.zipCode,
     YOUTUBE: formData.youtube,
     "Location (Nearest City)": formData.nearestCity,
@@ -375,7 +377,7 @@ const Step2: React.FC<{
         />
       </div>
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Primary Industry *</label>
+        <label className="block text-sm font-medium text-gray-700">Primary Industry House *</label>
         <select
           value={formData.primaryIndustry}
           onChange={(e) => handleInputChange("primaryIndustry", e.target.value)}
@@ -391,7 +393,7 @@ const Step2: React.FC<{
         {errors.primaryIndustry && <p className="text-red-500 text-sm mt-1">{errors.primaryIndustry}</p>}
       </div>
       <div className="space-y-2 relative">
-        <label className="block text-sm font-medium text-gray-700">Additional Focus Areas</label>
+        <label className="block text-sm font-medium text-gray-700">Additional Industry Houses</label>
         <div
           className="w-full border border-gray-300 rounded-lg p-2 cursor-pointer"
           onClick={() =>
@@ -458,7 +460,7 @@ const Step3: React.FC<{
   formData: FormData;
   handleInputChange: (field: keyof FormData, value: any) => void;
   errors: Partial<Record<keyof FormData, string>>;
-  locationCountryOptions: any[];
+  // locationCountryOptions: any[];
   nameFromLocationOptions: any[];
   similarCategoriesOptions: any[];
   showDropdown: boolean;
@@ -468,7 +470,7 @@ const Step3: React.FC<{
   formData,
   handleInputChange,
   errors,
-  locationCountryOptions,
+  // locationCountryOptions,
   nameFromLocationOptions,
   similarCategoriesOptions,
   showDropdown,
@@ -476,25 +478,25 @@ const Step3: React.FC<{
   handleToggleCategory,
 }) => {
     const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-    const handleCityChange = async (val: any) => {
-      if (!val) {
-        handleInputChange("locationCity", "");
-        return;
-      }
-      handleInputChange("locationCity", val.label);
-      try {
-        const results = await geocodeByPlaceId(val.value.place_id);
-        const latLng = await getLatLng(results[0]);
-        handleInputChange("latitude", latLng.lat);
-        handleInputChange("longitude", latLng.lng);
-      } catch (error) {
-        console.error("Error getting lat/lng from place", error);
-      }
-    };
+    // const handleCityChange = async (val: any) => {
+    //   if (!val) {
+    //     handleInputChange("locationCity", "");
+    //     return;
+    //   }
+    //   handleInputChange("locationCity", val.label);
+    //   try {
+    //     const results = await geocodeByPlaceId(val.value.place_id);
+    //     const latLng = await getLatLng(results[0]);
+    //     handleInputChange("latitude", latLng.lat);
+    //     handleInputChange("longitude", latLng.lng);
+    //   } catch (error) {
+    //     console.error("Error getting lat/lng from place", error);
+    //   }
+    // };
 
     return (
       <>
-        <div className="space-y-2">
+        {/* <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">Location (Country) *</label>
           <select
             value={formData.locationCountry}
@@ -514,8 +516,8 @@ const Step3: React.FC<{
             ))}
           </select>
           {errors.locationCountry && <span className="text-red-500 text-sm">{errors.locationCountry}</span>}
-        </div>
-        <div className="space-y-2">
+        </div> */}
+        {/* <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">Location (City) *</label>
           <GooglePlacesAutocomplete
             apiKey={googleMapsApiKey}
@@ -534,7 +536,7 @@ const Step3: React.FC<{
             }}
           />
           {errors.locationCity && <span className="text-red-500 text-sm">{errors.locationCity}</span>}
-        </div>
+        </div> */}
 
 <div className="space-y-2">
   <label className="block text-sm font-medium text-gray-700">Address (Drop your pin on the map!)*</label>
@@ -564,9 +566,9 @@ const Step3: React.FC<{
     }}
     autocompletionRequest={{
       types: ["address"],
-      componentRestrictions: {
-        country: getCountryCode(formData.locationCountry),
-      },
+      // componentRestrictions: {
+      //   country: getCountryCode(formData.locationCountry),
+      // },
     }}
   />
   {errors.address && <span className="text-red-500 text-sm">{errors.address}</span>}
@@ -710,8 +712,8 @@ const BSNRegistrationForm: React.FC = () => {
     phone: "",
     primaryIndustry: "",
     additionalFocus: [],
-    locationCountry: "",
-    locationCity: "",
+    // locationCountry: "",
+    // locationCity: "",
     address: "",
     zipCode: 0,
     youtube: "",
@@ -745,6 +747,11 @@ const BSNRegistrationForm: React.FC = () => {
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
   const [additionalFocusOpen, setAdditionalFocusOpen] = useState<boolean>(false);
 
+  function stripEmojisAndSpaces(str: string) {
+    // This example removes all leading non-letter characters and trims trailing spaces:
+    // Feel free to customize further if needed.
+    return str.replace(/^[^a-zA-Z]+/, '').trim();
+  }
   useEffect(() => {
     const fetchDropdownOptions = async () => {
       try {
@@ -772,7 +779,24 @@ const BSNRegistrationForm: React.FC = () => {
         const genderField = dropdownData.find((f: any) => f.fieldName === "GENDER");
         setGenderOptions(genderField?.options || []);
         const primaryIndustryField = dropdownData.find((f: any) => f.fieldName === "PRIMARY INDUSTRY HOUSE");
-        setPrimaryIndustryOptions(primaryIndustryField?.options || []);
+        console.log(primaryIndustryField)
+        if (primaryIndustryField) {
+        // First, remove the unwanted item
+  const cleanedOptions = primaryIndustryField.options.filter(
+    (item: any) => item.name !== "PRIMARY INDUSTRY HOUSE"
+  );
+
+  // Then sort them
+  const sortedIndustry = cleanedOptions.slice().sort((a: any, b: any) => {
+    const aName = stripEmojisAndSpaces(a.name);
+    const bName = stripEmojisAndSpaces(b.name);
+    return aName.localeCompare(bName, "en", { sensitivity: "base" });
+  });
+
+          console.log(sortedIndustry, 'Sorted by ignoring leading emojis/spaces');
+          setPrimaryIndustryOptions(sortedIndustry);
+        }
+        // setPrimaryIndustryOptions(primaryIndustryField?.options || []);
         const nameFromLocationField = dropdownData.find((f: any) => f.fieldName === "Name (from Location)");
         setNameFromLocationOptions(nameFromLocationField?.options || []);
         const similarCategoriesField = dropdownData.find((f: any) => f.fieldName === "Similar Categories");
@@ -806,8 +830,12 @@ const BSNRegistrationForm: React.FC = () => {
       if (!formData.gender) newErrors.gender = "Gender is required.";
       if (!formData.primaryIndustry) newErrors.primaryIndustry = "Primary industry is required.";
     } else if (currentStep === 3) {
-      if (!formData.locationCountry) newErrors.locationCountry = "Location (Country) is required.";
-      if (!formData.locationCity) newErrors.locationCity = "Location (City) is required.";
+      // if (!formData.locationCountry) newErrors.locationCountry = "Location (Country) is required.";
+      // if (!formData.locationCity) newErrors.locationCity = "Location (City) is required.";
+
+         if (!formData.address) {
+          newErrors.address = "Please enter an address or drop a pin on the map.";
+        }
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -959,7 +987,15 @@ console.log(formData.phone, 'phone')
               to connect with us.
             </p>
           </div>
-
+ {/* Add Logo at the top of the form */}
+ <div className="flex justify-center mb-6">
+        <Image
+          src={logo}
+          alt="Logo"
+          width={120}    // Adjust width as necessary
+          height={120}    // Adjust according to your aspect ratio
+        />
+      </div>
           {currentStep === 1 && (
             <Step1
               formData={formData}
@@ -987,7 +1023,6 @@ console.log(formData.phone, 'phone')
               formData={formData}
               handleInputChange={handleInputChange}
               errors={errors}
-              locationCountryOptions={locationCountryOptions}
               nameFromLocationOptions={nameFromLocationOptions}
               similarCategoriesOptions={similarCategoriesOptions}
               showDropdown={showDropdown}
