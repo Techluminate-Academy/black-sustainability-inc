@@ -23,7 +23,7 @@ interface FormData {
   lastName: string;
   memberLevel: string;
   bio: string;
-  organizationName: string; 
+  organizationName: string;
   photo: File | null;
   photoUrl?: string; // URL returned from Cloudinary
   logo: File | null;
@@ -31,14 +31,14 @@ interface FormData {
   identification: string;
   gender: string;
   website: string;
-   // New fields for phone international code and number
-   phoneCountryCode: string;
+  // New fields for phone international code and number
+  phoneCountryCode: string;
   phone: string;
   additionalFocus: string[];
   primaryIndustry: string;
   // locationCountry: string;  // e.g. "United States"
   // locationCity: string;     // e.g. "Chicago, IL, USA"
-  address: string; 
+  address: string;
   zipCode: number;
   youtube: string;
   nearestCity: string;
@@ -52,42 +52,14 @@ interface FormData {
   showDropdown?: boolean; // For dropdown visibility
 }
 
-// // 2. Optional test data (if needed)
-// const testFormData: FormData = {
-//   email: "test@example.com",
-//   firstName: "John",
-//   lastName: "Doe",
-//   memberLevel: "Young Environmental Scholar",
-//   bio: "I am a sustainability advocate...",
-//   photo: null,
-//   logo: null,
-//   identification: "Mixed",
-//   gender: "Male",
-//   website: "https://example.com",
-//   phone: "123-456-7890",
-//   primaryIndustry: "Environmental Justice/Advocacy",
-//   additionalFocus: ["Community Development", "Green Lifestyle"],
-//   locationCountry: "United States",
-//   locationCity: "New York",
-//   zipCode: 10001,
-//   youtube: "https://youtube.com/example",
-//   nearestCity: "Newark",
-//   nameFromLocation: "USA",
-//   fundingGoal: "Seeking funding to scale up sustainable housing.",
-//   similarCategories: ["Author"],
-//   naicsCode: "12345",
-//   includeOnMap: "checked",
-//   latitude: null,
-//   longitude: null,
-//   showDropdown: false,
-// };
+
 
 // 3. Map formData -> Airtable fields
 const mapFormDataToAirtableFields = (formData: FormData) => {
   // Extract the dial code from the stored value (e.g., from "+1-us" get "+1")
   const dialCode = formData.phoneCountryCode.split("-")[0];
   const fullPhone = dialCode + formData.phone;
-  
+
   return {
     "EMAIL ADDRESS": formData.email,
     "FIRST NAME": formData.firstName,
@@ -224,35 +196,35 @@ const Step1: React.FC<{
       />
     </div>
 
-   {/* Phone input with international code dropdown */}
-   <div className="space-y-2">
-  <label className="block text-sm font-medium text-gray-700">Phone</label>
-  <p className="text-xs text-gray-600">
-    We want to ensure you receive BSN info via SMS (no SPAM we promise)...
-  </p>
-  <div className="flex">
-    <select
-      value={formData.phoneCountryCode}
-      onChange={(e) => handleInputChange("phoneCountryCode", e.target.value)}
-      className="mr-2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-      style={{ minWidth: "120px", width: "auto" }}
-    >
-      {internationalOptions.map((item) => (
-        <option key={`${item.code}-${item.iso2}`} value={`${item.code}-${item.iso2}`}>
-          {item.code} ({item.country})
-        </option>
-      ))}
-    </select>
-    <input
-      type="tel"
-      value={formData.phone}
-      onChange={(e) => handleInputChange("phone", e.target.value)}
-      className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-      placeholder="Enter phone number"
-    />
-  </div>
-  {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
-</div>
+    {/* Phone input with international code dropdown */}
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Phone</label>
+      <p className="text-xs text-gray-600">
+        We want to ensure you receive BSN info via SMS (no SPAM we promise)...
+      </p>
+      <div className="flex">
+        <select
+          value={formData.phoneCountryCode}
+          onChange={(e) => handleInputChange("phoneCountryCode", e.target.value)}
+          className="mr-2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+          style={{ minWidth: "120px", width: "auto" }}
+        >
+          {internationalOptions.map((item) => (
+            <option key={`${item.code}-${item.iso2}`} value={`${item.code}-${item.iso2}`}>
+              {item.code} ({item.country})
+            </option>
+          ))}
+        </select>
+        <input
+          type="tel"
+          value={formData.phone}
+          onChange={(e) => handleInputChange("phone", e.target.value)}
+          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+          placeholder="Enter phone number"
+        />
+      </div>
+      {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
+    </div>
 
   </>
 );
@@ -299,42 +271,42 @@ const Step2: React.FC<{
         {errors.memberLevel && <p className="text-red-500 text-sm mt-1">{errors.memberLevel}</p>}
       </div>
       <div>
-  <label className="block text-sm font-medium text-gray-700">Bio (250 words or less)*</label>
-  <textarea
-    value={formData.bio}
-    onChange={(e) => {
-      const text = e.target.value;
-      // Split the text into words while filtering out empty strings
-      const words = text.split(/\s+/).filter((word) => word.length > 0);
-      // If word count is within limit, update directly; else truncate
-      if (words.length <= 250) {
-        handleInputChange("bio", text);
-      } else {
-        handleInputChange("bio", words.slice(0, 250).join(" "));
-      }
-    }}
-    className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-  />
-  {/*
+        <label className="block text-sm font-medium text-gray-700">Bio (250 words or less)*</label>
+        <textarea
+          value={formData.bio}
+          onChange={(e) => {
+            const text = e.target.value;
+            // Split the text into words while filtering out empty strings
+            const words = text.split(/\s+/).filter((word) => word.length > 0);
+            // If word count is within limit, update directly; else truncate
+            if (words.length <= 250) {
+              handleInputChange("bio", text);
+            } else {
+              handleInputChange("bio", words.slice(0, 250).join(" "));
+            }
+          }}
+          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        {/*
     Calculate word count and conditionally style:
     If count equals (or reaches) 250, change text color to red.
   */}
-  <p className={`text-xs mt-1 ${formData.bio.split(/\s+/).filter((w) => w.length > 0).length >= 250 ? "text-red-500" : "text-gray-600"}`}>
-    Word Count: {formData.bio.split(/\s+/).filter((w) => w.length > 0).length} / 250
-  </p>
-  {errors.bio && <p className="text-red-500 text-sm mt-1">{errors.bio}</p>}
-</div>
+        <p className={`text-xs mt-1 ${formData.bio.split(/\s+/).filter((w) => w.length > 0).length >= 250 ? "text-red-500" : "text-gray-600"}`}>
+          Word Count: {formData.bio.split(/\s+/).filter((w) => w.length > 0).length} / 250
+        </p>
+        {errors.bio && <p className="text-red-500 text-sm mt-1">{errors.bio}</p>}
+      </div>
 
 
       <div>
-      <label className="block text-sm font-medium text-gray-700">Organization Name (if Applicable)</label>
-      <input
-        type="text"
-        value={formData.organizationName || ""}
-        onChange={(e) => handleInputChange("organizationName", e.target.value)}
-        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-      />
-    </div>
+        <label className="block text-sm font-medium text-gray-700">Organization Name (if Applicable)</label>
+        <input
+          type="text"
+          value={formData.organizationName || ""}
+          onChange={(e) => handleInputChange("organizationName", e.target.value)}
+          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+      </div>
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">Identification *</label>
         <select
@@ -478,101 +450,45 @@ const Step3: React.FC<{
   handleToggleCategory,
 }) => {
     const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-    // const handleCityChange = async (val: any) => {
-    //   if (!val) {
-    //     handleInputChange("locationCity", "");
-    //     return;
-    //   }
-    //   handleInputChange("locationCity", val.label);
-    //   try {
-    //     const results = await geocodeByPlaceId(val.value.place_id);
-    //     const latLng = await getLatLng(results[0]);
-    //     handleInputChange("latitude", latLng.lat);
-    //     handleInputChange("longitude", latLng.lng);
-    //   } catch (error) {
-    //     console.error("Error getting lat/lng from place", error);
-    //   }
-    // };
 
     return (
       <>
-        {/* <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700">Location (Country) *</label>
-          <select
-            value={formData.locationCountry}
-            onChange={(e) => {
-              handleInputChange("locationCountry", e.target.value);
-              handleInputChange("locationCity", "");
-              handleInputChange("latitude", null);
-              handleInputChange("longitude", null);
-            }}
-            className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Select a country</option>
-            {locationCountryOptions.map((option) => (
-              <option key={option.id} value={option.name}>
-                {option.name}
-              </option>
-            ))}
-          </select>
-          {errors.locationCountry && <span className="text-red-500 text-sm">{errors.locationCountry}</span>}
-        </div> */}
-        {/* <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700">Location (City) *</label>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Address (Drop your pin on the map!)*</label>
           <GooglePlacesAutocomplete
             apiKey={googleMapsApiKey}
             selectProps={{
-              value: formData.locationCity
-                ? { label: formData.locationCity, value: formData.locationCity }
+              value: formData.address
+                ? { label: formData.address, value: formData.address }
                 : null,
-              onChange: handleCityChange,
-              placeholder: "Start typing your city...",
+              onChange: async (val: any) => {
+                if (!val) {
+                  handleInputChange("address", "");
+                  return;
+                }
+                // Update the full address
+                handleInputChange("address", val.label);
+                try {
+                  const results = await geocodeByPlaceId(val.value.place_id);
+                  const latLng = await getLatLng(results[0]);
+                  handleInputChange("latitude", latLng.lat);
+                  handleInputChange("longitude", latLng.lng);
+                } catch (error) {
+                  console.error("Error getting lat/lng from place", error);
+                }
+              },
+              placeholder: "Start typing your full address...",
             }}
             autocompletionRequest={{
-              types: ["(cities)"],
-              componentRestrictions: {
-                country: getCountryCode(formData.locationCountry),
-              },
+              types: ["address"],
+              // componentRestrictions: {
+              //   country: getCountryCode(formData.locationCountry),
+              // },
             }}
           />
-          {errors.locationCity && <span className="text-red-500 text-sm">{errors.locationCity}</span>}
-        </div> */}
-
-<div className="space-y-2">
-  <label className="block text-sm font-medium text-gray-700">Address (Drop your pin on the map!)*</label>
-  <GooglePlacesAutocomplete
-    apiKey={googleMapsApiKey}
-    selectProps={{
-      value: formData.address
-        ? { label: formData.address, value: formData.address }
-        : null,
-      onChange: async (val: any) => {
-        if (!val) {
-          handleInputChange("address", "");
-          return;
-        }
-        // Update the full address
-        handleInputChange("address", val.label);
-        try {
-          const results = await geocodeByPlaceId(val.value.place_id);
-          const latLng = await getLatLng(results[0]);
-          handleInputChange("latitude", latLng.lat);
-          handleInputChange("longitude", latLng.lng);
-        } catch (error) {
-          console.error("Error getting lat/lng from place", error);
-        }
-      },
-      placeholder: "Start typing your full address...",
-    }}
-    autocompletionRequest={{
-      types: ["address"],
-      // componentRestrictions: {
-      //   country: getCountryCode(formData.locationCountry),
-      // },
-    }}
-  />
-  {errors.address && <span className="text-red-500 text-sm">{errors.address}</span>}
-</div>
+          {errors.address && <span className="text-red-500 text-sm">{errors.address}</span>}
+        </div>
 
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">Zip/Postal Code</label>
@@ -781,17 +697,17 @@ const BSNRegistrationForm: React.FC = () => {
         const primaryIndustryField = dropdownData.find((f: any) => f.fieldName === "PRIMARY INDUSTRY HOUSE");
         console.log(primaryIndustryField)
         if (primaryIndustryField) {
-        // First, remove the unwanted item
-  const cleanedOptions = primaryIndustryField.options.filter(
-    (item: any) => item.name !== "PRIMARY INDUSTRY HOUSE"
-  );
+          // First, remove the unwanted item
+          const cleanedOptions = primaryIndustryField.options.filter(
+            (item: any) => item.name !== "PRIMARY INDUSTRY HOUSE"
+          );
 
-  // Then sort them
-  const sortedIndustry = cleanedOptions.slice().sort((a: any, b: any) => {
-    const aName = stripEmojisAndSpaces(a.name);
-    const bName = stripEmojisAndSpaces(b.name);
-    return aName.localeCompare(bName, "en", { sensitivity: "base" });
-  });
+          // Then sort them
+          const sortedIndustry = cleanedOptions.slice().sort((a: any, b: any) => {
+            const aName = stripEmojisAndSpaces(a.name);
+            const bName = stripEmojisAndSpaces(b.name);
+            return aName.localeCompare(bName, "en", { sensitivity: "base" });
+          });
 
           console.log(sortedIndustry, 'Sorted by ignoring leading emojis/spaces');
           setPrimaryIndustryOptions(sortedIndustry);
@@ -815,14 +731,14 @@ const BSNRegistrationForm: React.FC = () => {
       if (!formData.firstName) newErrors.firstName = "First Name is required.";
       if (!formData.lastName) newErrors.lastName = "Last Name is required.";
       if (!formData.photo) newErrors.photo = "Photo is required.";
-          // Combine country code and phone and validate using libphonenumber-js
-          const fullPhone = formData.phoneCountryCode.split("-")[0] + formData.phone;
-          const defaultCountry: CountryCode = (formData.phoneCountryCode.split("-")[1]?.toUpperCase() || "US") as CountryCode;
-          const phoneNumber = parsePhoneNumberFromString(fullPhone, defaultCountry);
-          if (!phoneNumber || !phoneNumber.isValid()) {
-            newErrors.phone = "Please enter a valid phone number including country code.";
-          }
-          
+      // Combine country code and phone and validate using libphonenumber-js
+      const fullPhone = formData.phoneCountryCode.split("-")[0] + formData.phone;
+      const defaultCountry: CountryCode = (formData.phoneCountryCode.split("-")[1]?.toUpperCase() || "US") as CountryCode;
+      const phoneNumber = parsePhoneNumberFromString(fullPhone, defaultCountry);
+      if (!phoneNumber || !phoneNumber.isValid()) {
+        newErrors.phone = "Please enter a valid phone number including country code.";
+      }
+
     } else if (currentStep === 2) {
       if (!formData.memberLevel) newErrors.memberLevel = "Member level is required.";
       if (!formData.bio) newErrors.bio = "Bio is required.";
@@ -833,9 +749,9 @@ const BSNRegistrationForm: React.FC = () => {
       // if (!formData.locationCountry) newErrors.locationCountry = "Location (Country) is required.";
       // if (!formData.locationCity) newErrors.locationCity = "Location (City) is required.";
 
-         if (!formData.address) {
-          newErrors.address = "Please enter an address or drop a pin on the map.";
-        }
+      if (!formData.address) {
+        newErrors.address = "Please enter an address or drop a pin on the map.";
+      }
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -874,25 +790,6 @@ const BSNRegistrationForm: React.FC = () => {
         logoUrl = await uploadFile(formData.logo);
         setFormData((prev) => ({ ...prev, logoUrl }));
       }
-console.log(formData.phone, 'phone')
-      // Perform geocoding
-      // const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_API_KEY";
-      // const geocodeResult = await geocodeAddress(
-      //   formData.locationCountry,
-      //   formData.locationCity,
-      //   formData.zipCode,
-      //   googleMapsApiKey
-      // );
-      // if (!geocodeResult) {
-      //   setErrors((prev) => ({
-      //     ...prev,
-      //     locationCity: "Invalid location. Please check city/zip and try again.",
-      //   }));
-      //   setIsSubmitting(false);
-      //   return;
-      // }
-      // const { lat, lng } = geocodeResult;
-
       // Build final data using the updated photoUrl and logoUrl values
       const finalAirtableFields = mapFormDataToAirtableFields({
         ...formData,
@@ -949,10 +846,10 @@ console.log(formData.phone, 'phone')
       {isSubmitted ? (
         <div className="max-w-xl bg-white p-6 rounded-lg shadow-md text-center">
           <h2 className="text-2xl font-bold text-green-600 mb-4">
-          SUCCESS! 
+            SUCCESS!
           </h2>
           <p className="text-gray-700 mb-4">
-          Your information is being reviewed by our team and we will follow up to gather more information about your sustainability skills and goals. If all checks out, you will see our map updated in 7 days with your pin
+            Your information is being reviewed by our team and we will follow up to gather more information about your sustainability skills and goals. If all checks out, you will see our map updated in 7 days with your pin
           </p>
           <p className="text-gray-700 mb-4">
             Meanwhile, you can visit{" "}
@@ -987,15 +884,15 @@ console.log(formData.phone, 'phone')
               to connect with us.
             </p>
           </div>
- {/* Add Logo at the top of the form */}
- <div className="flex justify-center mb-6">
-        <Image
-          src={logo}
-          alt="Logo"
-          width={120}    // Adjust width as necessary
-          height={120}    // Adjust according to your aspect ratio
-        />
-      </div>
+
+          <div className="flex justify-center mb-6">
+            <Image
+              src={logo}
+              alt="Logo"
+              width={120}    // Adjust width as necessary
+              height={120}    // Adjust according to your aspect ratio
+            />
+          </div>
           {currentStep === 1 && (
             <Step1
               formData={formData}
