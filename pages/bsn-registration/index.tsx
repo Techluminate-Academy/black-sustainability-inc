@@ -681,17 +681,40 @@ const BSNRegistrationForm: React.FC = () => {
             "🏢 Entity - Black & Green Organization",
             "Young Environmental Scholar",
           ];
+        
+          // Filter out any options that aren’t in your 4 allowed names
           const filteredOptions = memberLevelField.options.filter((o: any) =>
             allowedOptions.includes(o.name)
           );
-          setMemberLevelOptions(filteredOptions);
+        
+          // Alphabetize them by .name
+          const sortedOptions = filteredOptions
+            .slice()
+            .sort((a: any, b: any) =>
+              a.name.localeCompare(b.name, "en", { sensitivity: "base" })
+            );
+        
+          setMemberLevelOptions(sortedOptions);
         }
         const countryField = dropdownData.find((f: any) => f.fieldName === "Country");
         if (countryField) {
           setLocationCountryOptions(countryField.options);
         }
         const identificationField = dropdownData.find((f: any) => f.fieldName === "IDENTIFICATION");
-        setIdentificationOptions(identificationField?.options || []);
+        if (identificationField) {
+          // Filter out the unwanted option name
+          const filteredIdentifications = identificationField.options.filter(
+            (opt: any) => opt.name !== "IDENTIFICATION"
+          );
+
+            // 2. Sort alphabetically (ignoring case if desired)
+  const sortedIdentifications = filteredIdentifications.slice().sort(
+    (a: any, b: any) => a.name.localeCompare(b.name, "en", { sensitivity: "base" })
+  );
+           // 3. Set state with the cleaned-up sorted array
+  setIdentificationOptions(sortedIdentifications);
+        }
+        // setIdentificationOptions(identificationField?.options || []);
         const genderField = dropdownData.find((f: any) => f.fieldName === "GENDER");
         setGenderOptions(genderField?.options || []);
         const primaryIndustryField = dropdownData.find((f: any) => f.fieldName === "PRIMARY INDUSTRY HOUSE");
