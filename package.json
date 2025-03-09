@@ -21,7 +21,7 @@
     "dotenv": "^16.4.4",
     "env-cmd": "^10.1.0",
     "fs": "^0.0.1-security",
-    "ioredis": "^5.5.0",
+    "ioredis": "^5.6.0",
     "isomorphic-unfetch": "^4.0.2",
     "leaflet": "^1.9.4",
     "libphonenumber-js": "^1.12.5",
