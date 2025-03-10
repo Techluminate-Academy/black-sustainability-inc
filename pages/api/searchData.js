@@ -29,10 +29,20 @@ export default async function handler(req, res) {
       return res.status(200).json(JSON.parse(cachedData));
     }
 
-    // Build the search query object
     let query = {};
 
-    if (queryParams.q) query.$text = { $search: queryParams.q };
+    if (queryParams.q) {
+      const searchRegex = new RegExp(queryParams.q, "i");
+      query.$or = [
+        { ["fields.FIRST NAME"]: searchRegex },
+        { ["fields.LAST NAME"]: searchRegex },
+        { ["fields.FULL NAME"]: searchRegex },
+        { ["fields.ORGANIZATION NAME"]: searchRegex },
+        { ["fields.PRIMARY INDUSTRY HOUSE"]: searchRegex },
+      ];
+    }
+    
+    
     if (queryParams.timeZone) query["fields['Time zone']"] = queryParams.timeZone;
     if (queryParams.stateProvince) query["fields['State/Province']"] = queryParams.stateProvince;
     if (queryParams.nameFromLocation) query["fields['Name (from Location)']"] = queryParams.nameFromLocation;
@@ -43,7 +53,8 @@ export default async function handler(req, res) {
     if (queryParams.fullName) query["fields['FULL NAME']"] = queryParams.fullName;
     if (queryParams.country) query["fields.Country"] = queryParams.country;
     if (queryParams.bio) query["fields.BIO"] = queryParams.bio;
-
+    if (queryParams.organizationName) query["fields['ORGANIZATION NAME']"] = queryParams.organizationName;
+    
     // Retrieve matching documents
     const data = await collection.find(query).toArray();
     const totalCount = data.length;

@@ -21,6 +21,34 @@ export default function Home() {
     ssr: false,
   });
 
+
+  const [showImpactAreas, setShowImpactAreas] = useState(() => {
+    if (typeof window !== "undefined") {
+      const storedValue = localStorage.getItem("showImpactAreas");
+      return storedValue === null ? true : storedValue === "true";
+    }
+    return true;
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("showImpactAreas", String(showImpactAreas));
+    }
+  }, [showImpactAreas]);
+    
+  const [showMembers, setShowMembers] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("showMembers");
+      return stored === null ? true : stored === "true";
+    }
+    return true;
+  });
+  
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("showMembers", String(showMembers));
+    }
+  }, [showMembers]);
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredData, setFilteredData] = useState<BsiUserObjectArray>([]);
   const [OriginalData, setOriginalData] = useState<BsiUserObjectArray>([]);
@@ -284,6 +312,8 @@ export default function Home() {
                 filteredData={filteredData}
                 loadedData={loadedData}
                 hideCounter={hideCounter}
+                showImpactAreas={showImpactAreas}
+                showMembers={showMembers}
               />
             )}
           </div>
@@ -310,6 +340,27 @@ export default function Home() {
                   <icons.search />
                 </span>
               </div>
+              <div className="w-[95%] mt-2 flex items-center gap-4">
+  <label className="flex items-center gap-2 text-sm font-medium">
+    <input
+      type="checkbox"
+      checked={showImpactAreas}
+      onChange={() => setShowImpactAreas(!showImpactAreas)}
+    />
+    Show Impact Areas
+  </label>
+
+  <label className="flex items-center gap-2 text-sm font-medium">
+    <input
+      type="checkbox"
+      checked={showMembers}
+      onChange={() => setShowMembers(!showMembers)}
+    />
+    Show Members
+  </label>
+</div>
+
+
             </div>
 
             {preloaderSidebar || totalCount === null ? (
