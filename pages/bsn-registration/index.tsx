@@ -24,6 +24,7 @@ interface FormData {
   memberLevel: string;
   bio: string;
   organizationName: string;
+  affiliatedEntity: string;
   photo: File | null;
   photoUrl?: string; // URL returned from Cloudinary
   logo: File | null;
@@ -73,6 +74,7 @@ const mapFormDataToAirtableFields = (formData: FormData) => {
     "PHONE US/CAN ONLY": fullPhone,
     "PRIMARY INDUSTRY HOUSE": formData.primaryIndustry,
     "ADDITIONAL FOCUS AREAS": formData.additionalFocus.join(", "),
+    "AFFILIATED ENTITY": formData.affiliatedEntity,
     // Country: formData.locationCountry,
     "Zip/Postal Code": formData.zipCode,
     YOUTUBE: formData.youtube,
@@ -307,6 +309,23 @@ const Step2: React.FC<{
           className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
         />
       </div>
+
+          {/* New dropdown for Affiliated Entity */}
+  {/* Updated affiliated entity field as a regular text input */}
+  <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">
+        Which entity are you affiliated with? (Not a member)
+      </label>
+      <input
+        type="text"
+        value={formData.affiliatedEntity || ""}
+        onChange={(e) =>
+          handleInputChange("affiliatedEntity", e.target.value)
+        }
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        placeholder="Enter affiliated entity"
+      />
+    </div>
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">Identification *</label>
         <select
@@ -642,6 +661,7 @@ const BSNRegistrationForm: React.FC = () => {
     latitude: null,
     longitude: null,
     showDropdown: false,
+    affiliatedEntity: ''
   });
   console.log(formData.phone, formData.phoneCountryCode)
   const [currentStep, setCurrentStep] = useState<number>(1);

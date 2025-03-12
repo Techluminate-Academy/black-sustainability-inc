@@ -300,12 +300,13 @@ export default function Home() {
                 />
               </div>
               <div className="w-[95%] relative">
-                <input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-white border outline-none w-full px-5 py-2 rounded-full text-sm placeholder:capitalize placeholder:text-xs"
-                  placeholder="Search by City, State, Country and Country Abbreviation"
-                />
+              <input
+  value={searchQuery}
+  onChange={(e) => setSearchQuery(e.target.value)}
+  className="bg-white border outline-none w-full px-5 py-2 rounded-full text-sm placeholder:capitalize placeholder:text-xs"
+  placeholder="Search by Name, Country, City, State, Zip Code, Organization, Bio Keywords, Industry, House, Affiliated"
+/>
+
                 <span className="absolute right-4 top-3">
                   <icons.search />
                 </span>
