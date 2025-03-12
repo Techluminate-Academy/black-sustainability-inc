@@ -3,11 +3,13 @@ import { MongoClient } from "mongodb";
 const MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI;
 const DATABASE_NAME = "members";
 const COLLECTION_NAME = "airtableRecords";
-import CACHE_EXPIRY from '../../constants/CacheExpiry'
+import CACHE_EXPIRY from "../../constants/CacheExpiry";
 
 export default async function handler(req, res) {
   if (!MONGODB_URI) {
-    return res.status(500).json({ success: false, error: "MONGODB_URI is not defined" });
+    return res
+      .status(500)
+      .json({ success: false, error: "MONGODB_URI is not defined" });
   }
 
   const client = new MongoClient(MONGODB_URI);
@@ -29,20 +31,43 @@ export default async function handler(req, res) {
       return res.status(200).json(JSON.parse(cachedData));
     }
 
-    // Build the search query object
     let query = {};
 
-    if (queryParams.q) query.$text = { $search: queryParams.q };
-    if (queryParams.timeZone) query["fields['Time zone']"] = queryParams.timeZone;
-    if (queryParams.stateProvince) query["fields['State/Province']"] = queryParams.stateProvince;
-    if (queryParams.nameFromLocation) query["fields['Name (from Location)']"] = queryParams.nameFromLocation;
+    if (queryParams.q) {
+      const searchRegex = new RegExp(queryParams.q, "i");
+      query.$or = [
+        { ["fields.FIRST NAME"]: searchRegex },
+        { ["fields.LAST NAME"]: searchRegex },
+        { ["fields.FULL NAME"]: searchRegex },
+        { ["fields.ORGANIZATION NAME"]: searchRegex },
+        { ["fields.PRIMARY INDUSTRY HOUSE"]: searchRegex },
+      ];
+    }
+    
+    if (queryParams.timeZone)
+      query["fields['Time zone']"] = queryParams.timeZone;
+    if (queryParams.stateProvince)
+      query["fields['State/Province']"] = queryParams.stateProvince;
+    if (queryParams.nameFromLocation)
+      query["fields['Name (from Location)']"] = queryParams.nameFromLocation;
     if (queryParams.state) query["fields.State"] = queryParams.state;
-    if (queryParams.nearestCity) query["fields['Location (Nearest City)']"] = queryParams.nearestCity;
-    if (queryParams.firstName) query["fields['FIRST NAME']"] = queryParams.firstName;
-    if (queryParams.lastName) query["fields['LAST NAME']"] = queryParams.lastName;
-    if (queryParams.fullName) query["fields['FULL NAME']"] = queryParams.fullName;
-    if (queryParams.country) query["fields.Country"] = queryParams.country;
+    if (queryParams.nearestCity)
+      query["fields['Location (Nearest City)']"] = queryParams.nearestCity;
+    if (queryParams.firstName)
+      query["fields['FIRST NAME']"] = queryParams.firstName;
+    if (queryParams.lastName)
+      query["fields['LAST NAME']"] = queryParams.lastName;
+    if (queryParams.fullName)
+      query["fields['FULL NAME']"] = queryParams.fullName;
+    if (queryParams.country)
+      query["fields.Country"] = queryParams.country;
     if (queryParams.bio) query["fields.BIO"] = queryParams.bio;
+    if (queryParams.organizationName)
+      query["fields['ORGANIZATION NAME']"] = queryParams.organizationName;
+    
+    // NEW: Additional affiliated entity filter
+    if (queryParams.affiliatedEntity)
+      query["fields['AFFILIATED ENTITY']"] = queryParams.affiliatedEntity;
 
     // Retrieve matching documents
     const data = await collection.find(query).toArray();
