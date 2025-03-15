@@ -2,7 +2,7 @@
 import Nav from "@/components/layouts/Nav";
 import Footer from "@/components/layouts/Footer";
 import Sidebar from "@/components/layouts/Sidebar";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { customStyles } from "@/components/common/CustomSelect";
 import Select from "react-select";
 import { Head } from "next/document";
@@ -49,6 +49,32 @@ export default function Home() {
   const [totalCount, setTotalCount] = useState<number | null>(null);
 console.log(filteredData, 'filtered data')
   const route = useRouter();
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
+  // --- NEW: Monitor scroll position to show/hide the back-to-top button ---
+  useEffect(() => {
+    const sidebar = sidebarRef.current;
+    if (!sidebar) return;
+
+    const handleScroll = () => {
+      if (sidebar.scrollTop > 200) {
+        setShowBackToTop(true);
+      } else {
+        setShowBackToTop(false);
+      }
+    };
+
+    sidebar.addEventListener("scroll", handleScroll);
+    return () => {
+      sidebar.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
+  const scrollToTop = () => {
+    if (sidebarRef.current) {
+      sidebarRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
   // useEffect(() => {
   //   // ... user cookie code (omitted)
   // }, []);
@@ -288,7 +314,9 @@ console.log(filteredData, 'filtered data')
               />
             )}
           </div>
-          <div className="sm:w-2/5 w-full pb-4 flex flex-col justify-start items-center h-screen overflow-scroll">
+          <div 
+            ref={sidebarRef}
+          className="sm:w-2/5 w-full pb-4 flex flex-col justify-start items-center h-screen overflow-scroll">
             <div className="bg-[#FFF8E5] py-2 sticky left-0 top-0 w-full flex flex-col items-center justify-center z-10">
               <div className="w-[95%]">
                 <Select
