@@ -42,10 +42,13 @@ const Sidebar: React.FC<IProps> = ({
         {filteredData?.map((data: any, idx: any) => (
           <UserCard
             key={idx}
+            AFFILIATION={data.fields["AFFILIATED ENTITY"]}
             FULL_NAME={data.fields["FULL NAME"]}
             EMAIL_ADDRESS={data.fields["EMAIL ADDRESS"]}
             ORGANIZATION_NAME={data.fields["ORGANIZATION NAME"]}
             Nearest_City={data.fields["Location (Nearest City)"]}
+              //  {/* Render yellow star and affiliation if present */}
+
             MEMBER_LEVEL={
               data.fields["MEMBER LEVEL"] &&
               data.fields["MEMBER LEVEL"][0] !== undefined

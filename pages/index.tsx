@@ -47,7 +47,7 @@ export default function Home() {
   const [sidebarPage, setSidebarPage] = useState(1);
   // Modification: totalCount now initialized as null instead of 0.
   const [totalCount, setTotalCount] = useState<number | null>(null);
-
+console.log(filteredData, 'filtered data')
   const route = useRouter();
   // useEffect(() => {
   //   // ... user cookie code (omitted)
@@ -186,8 +186,9 @@ export default function Home() {
           .then((response) => response.json())
           .then((result) => {
             if (result.success && Array.isArray(result.data)) {
-              console.log("Search API returned:", result.data.length, "records");
+              // console.log("Search API returned:", result.data.length, "records");
               setFilteredData(result.data);
+           
             } else {
               console.error("Search API did not return valid data", result);
               setFilteredData([]); // Ensure we clear data on error
