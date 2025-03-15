@@ -2,8 +2,12 @@
 
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
-import clientPromise from "../../lib/mongodb";
+import { connectToDatabase } from "../../lib/mongodb"
 
+// Export the NextAuth configuration as a named export.
+
+// This wraps your connectToDatabase function to extract the client.
+const clientPromise = connectToDatabase().then(({ client }) => client);
 export default async function handler(req, res) {
   // Only allow POST requests.
   if (req.method !== "POST") {
