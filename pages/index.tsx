@@ -50,7 +50,7 @@ export default function Home() {
 console.log(filteredData, 'filtered data')
   const route = useRouter();
   const [showBackToTop, setShowBackToTop] = useState(false);
-
+  const sidebarRef = useRef<HTMLDivElement>(null);
   // --- NEW: Monitor scroll position to show/hide the back-to-top button ---
   useEffect(() => {
     const sidebar = sidebarRef.current;

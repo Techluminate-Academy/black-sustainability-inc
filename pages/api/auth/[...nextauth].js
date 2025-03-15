@@ -3,11 +3,14 @@
 import NextAuth from "next-auth";
 import EmailProvider from "next-auth/providers/email";
 import { MongoDBAdapter } from "@next-auth/mongodb-adapter";
-import clientPromise from "../../../lib/mongodb";
+import { connectToDatabase } from "../../../lib/mongodb"
 
 // Export the NextAuth configuration as a named export.
+
+// This wraps your connectToDatabase function to extract the client.
+const clientPromise = connectToDatabase().then(({ client }) => client);
 export const authOptions = {
-  adapter: MongoDBAdapter(clientPromise),
+  adapter: MongoDBAdapter(clientPromise,  { databaseName: "orgUserData" }),
   providers: [
     EmailProvider({
       server: {

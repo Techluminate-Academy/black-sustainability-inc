@@ -2,9 +2,13 @@
 
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
-import clientPromise from "../../lib/mongodb";
 import crypto from "crypto";
+import { connectToDatabase } from "../../lib/mongodb"
 
+// Export the NextAuth configuration as a named export.
+
+// This wraps your connectToDatabase function to extract the client.
+const clientPromise = connectToDatabase().then(({ client }) => client);
 export default async function handler(req, res) {
   // Only allow POST requests.
   if (req.method !== "POST") {
@@ -24,7 +28,8 @@ export default async function handler(req, res) {
 
     // Connect to MongoDB.
     const client = await clientPromise;
-    const db = client.db(); // Uses the default database in your connection string.
+    const db = client.db("orgUserData");
+
     
     // Update the user record with the new token.
     const result = await db.collection("users").updateOne(
