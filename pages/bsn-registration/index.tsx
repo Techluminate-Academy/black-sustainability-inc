@@ -58,6 +58,7 @@ interface FormData {
   latitude: number | null;
   longitude: number | null;
   showDropdown?: boolean; // For dropdown visibility
+  phoneCountryCodeTouched: boolean,
 }
 
 
@@ -214,7 +215,11 @@ const Step1: React.FC<{
       <div className="flex">
         <select
           value={formData.phoneCountryCode}
-          onChange={(e) => handleInputChange("phoneCountryCode", e.target.value)}
+          onChange={(e) => {
+            handleInputChange("phoneCountryCode", e.target.value);
+            handleInputChange("phoneCountryCodeTouched", true);
+          }}
+          
           className="mr-2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
           style={{ minWidth: "120px", width: "auto" }}
         >
@@ -668,7 +673,9 @@ const BSNRegistrationForm: React.FC = () => {
     latitude: null,
     longitude: null,
     showDropdown: false,
-    affiliatedEntity: ''
+    affiliatedEntity: '',
+    phoneCountryCodeTouched: false
+    
   });
   console.log(formData.phone, formData.phoneCountryCode)
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -695,6 +702,25 @@ const BSNRegistrationForm: React.FC = () => {
     // Feel free to customize further if needed.
     return str.replace(/^[^a-zA-Z]+/, '').trim();
   }
+
+  useEffect(() => {
+    if (formData.phone && !formData.phoneCountryCodeTouched) {
+      const parsedPhone = parsePhoneNumberFromString(formData.phone);
+      if (parsedPhone && parsedPhone.isValid()) {
+        const regionCode = parsedPhone.country?.toLowerCase(); // e.g., 'us'
+        const match = internationalOptions.find(
+          (opt) => opt.iso2 === regionCode
+        );
+        if (match) {
+          setFormData((prev) => ({
+            ...prev,
+            phoneCountryCode: `${match.code}-${match.iso2}`,
+          }));
+        }
+      }
+    }
+  }, [formData.phone]);
+  
   useEffect(() => {
     const fetchDropdownOptions = async () => {
       try {
