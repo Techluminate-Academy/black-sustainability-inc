@@ -215,6 +215,8 @@ const Step1: React.FC<{
       </p>
       <div className="flex">
         <select
+          name="phoneCountryCode_no_autofill" // using a non-standard name might help
+           autoComplete="off"
           value={formData.phoneCountryCode}
           onChange={(e) => {
             handleInputChange("phoneCountryCode", e.target.value);
