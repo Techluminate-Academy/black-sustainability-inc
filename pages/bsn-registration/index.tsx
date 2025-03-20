@@ -13,6 +13,7 @@ import { parsePhoneNumberFromString, CountryCode } from "libphonenumber-js";
 import Image from 'next/image';
 import { allCountries } from "country-telephone-data";
 import logo from '@/public/png/bsn-logo.png'
+import CountryCodeDropdown from "../../components/CountryCodeDropdown/CountryCodeDropdown";
 
 // You can define this array at the top of your file or outside your component
 const HARDCODED_MEMBER_LEVELS = [
@@ -214,7 +215,16 @@ const Step1: React.FC<{
         We want to ensure you receive BSN info via SMS (no SPAM we promise)...
       </p>
       <div className="flex">
-        <select
+        {/* Custom dropdown replacing the native select */}
+        <CountryCodeDropdown
+          value={formData.phoneCountryCode}
+          options={internationalOptions}
+          onChange={(newValue) => {
+            handleInputChange("phoneCountryCode", newValue);
+            handleInputChange("phoneCountryCodeTouched", true);
+          }}
+        />
+        {/* <select
           name="phoneCountryCode_no_autofill" // using a non-standard name might help
            autoComplete="off"
           value={formData.phoneCountryCode}
@@ -231,7 +241,7 @@ const Step1: React.FC<{
               {item.code} ({item.country})
             </option>
           ))}
-        </select>
+        </select> */}
         <input
          ref={phoneInputRef} 
           type="tel"
