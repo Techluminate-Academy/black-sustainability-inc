@@ -915,7 +915,16 @@ const BSNRegistrationForm: React.FC = () => {
           </p>
         </div>
       ) : (
+        
         <form onSubmit={handleSubmit} className="w-full max-w-3xl bg-white p-6 rounded-lg shadow-md space-y-6">
+            <div className="flex justify-center mb-6">
+            <Image
+              src={logo}
+              alt="Logo"
+              width={120}    // Adjust width as necessary
+              height={120}    // Adjust according to your aspect ratio
+            />
+          </div>
           <div className="text-center space-y-4">
             <h1 className="text-2xl font-bold text-gray-800">
               Black Sustainability Network (BSN) Map Listing
@@ -934,15 +943,8 @@ const BSNRegistrationForm: React.FC = () => {
               to connect with us.
             </p>
           </div>
-
-          <div className="flex justify-center mb-6">
-            <Image
-              src={logo}
-              alt="Logo"
-              width={120}    // Adjust width as necessary
-              height={120}    // Adjust according to your aspect ratio
-            />
-          </div>
+        
+        
           {currentStep === 1 && (
             <Step1
               formData={formData}
