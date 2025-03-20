@@ -147,7 +147,7 @@ const Step1: React.FC<{
   errors: Partial<Record<keyof FormData, string>>;
   handleFileChange: (field: keyof FormData, file: File | null) => void;
   phoneInputRef: React.RefObject<HTMLInputElement>; // 👈 Add this
-}> = ({ formData, handleInputChange, errors, handleFileChange }) => (
+}> = ({ formData, handleInputChange, errors, handleFileChange, phoneInputRef }) => (
   <>
     <div>
       <label className="block text-sm font-medium text-gray-700">
