@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import GooglePlacesAutocomplete, {
   geocodeByPlaceId,
@@ -146,6 +146,7 @@ const Step1: React.FC<{
   handleInputChange: (field: keyof FormData, value: any) => void;
   errors: Partial<Record<keyof FormData, string>>;
   handleFileChange: (field: keyof FormData, file: File | null) => void;
+  phoneInputRef: React.RefObject<HTMLInputElement>; // 👈 Add this
 }> = ({ formData, handleInputChange, errors, handleFileChange }) => (
   <>
     <div>
@@ -230,6 +231,7 @@ const Step1: React.FC<{
           ))}
         </select>
         <input
+         ref={phoneInputRef} 
           type="tel"
           value={formData.phone}
           onChange={(e) => handleInputChange("phone", e.target.value)}
@@ -702,28 +704,42 @@ const BSNRegistrationForm: React.FC = () => {
     // Feel free to customize further if needed.
     return str.replace(/^[^a-zA-Z]+/, '').trim();
   }
+  const phoneInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (formData.phone && !formData.phoneCountryCodeTouched) {
-        const parsedPhone = parsePhoneNumberFromString(formData.phone);
-        if (parsedPhone?.isValid()) {
-          const regionCode = parsedPhone.country?.toLowerCase();
-          const match = internationalOptions.find(
-            (opt) => opt.iso2 === regionCode
-          );
+    if (!phoneInputRef.current || formData.phoneCountryCodeTouched) return;
+  
+    const phoneInput = phoneInputRef.current;
+  
+    const handleInputChange = () => {
+      const rawPhone = phoneInput.value;
+      
+      if (rawPhone && rawPhone !== formData.phone) {
+        const parsed = parsePhoneNumberFromString(rawPhone);
+        if (parsed?.isValid()) {
+          const regionCode = parsed.country?.toLowerCase();
+          const match = internationalOptions.find((opt) => opt.iso2 === regionCode);
           if (match) {
             setFormData((prev) => ({
               ...prev,
+              phone: rawPhone,
               phoneCountryCode: `${match.code}-${match.iso2}`,
             }));
           }
         }
       }
-    }, 300); // Delay gives browser time to autofill
+    };
   
-    return () => clearTimeout(timeout);
+    // Listen for input changes (works for manual input and browser autofill)
+    phoneInput.addEventListener("input", handleInputChange);
+    phoneInput.addEventListener("blur", handleInputChange);
+  
+    return () => {
+      phoneInput.removeEventListener("input", handleInputChange);
+      phoneInput.removeEventListener("blur", handleInputChange);
+    };
   }, []);
+  
   
   
   useEffect(() => {
@@ -982,6 +998,7 @@ const BSNRegistrationForm: React.FC = () => {
               handleInputChange={handleInputChange}
               errors={errors}
               handleFileChange={handleFileChange}
+              phoneInputRef={phoneInputRef} // 👈 Add this
             />
           )}
           {currentStep === 2 && (
