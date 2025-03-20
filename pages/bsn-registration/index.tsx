@@ -704,22 +704,27 @@ const BSNRegistrationForm: React.FC = () => {
   }
 
   useEffect(() => {
-    if (formData.phone && !formData.phoneCountryCodeTouched) {
-      const parsedPhone = parsePhoneNumberFromString(formData.phone);
-      if (parsedPhone && parsedPhone.isValid()) {
-        const regionCode = parsedPhone.country?.toLowerCase(); // e.g., 'us'
-        const match = internationalOptions.find(
-          (opt) => opt.iso2 === regionCode
-        );
-        if (match) {
-          setFormData((prev) => ({
-            ...prev,
-            phoneCountryCode: `${match.code}-${match.iso2}`,
-          }));
+    const timeout = setTimeout(() => {
+      if (formData.phone && !formData.phoneCountryCodeTouched) {
+        const parsedPhone = parsePhoneNumberFromString(formData.phone);
+        if (parsedPhone?.isValid()) {
+          const regionCode = parsedPhone.country?.toLowerCase();
+          const match = internationalOptions.find(
+            (opt) => opt.iso2 === regionCode
+          );
+          if (match) {
+            setFormData((prev) => ({
+              ...prev,
+              phoneCountryCode: `${match.code}-${match.iso2}`,
+            }));
+          }
         }
       }
-    }
-  }, [formData.phone]);
+    }, 300); // Delay gives browser time to autofill
+  
+    return () => clearTimeout(timeout);
+  }, []);
+  
   
   useEffect(() => {
     const fetchDropdownOptions = async () => {
