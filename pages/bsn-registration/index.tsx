@@ -237,6 +237,7 @@ const Step1: React.FC<{
           onChange={(e) => handleInputChange("phone", e.target.value)}
           className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="Enter phone number"
+          autoComplete="new-password" 
         />
       </div>
       {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
@@ -1023,6 +1024,7 @@ console.log("Locales:", navigator.languages);
               errors={errors}
               handleFileChange={handleFileChange}
               phoneInputRef={phoneInputRef} // 👈 Add this
+              
             />
           )}
           {currentStep === 2 && (
