@@ -25,7 +25,7 @@ export default function Home() {
   const [filteredData, setFilteredData] = useState<BsiUserObjectArray>([]);
   const [OriginalData, setOriginalData] = useState<BsiUserObjectArray>([]);
   const [authenticatedUser, setAuthenticatedUser] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isPopUpActive, setIsPopUpActive] = useState(false);
   const [preloaderMap, setPreloaderMap] = useState(true);
@@ -266,6 +266,34 @@ console.log(filteredData, 'filtered data')
       console.error("Error fetching filtered data:", error);
     }
   };
+
+  useEffect(() => {
+    function getCookie(cname: string) {
+      let name = cname + "=";
+      let decodedCookie = decodeURIComponent(document.cookie);
+      let ca = decodedCookie.split(";");
+      for (let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) == " ") {
+          c = c.substring(1);
+        }
+        if (c.indexOf(name) == 0) {
+          return c.substring(name.length, c.length);
+        }
+      }
+      return "";
+    }
+
+    const user = getCookie("bsn_user");
+    if (user.length > 0) {
+      setAuthenticatedUser(user);
+      setIsAuthenticated(true);
+
+      console.log(user, " authenticated user data");
+      console.log(isAuthenticated, " is user authenticated");
+    }
+  }, [])
+
   // --------------------------------------------------------------------
   // 8. Render Component
   // --------------------------------------------------------------------

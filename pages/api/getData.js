@@ -51,6 +51,8 @@ export default async function handler(req, res) {
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 
+
+    
     // 🔹 Build MongoDB query
     let query = {};
     if (industryHouse && industryHouse !== "") {

@@ -14,6 +14,13 @@ import Image from 'next/image';
 import { allCountries } from "country-telephone-data";
 import logo from '@/public/png/bsn-logo.png'
 
+// You can define this array at the top of your file or outside your component
+const HARDCODED_MEMBER_LEVELS = [
+  { id: "recGP35SbgqyZ4FQN", name: "🏢 Entity - Black & Green Organization" },
+  { id: "recgWTcJQnfOQW0Dm", name: "👓 Enthusiast - Excited to Learn" },
+  { id: "rectzSiMASJ9OcN52", name: "🥋 Expert - Experienced Professional" },
+  { id: "recEqcQWORWPnOh3d", name: "Young Environmental Scholar" },
+];
 
 
 // 1. TYPES & INTERFACES
@@ -47,7 +54,7 @@ interface FormData {
   fundingGoal: string;
   similarCategories: string[];
   naicsCode: string;
-  includeOnMap: string;
+  includeOnMap: boolean;
   latitude: number | null;
   longitude: number | null;
   showDropdown?: boolean; // For dropdown visibility
@@ -65,7 +72,7 @@ const mapFormDataToAirtableFields = (formData: FormData) => {
     "EMAIL ADDRESS": formData.email,
     "FIRST NAME": formData.firstName,
     "LAST NAME": formData.lastName,
-    "MEMBER LEVEL": formData.memberLevel,
+    "MEMBER LEVEL": [formData.memberLevel],
     "BIO": formData.bio,
     "ORGANIZATION NAME": formData.organizationName,
     "IDENTIFICATION": formData.identification,
@@ -73,7 +80,7 @@ const mapFormDataToAirtableFields = (formData: FormData) => {
     "WEBSITE": formData.website,
     "PHONE US/CAN ONLY": fullPhone,
     "PRIMARY INDUSTRY HOUSE": formData.primaryIndustry,
-    "ADDITIONAL FOCUS AREAS": formData.additionalFocus.join(", "),
+    "ADDITIONAL FOCUS AREAS": formData.additionalFocus,
     "AFFILIATED ENTITY": formData.affiliatedEntity,
     // Country: formData.locationCountry,
     "Zip/Postal Code": formData.zipCode,
@@ -86,11 +93,11 @@ const mapFormDataToAirtableFields = (formData: FormData) => {
     ),
     "NAICS Code": formData.naicsCode,
     Featured: formData.includeOnMap,
-    Latitude: formData.latitude ?? 0,
-    Longitude: formData.longitude ?? 0,
+    Latitude: formData.latitude !== null ? formData.latitude.toString() : "",
+    Longitude: formData.longitude !== null ? formData.longitude.toString() : "",
     "Address": formData.address,
-    ...(formData.photoUrl ? { "PHOTO": formData.photoUrl } : {}),
-    ...(formData.logoUrl ? { "LOGO": formData.logoUrl } : {}),
+    ...(formData.photoUrl ? { "PHOTO": [{ url: formData.photoUrl }] } : {}),
+    ...(formData.logoUrl ? { "LOGO": [{ url: formData.logoUrl }] } : {}),
   };
 };
 
@@ -264,8 +271,8 @@ const Step2: React.FC<{
           className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="">Select</option>
-          {memberLevelOptions.map((option) => (
-            <option key={option.id} value={option.name}>
+          {HARDCODED_MEMBER_LEVELS.map((option) => (
+            <option key={option.id} value={option.id}>
               {option.name}
             </option>
           ))}
@@ -310,22 +317,22 @@ const Step2: React.FC<{
         />
       </div>
 
-          {/* New dropdown for Affiliated Entity */}
-  {/* Updated affiliated entity field as a regular text input */}
-  <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">
-        Which entity are you affiliated with? (Not a member)
-      </label>
-      <input
-        type="text"
-        value={formData.affiliatedEntity || ""}
-        onChange={(e) =>
-          handleInputChange("affiliatedEntity", e.target.value)
-        }
-        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        placeholder="Enter affiliated entity"
-      />
-    </div>
+      {/* New dropdown for Affiliated Entity */}
+      {/* Updated affiliated entity field as a regular text input */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">
+          Which entity are you affiliated with? (Not a member)
+        </label>
+        <input
+          type="text"
+          value={formData.affiliatedEntity || ""}
+          onChange={(e) =>
+            handleInputChange("affiliatedEntity", e.target.value)
+          }
+          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+          placeholder="Enter affiliated entity"
+        />
+      </div>
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">Identification *</label>
         <select
@@ -412,22 +419,22 @@ const Step2: React.FC<{
         {formData.showDropdown && (
           <div className="absolute z-10 bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-auto w-full">
             {[
-              "Agriculture/Sustainable Food Production / Land Management",
-              "Alternative Energy",
-              "Alternative Economics",
-              "Community Development",
-              "Eco-friendly Building",
-              "Education & Cultural Preservation",
+              "🌾 Agriculture/Sustainable Food Production / Land Management",
+              "☀️ Alternative Energy",
+              "💰 Alternative Economics",
+              "🏘 Community Development",
+              "🛖 Eco-friendly Building",
+              "🧑🏾‍🏫 Education & Cultural Preservation",
               "Environmental Justice",
-              "Green Lifestyle",
-              "Other",
-              "Water",
-              "Technology",
-              "Waste",
-              "Wholistic Health",
+              "♻️ Green Lifestyle",
+              "❓ Other",
+              "💧Water",
+              "💻 Technology",
+              "🗑 Waste",
+              "🧘🏿‍♀️ Wholistic Health",
               "Climate",
               "Spirituality",
-              "Survival/Preparedness",
+              "🆘 Survival/Preparedness",
               "Youth",
               "Africa",
             ].map((focus) => (
@@ -611,9 +618,9 @@ const Step3: React.FC<{
           <label className="inline-flex items-center">
             <input
               type="checkbox"
-              checked={formData.includeOnMap === "checked"}
+              checked={formData.includeOnMap}
               onChange={(e) =>
-                handleInputChange("includeOnMap", e.target.checked ? "checked" : "")
+                handleInputChange("includeOnMap", e.target.checked)
               }
               className="rounded border-gray-300 text-blue-600"
             />
@@ -657,7 +664,7 @@ const BSNRegistrationForm: React.FC = () => {
     fundingGoal: "",
     similarCategories: [],
     naicsCode: "",
-    includeOnMap: "",
+    includeOnMap: false,
     latitude: null,
     longitude: null,
     showDropdown: false,
@@ -701,19 +708,19 @@ const BSNRegistrationForm: React.FC = () => {
             "🏢 Entity - Black & Green Organization",
             "Young Environmental Scholar",
           ];
-        
+
           // Filter out any options that aren’t in your 4 allowed names
           const filteredOptions = memberLevelField.options.filter((o: any) =>
             allowedOptions.includes(o.name)
           );
-        
+
           // Alphabetize them by .name
           const sortedOptions = filteredOptions
             .slice()
             .sort((a: any, b: any) =>
               a.name.localeCompare(b.name, "en", { sensitivity: "base" })
             );
-        
+
           setMemberLevelOptions(sortedOptions);
         }
         const countryField = dropdownData.find((f: any) => f.fieldName === "Country");
@@ -727,12 +734,12 @@ const BSNRegistrationForm: React.FC = () => {
             (opt: any) => opt.name !== "IDENTIFICATION"
           );
 
-            // 2. Sort alphabetically (ignoring case if desired)
-  const sortedIdentifications = filteredIdentifications.slice().sort(
-    (a: any, b: any) => a.name.localeCompare(b.name, "en", { sensitivity: "base" })
-  );
-           // 3. Set state with the cleaned-up sorted array
-  setIdentificationOptions(sortedIdentifications);
+          // 2. Sort alphabetically (ignoring case if desired)
+          const sortedIdentifications = filteredIdentifications.slice().sort(
+            (a: any, b: any) => a.name.localeCompare(b.name, "en", { sensitivity: "base" })
+          );
+          // 3. Set state with the cleaned-up sorted array
+          setIdentificationOptions(sortedIdentifications);
         }
         // setIdentificationOptions(identificationField?.options || []);
         const genderField = dropdownData.find((f: any) => f.fieldName === "GENDER");
@@ -841,7 +848,7 @@ const BSNRegistrationForm: React.FC = () => {
         // latitude: lat,
         // longitude: lng,
       });
-
+      console.log(finalAirtableFields)
       // Submit to Airtable
       const response = await AirtableUtils.submitToAirtable(finalAirtableFields);
       console.log("Data submitted successfully:", response);
