@@ -705,6 +705,30 @@ const BSNRegistrationForm: React.FC = () => {
     return str.replace(/^[^a-zA-Z]+/, '').trim();
   }
   const phoneInputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    // Only run if the user hasn't manually selected a country code
+    if (!formData.phoneCountryCodeTouched && !formData.phone) {
+      const locale = navigator.language || navigator.languages?.[0] || "en-US";
+      let defaultCode = "+1-us"; // fallback for US
+  
+      // Check if the locale indicates Canada
+      if (locale.toLowerCase().startsWith("en-ca") || locale.toLowerCase().startsWith("fr-ca")) {
+        defaultCode = "+1-ca";
+      }
+      // For US (or other locales) we default to US
+      else if (locale.toLowerCase().startsWith("en-us")) {
+        defaultCode = "+1-us";
+      }
+      // Optionally handle other cases...
+  
+      setFormData(prev => ({
+        ...prev,
+        phoneCountryCode: defaultCode,
+      }));
+    }
+  }, []);
+  console.log("Locale:", navigator.language);
+console.log("Locales:", navigator.languages);
 
   useEffect(() => {
     if (!phoneInputRef.current || formData.phoneCountryCodeTouched) return;
