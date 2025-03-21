@@ -214,44 +214,49 @@ const Step1: React.FC<{
       <p className="text-xs text-gray-600">
         We want to ensure you receive BSN info via SMS (no SPAM we promise)...
       </p>
-      <div className="flex">
-        {/* Custom dropdown replacing the native select */}
-        <CountryCodeDropdown
-          value={formData.phoneCountryCode}
-          options={internationalOptions}
-          onChange={(newValue) => {
-            handleInputChange("phoneCountryCode", newValue);
-            handleInputChange("phoneCountryCodeTouched", true);
-          }}
-        />
-        {/* <select
-          name="phoneCountryCode_no_autofill" // using a non-standard name might help
-           autoComplete="off"
-          value={formData.phoneCountryCode}
-          onChange={(e) => {
-            handleInputChange("phoneCountryCode", e.target.value);
-            handleInputChange("phoneCountryCodeTouched", true);
-          }}
-          
-          className="mr-2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-          style={{ minWidth: "120px", width: "auto" }}
-        >
-          {internationalOptions.map((item) => (
-            <option key={`${item.code}-${item.iso2}`} value={`${item.code}-${item.iso2}`}>
-              {item.code} ({item.country})
-            </option>
-          ))}
-        </select> */}
-        <input
-         ref={phoneInputRef} 
-          type="tel"
-          value={formData.phone}
-          onChange={(e) => handleInputChange("phone", e.target.value)}
-          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-          placeholder="Enter phone number"
-          autoComplete="new-password" 
-        />
-      </div>
+     {/* Container that forms the "input group" */}
+  <div
+  style={{width: '100%'}}
+    className="
+      flex
+      items-center
+      border
+      border-gray-300
+      rounded-md
+
+      w-full
+      sm:w-2/3
+    "
+  >
+    {/* Custom dropdown for country code */}
+    <CountryCodeDropdown
+      value={formData.phoneCountryCode}
+      options={internationalOptions}
+      onChange={(newValue) => {
+        handleInputChange("phoneCountryCode", newValue);
+        handleInputChange("phoneCountryCodeTouched", true);
+      }}
+    />
+
+    {/* Actual phone input */}
+    <input
+      ref={phoneInputRef}
+      type="tel"
+      value={formData.phone}
+      onChange={(e) => handleInputChange("phone", e.target.value)}
+      className="
+        px-3
+        py-2
+        w-full
+        focus:ring-blue-500
+        focus:border-blue-500
+        focus:outline-none
+      "
+      placeholder="Enter phone number"
+      autoComplete="off"
+    />
+  </div>
+
       {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
     </div>
 
