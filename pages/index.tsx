@@ -14,6 +14,7 @@ import Image from "next/image";
 import { BsiUserObjectArray } from "@/typings";
 import { getAllRecordsFromAirtable } from "@/utils/airtable";
 import Loader from "@/components/common/loader";
+import { LatLngBounds } from "leaflet";
 
 
 export default function Home() {
@@ -30,6 +31,8 @@ export default function Home() {
   const [isPopUpActive, setIsPopUpActive] = useState(false);
   const [preloaderMap, setPreloaderMap] = useState(true);
   const [hasSearched, setHasSearched] = useState(false);
+  const [lazyLoaded, setLazyLoaded] = useState(false);
+
 
   const [preloaderSidebar, setPreloaderSidebar] = useState(true);
   const [loadedData, setLoadedData] = useState<any>([]);
@@ -126,6 +129,7 @@ console.log(filteredData, 'filtered data')
   // 2. Progressive Chunk Loading for Map
   // --------------------------------------------------------------------
   useEffect(() => {
+    if (lazyLoaded) return; 
     const loadNextChunk = () => {
       if (filteredData) {
         if (
@@ -297,6 +301,45 @@ console.log(filteredData, 'filtered data')
   // --------------------------------------------------------------------
   // 8. Render Component
   // --------------------------------------------------------------------
+
+
+   // 8. Viewport-Based Lazy Loading for Map Markers
+  // --------------------------------------------------------------------
+  // This function gets called when the map's viewport changes.
+// This function gets called when the map's viewport changes.
+// This function gets called when the map's viewport changes.
+const handleBoundsChange = async (bounds: LatLngBounds) => {
+  const northEast = bounds.getNorthEast();
+  const southWest = bounds.getSouthWest();
+  try {
+    const res = await fetch(
+      `/api/getMarkers?northEastLat=${northEast.lat}&northEastLng=${northEast.lng}&southWestLat=${southWest.lat}&southWestLng=${southWest.lng}`
+    );
+    const result = await res.json();
+    if (result.success) {
+      console.log("Fetched markers based on bounds:", result.data);
+      
+      // Mark that lazy load has occurred
+      setLazyLoaded(true);
+      
+      // Update all state variables with the full dataset
+      setFilteredData(result.data);
+      setOriginalData(result.data);
+      setLoadedData(result.data); // Display all markers immediately
+      setCurrentIndex(result.data.length);
+      setChunkIndex(1);
+      setChunkSizes([result.data.length]); // Disable further chunking
+      setTotalCount(result.data.length);
+    } else {
+      console.error("Failed to fetch markers based on bounds", result);
+    }
+  } catch (error) {
+    console.error("Error fetching markers by bounds:", error);
+  }
+};
+
+
+
   return (
     <div className="relative h-screen w-full">
       <Nav
@@ -339,6 +382,7 @@ console.log(filteredData, 'filtered data')
                 filteredData={filteredData}
                 loadedData={loadedData}
                 hideCounter={hideCounter}
+                onBoundsChange={handleBoundsChange}
               />
             )}
           </div>
