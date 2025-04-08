@@ -27,7 +27,7 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, ...UserProps }) => {
       <div className="flex gap-x-5 items-start ">
         <div className="relative w-[40%] h-[133px] rounded-md overflow-hidden">
           {isAuthenticated ? (
-            <Image
+            <img
               src={UserProps.imgUrl}
               className={`${
                 isAuthenticated ? "blur-none" : "blur-md"
@@ -37,7 +37,7 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, ...UserProps }) => {
               loading="lazy"
             />
           ) : (
-            <BlurImage imageUrl={UserProps.imgUrl} blurAmount={16} />
+            <img src={UserProps.imgUrl} blurAmount={16} />
           )}
         </div>
         <div className="w-[60%] flex flex-col justify-between gap-y-0.5 h-[133px] p-1 ">

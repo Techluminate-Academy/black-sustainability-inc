@@ -18,9 +18,12 @@ import { LatLngBounds } from "leaflet";
 
 
 export default function Home() {
-  const BsiMap = dynamic(() => import("@/components/common/LeafletMap"), {
+  // const BsiMap = dynamic(() => import("@/components/common/LeafletMap"), {
+  //   ssr: false,
+  // });
+  const BsiMap = dynamic(() => import("@/components/common/Mapbox/MapboxMap"), {
     ssr: false,
-  });
+  })
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredData, setFilteredData] = useState<BsiUserObjectArray>([]);
