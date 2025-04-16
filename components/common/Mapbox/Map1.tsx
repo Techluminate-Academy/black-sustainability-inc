@@ -1,19 +1,18 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import mapboxgl, { Map as MapboxMap } from "mapbox-gl";
 import ReactDOMServer from "react-dom/server";
 import CustomIconContent from "./CustomIconContent";
-import InfoCard from "../InfoCard";
+import InfoCard from "../InfoCard"; // Adjust path if needed
 import "mapbox-gl/dist/mapbox-gl.css";
 import { LatLngBounds } from "leaflet";
 import { BsiUserObjectArray } from "@/typings";
-
+import static_locations from '../../../constants/static_locations.json'
 interface IProps {
   isAuthenticated: boolean;
   loadedData: any;
   hideCounter: boolean;
-  filteredData: any[];
-  onMarkerHover: (bounds: LatLngBounds) => void;
+  onMarkerHover: (bounds: LatLngBounds) => void; // Called on map move/zoom
 }
 
 interface MarkerWithId {
@@ -21,39 +20,42 @@ interface MarkerWithId {
   recordId: string | number;
 }
 
-const BASE_OFFSET = 0.0002;
+const BASE_OFFSET = 0.0047; // base distance
 
 function offsetDuplicateCoordinates(dataArray: any[]) {
   const coordMap: Record<string, any[]> = {};
+
   for (const item of dataArray) {
-    const lat = parseFloat(item.location.coordinates[1]);
-    const lng = parseFloat(item.location.coordinates[0]);
-    if (isNaN(lat) || isNaN(lng)) continue;
+    const lat = item.location.coordinates[1];
+    const lng = item.location.coordinates[0];
+    if (lat == null || lng == null) continue;
+
     const key = `${lat},${lng}`;
-    if (!coordMap[key]) coordMap[key] = [];
+    coordMap[key] = coordMap[key] || [];
     coordMap[key].push(item);
   }
 
   for (const key in coordMap) {
     const group = coordMap[key];
     if (group.length <= 1) continue;
+
     const [originalLat, originalLng] = key.split(",").map(parseFloat);
     const angleStep = (2 * Math.PI) / group.length;
-    const dynamicOffset = BASE_OFFSET + (group.length * 0.00001);
+
     for (let i = 0; i < group.length; i++) {
       const angle = i * angleStep;
-      const adjustedOffset = dynamicOffset * (1 + i * 0.1);
-      const dLat = Math.sin(angle) * adjustedOffset;
-      const dLng = Math.cos(angle) * adjustedOffset;
-      const newLat = originalLat + dLat;
-      const newLng = originalLng + dLng;
-      group[i].location.coordinates = [newLng, newLat];
-      group[i].lat = newLat.toString();
-      group[i].lng = newLng.toString();
+      const dynamicOffset = BASE_OFFSET + (group.length * 0.00001); // Spread out more for larger groups
+      const dLat = Math.sin(angle) * dynamicOffset;
+      const dLng = Math.cos(angle) * dynamicOffset;
+
+      group[i].lat = originalLat + dLat;
+      group[i].lng = originalLng + dLng;
     }
   }
 }
 
+
+// Build HTML marker element
 const createMarkerElement = (record: any, isAuthenticated: boolean): HTMLElement => {
   const htmlString = ReactDOMServer.renderToStaticMarkup(
     <CustomIconContent record={{ ...record, isAuthenticated }} />
@@ -63,36 +65,40 @@ const createMarkerElement = (record: any, isAuthenticated: boolean): HTMLElement
   return el.firstElementChild as HTMLElement;
 };
 
-const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, filteredData }) => {
+const MapboxMapComponent: React.FC<IProps> = ({
+  isAuthenticated,
+  onMarkerHover,
+}) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const markersRef = useRef<MarkerWithId[]>([]);
   const mapCenter: [number, number] = [-84.3877, 33.7488];
-  const [loading, setLoading] = useState(true); // <-- loading state
 
   useEffect(() => {
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API_TOKEN || "";
 
     let fetchedLocations: any[] = [];
 
+    // Your static placeholders
+    const staticLocations = static_locations
     const initMap = async () => {
       try {
-        setLoading(true); // Start loading
-
-        fetchedLocations = filteredData;
+        // Start with static locations
+        fetchedLocations = staticLocations;
         offsetDuplicateCoordinates(fetchedLocations);
-
+    
         if (mapContainerRef.current && !mapRef.current) {
+    
           mapRef.current = new mapboxgl.Map({
             container: mapContainerRef.current,
             style: "mapbox://styles/mapbox/streets-v12",
             center: mapCenter,
             zoom: 5,
           });
-
-          mapRef.current.on("load", () => {
+    
+          mapRef.current.on("load", async () => {
             if (!mapRef.current) return;
-
+    
             const geoJsonData = {
               type: "FeatureCollection",
               features: fetchedLocations.map((item: any) => ({
@@ -107,7 +113,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                 },
               })),
             };
-
+    
             mapRef.current.addSource("users-cluster", {
               type: "geojson",
               data: geoJsonData,
@@ -115,7 +121,8 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
               clusterMaxZoom: 20,
               clusterRadius: 30,
             });
-
+    
+            // Your cluster layer code remains unchanged
             mapRef.current.addLayer({
               id: "clusters",
               type: "circle",
@@ -149,7 +156,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                 "circle-stroke-color": "#fff",
               },
             });
-
+    
             mapRef.current.addLayer({
               id: "cluster-count",
               type: "symbol",
@@ -160,12 +167,65 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                 "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
                 "text-size": 14,
               },
-              paint: { "text-color": "#000" },
+              paint: {
+                "text-color": "#000",
+              },
             });
-
+    
+            // Your marker & popup logic remains unchanged
+            fetchedLocations.forEach((data: any) => {
+              const markerEl = createMarkerElement(data, isAuthenticated);
+              const popupHtml = ReactDOMServer.renderToStaticMarkup(
+                <div className="popup-wrapper">
+                  <InfoCard
+                    imgUrl={data?.userphoto || "/png/default.png"}
+                    LAST_NAME={data["firstName"]}
+                    FIRST_NAME={data["lastName"]}
+                    BIO={data?.bio}
+                    EMAIL_ADDRESS={data["email"]}
+                    ORGANIZATION_NAME={data["orgName"]}
+                    Nearest_City={`${data["Location (Nearest City)"] ?? ""}`}
+                    WEBSITE={data.website}
+                    MEMBER_LEVEL={data["MEMBER LEVEL"]}
+                    isAuthenticated={isAuthenticated}
+                  />
+                </div>
+              );
+    
+              const popup = new mapboxgl.Popup({
+                offset: 25,
+                closeButton: false,
+                className: "custom-popup",
+              }).setHTML(popupHtml);
+    
+              const marker = new mapboxgl.Marker({ element: markerEl })
+                .setLngLat({
+                  lng: parseFloat(data.location.coordinates[0]) || mapCenter[0],
+                  lat: parseFloat(data.location.coordinates[1]) || mapCenter[1],
+                })
+                .setPopup(popup)
+                .addTo(mapRef.current!);
+    
+              markersRef.current.push({ marker, recordId: data.id });
+            });
+    
+            const hideClusteredMarkers = () => {
+              if (!mapRef.current) return;
+              const unclusteredFeatures = mapRef.current.querySourceFeatures("users-cluster", {
+                filter: ["!", ["has", "point_count"]],
+              });
+              const unclusteredIds = new Set(unclusteredFeatures.map((f) => f.properties?.id));
+              markersRef.current.forEach(({ marker, recordId }) => {
+                const el = marker.getElement();
+                el.style.display = unclusteredIds.has(recordId) ? "block" : "none";
+              });
+            };
+            mapRef.current.on("render", hideClusteredMarkers);
+    
             mapRef.current.on("click", "clusters", (e) => {
               const features = mapRef.current?.queryRenderedFeatures(e.point, { layers: ["clusters"] });
-              if (!features?.length) return;
+              if (!features || !features[0]) return;
+    
               const clusterId = features[0].properties?.cluster_id;
               const source = mapRef.current?.getSource("users-cluster") as mapboxgl.GeoJSONSource;
               source.getClusterExpansionZoom(clusterId, (err, zoom) => {
@@ -177,107 +237,65 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                 });
               });
             });
-
-            fetchedLocations.forEach((data: any) => {
-              const markerEl = createMarkerElement(data, isAuthenticated);
-              const popupHtml = ReactDOMServer.renderToStaticMarkup(
-                <div className="popup-wrapper">
-                  <InfoCard
-                    imgUrl={data.fields?.userphoto || "/png/default.png"}
-                    LAST_NAME={data.fields["LAST NAME"]}
-                    FIRST_NAME={data.fields["FIRST NAME"]}
-                    BIO={data.fields?.BIO}
-                    EMAIL_ADDRESS={data.fields["EMAIL ADDRESS"]}
-                    ORGANIZATION_NAME={data.fields["ORGANIZATION NAME"]}
-                    Nearest_City={`${data.fields["Location (Nearest City)"] ?? ""}`}
-                    WEBSITE={data.fields.WEBSITE}
-                    MEMBER_LEVEL={data.fields["MEMBER LEVEL"]}
-                    isAuthenticated={isAuthenticated}
-                  />
-                </div>
-              );
-
-              const popup = new mapboxgl.Popup({
-                offset: 25,
-                closeButton: false,
-                className: "custom-popup",
-              }).setHTML(popupHtml);
-
-              const marker = new mapboxgl.Marker({ element: markerEl })
-                .setLngLat({
-                  lng: parseFloat(data.location.coordinates[0]) || mapCenter[0],
-                  lat: parseFloat(data.location.coordinates[1]) || mapCenter[1],
-                })
-                .setPopup(popup)
-                .addTo(mapRef.current!);
-
-              markersRef.current.push({ marker, recordId: data.id });
+    
+            mapRef.current.on("moveend", () => {
+              const bounds = mapRef.current!.getBounds();
+              if (onMarkerHover) {
+                const fakeLeafletBounds = {
+                  getNorthEast: () => ({ lat: bounds.getNorthEast().lat, lng: bounds.getNorthEast().lng }),
+                  getSouthWest: () => ({ lat: bounds.getSouthWest().lat, lng: bounds.getSouthWest().lng }),
+                } as unknown as LatLngBounds;
+                onMarkerHover(fakeLeafletBounds);
+              }
             });
-
-            const hideClusteredMarkers = () => {
-              if (!mapRef.current) return;
-              const unclusteredFeatures = mapRef.current.querySourceFeatures("users-cluster", {
-                filter: ["!", ["has", "point_count"]],
-              });
-              const unclusteredIds = new Set(unclusteredFeatures.map((f) => f.properties?.id));
-              markersRef.current.forEach(({ marker, recordId }) => {
-                marker.getElement().style.display = unclusteredIds.has(recordId) ? "block" : "none";
-              });
-            };
-
-            mapRef.current.on("render", hideClusteredMarkers);
-
-            setLoading(false); // Stop loading after markers are added
-          });
-
-          mapRef.current.on("moveend", () => {
-            const bounds = mapRef.current!.getBounds();
-            if (onMarkerHover) {
-              const fakeLeafletBounds = {
-                getNorthEast: () => ({ lat: bounds.getNorthEast().lat, lng: bounds.getNorthEast().lng }),
-                getSouthWest: () => ({ lat: bounds.getSouthWest().lat, lng: bounds.getSouthWest().lng }),
-              } as unknown as LatLngBounds;
-              onMarkerHover(fakeLeafletBounds);
+    
+            // Once map is fully loaded — fetch real data and replace
+            try {
+              const response = await fetch(
+                "https://firebasestorage.googleapis.com/v0/b/plumwood-law-e7dc4.appspot.com/o/uploads%2Fuser_locations.json?alt=media&token=e65029b1-729d-4d41-bf0e-425e29fc92b9"
+              );
+              if (!response.ok) throw new Error("Failed to fetch locations data.");
+              fetchedLocations = await response.json();
+              offsetDuplicateCoordinates(fetchedLocations);
+    
+              const updatedGeoJson = {
+                type: "FeatureCollection",
+                features: fetchedLocations.map((item: any) => ({
+                  type: "Feature",
+                  properties: { id: item.id },
+                  geometry: {
+                    type: "Point",
+                    coordinates: [
+                      parseFloat(item.location.coordinates[0]) || mapCenter[0],
+                      parseFloat(item.location.coordinates[1]) || mapCenter[1],
+                    ],
+                  },
+                })),
+              };
+    
+              const source = mapRef.current?.getSource("users-cluster") as mapboxgl.GeoJSONSource;
+              source.setData(updatedGeoJson);
+            } catch (error) {
+              console.error("Error loading real locations:", error);
             }
           });
         }
       } catch (error) {
-        console.error("Error loading locations:", error);
-        setLoading(false);
+        console.error("Error initializing map:", error);
       }
     };
-
+    
     initMap();
+    
 
     return () => {
       markersRef.current.forEach(({ marker }) => marker.remove());
       mapRef.current?.remove();
     };
-  }, [isAuthenticated, onMarkerHover, filteredData]);
+  }, [isAuthenticated, onMarkerHover]);
 
-  return (
-    <div style={{ position: "relative", height: "100vh", width: "100%" }}>
-      {loading && (
-        <div
-          style={{
-            position: "absolute",
-            zIndex: 1000,
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(255,255,255,0.8)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div className="loader">Loading locations...</div>
-        </div>
-      )}
-      <div ref={mapContainerRef} style={{ height: "100%", width: "100%" }} />
-    </div>
-  );
+  return <div ref={mapContainerRef} style={{ height: "100vh", width: "100%" }} />;
 };
+
 
 export default React.memo(MapboxMapComponent);

@@ -32,27 +32,26 @@ export default async function handler(req, res) {
     //   .catch(err => console.error("Error deleting keys:", err));
 
 
-    // 🔹 Check Redis cache first
+    // // 🔹 Check Redis cache first
+    // await redis.flushall();
 
-    // redis.keys("*").then((keys) => {
-    //   console.log("All keys:", keys);
-    // }).catch((err) => {
-    //   console.error("Error fetching keys:", err);
-    // });
+    redis.keys("*").then((keys) => {
+      console.log("All keys:", keys);
+    }).catch((err) => {
+      console.error("Error fetching keys:", err);
+    });
     
     const cacheStart = Date.now();
-    const cachedData = await redis.get(cacheKey);
+    // const cachedData = await redis.get(cacheKey);
 
-    if (cachedData) {
-      // console.log("✅ Serving from Cache");
-      return res.status(200).json(JSON.parse(cachedData));
-    }
+    // if (cachedData) {
+    //   // console.log("✅ Serving from Cache");
+    //   return res.status(200).json(JSON.parse(cachedData));
+    // }
 
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 
-
-    
     // 🔹 Build MongoDB query
     let query = {};
     if (industryHouse && industryHouse !== "") {

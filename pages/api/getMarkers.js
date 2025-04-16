@@ -1,100 +1,91 @@
 import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
-import CACHE_EXPIRY from "../../constants/CacheExpiry";
-
+import { promisify } from "util";
+import zlib from "zlib";  // Compression library
 const COLLECTION_NAME = "airtableRecords";
+import CACHE_EXPIRY from '../../constants/CacheExpiry';
+
+const deflate = promisify(zlib.deflate);  // Promisified zlib deflate method
+const inflate = promisify(zlib.inflate);  // Promisified zlib inflate method
 
 export default async function handler(req, res) {
   try {
-    const { northEastLat, northEastLng, southWestLat, southWestLng, industryHouse } = req.query;
 
-    // Validate required bounding box parameters
-    if (!northEastLat || !northEastLng || !southWestLat || !southWestLng) {
-      return res.status(400).json({ success: false, error: "Missing bounding box parameters." });
-    }
+    // 🔹 Build cache key dynamically
+    const cacheKey = `map-locations1`;
 
-    // Build a cache key that includes the bounding box and optional filters
-    const cacheKey = `getMarkers:${industryHouse || "all"}:neLat=${northEastLat}:neLng=${northEastLng}:swLat=${southWestLat}:swLng=${southWestLng}`;
-
-    // Check Redis cache first
+    // 🔹 Check Redis cache first
+    const cacheStart = Date.now();
     const cachedData = await redis.get(cacheKey);
+    
     if (cachedData) {
-      return res.status(200).json(JSON.parse(cachedData));
+      const decompressedData = await inflate(Buffer.from(cachedData, 'base64'));  // Decompress the data from Redis
+      const parsedData = JSON.parse(decompressedData.toString());
+      console.log(`✅ Served from Redis cache in ${Date.now() - cacheStart}ms`);
+      return res.status(200).json(parsedData);
     }
 
-    // Connect to MongoDB
+    console.log(`❌ Cache miss. Querying MongoDB...`);
+
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 
-    // Build the query to find records within the bounding box
-    console.log("southWestLat:", southWestLat, "northEastLat:", northEastLat);
-    console.log("southWestLng:", southWestLng, "northEastLng:", northEastLng);
-    const query = {
-      $expr: {
-        $and: [
-          {
-            $gte: [
-              { $toDouble: { $trim: { input: "$fields.LATITUDE (NEW)" } } },
-              parseFloat(southWestLat)
+    // 🔹 Fetch data from MongoDB
+    const mongoStart = Date.now();
+    const pipeline = [
+      {
+        $project: {
+          id: '$id',
+          fields: {
+            'FIRST NAME': '$fields.FIRST NAME',
+            'LAST NAME': '$fields.LAST NAME',
+            'EMAIL ADDRESS': '$fields.EMAIL ADDRESS',
+            'WEBSITE': '$fields.WEBSITE',
+            'BIO': '$fields.BIO',
+            'MEMBER LEVEL': '$fields.MEMBER LEVEL',
+            'PRIMARY INDUSTRY HOUSE': '$fields.PRIMARY INDUSTRY HOUSE',
+            'Location (Nearest City)': '$fields.Location (Nearest City)',
+            'ORGANIZATION NAME': '$fields.ORGANIZATION NAME'
+          },
+          location: {
+            type: { $literal: 'Point' },
+            coordinates: [
+              { $convert: { input: '$fields.LONGITUDE (NEW)', to: 'double', onError: null, onNull: null } },
+              { $convert: { input: '$fields.LATITUDE (NEW)', to: 'double', onError: null, onNull: null } }
             ]
           },
-          {
-            $lte: [
-              { $toDouble: { $trim: { input: "$fields.LATITUDE (NEW)" } } },
-              parseFloat(northEastLat)
-            ]
-          },
-          {
-            $gte: [
-              { $toDouble: { $trim: { input: "$fields.LONGITUDE (NEW)" } } },
-              parseFloat(southWestLng)
-            ]
-          },
-          {
-            $lte: [
-              { $toDouble: { $trim: { input: "$fields.LONGITUDE (NEW)" } } },
-              parseFloat(northEastLng)
-            ]
-          }
-        ]
-      }
-    };
-
-    // Optionally filter by industry house if provided
-    if (industryHouse && industryHouse !== "") {
-      query["fields.PRIMARY INDUSTRY HOUSE"] = industryHouse;
-    }
-
-    // Retrieve the total count and all marker data within the bounds.
-    const totalCount = await collection.countDocuments(query);
-    const data = await collection.find(query).toArray();
-
-    // Convert data into GeoJSON features.
-    const features = data.map((item) => ({
-      type: "Feature",
-      properties: { id: item.id },
-      geometry: {
-        type: "Point",
-        coordinates: [
-          parseFloat(item.fields?.["LONGITUDE (NEW)"]) || 0,
-          parseFloat(item.fields?.["LATITUDE (NEW)"]) || 0,
-        ],
+          _id: 0
+        }
       },
-    }));
+      {
+        $match: {
+          'location.coordinates.0': { $ne: null },
+          'location.coordinates.1': { $ne: null }
+        }
+      }
+    ];
+    
+
+    const data = await collection.aggregate(pipeline).toArray();
+    console.log(`MongoDB Fetch Time: ${Date.now() - mongoStart}ms`);
 
     const response = {
       success: true,
-      totalCount,
-      // Return the full GeoJSON feature collection.
-      data: { type: "FeatureCollection", features },
+      data,
     };
 
-    // Cache the response for future requests.
-    await redis.setex(cacheKey, CACHE_EXPIRY, JSON.stringify(response));
+    // 🔹 Compress the data before storing it in Redis
+    const compressedData = await deflate(JSON.stringify(response));  // Compress the JSON string
+    const compressedDataBase64 = compressedData.toString('base64');  // Convert to base64 for safe storage in Redis
 
-    return res.status(200).json(response);
+    // 🔹 Store response in Redis cache with a 5-minute expiry
+    await redis.setex(cacheKey, CACHE_EXPIRY, compressedDataBase64);
+
+    console.log(`✅ Cached data for all records in Redis`);
+    res.status(200).json(response);
+
   } catch (error) {
-    console.error("Error retrieving markers:", error);
-    return res.status(500).json({ success: false, error: error.message });
+    console.error("❌ Error retrieving data:", error);
+    res.status(500).json({ success: false, error: error.message });
   }
 }

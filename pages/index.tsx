@@ -35,6 +35,8 @@ export default function Home() {
   const [preloaderMap, setPreloaderMap] = useState(true);
   const [hasSearched, setHasSearched] = useState(false);
   const [lazyLoaded, setLazyLoaded] = useState(false);
+  const [mapLocations, setMapLocations] = useState([]);
+
 
 
   const [preloaderSidebar, setPreloaderSidebar] = useState(true);
@@ -84,6 +86,17 @@ console.log(filteredData, 'filtered data')
   // useEffect(() => {
   //   // ... user cookie code (omitted)
   // }, []);
+
+
+  useEffect(() => {
+    const getMapLocations = async() =>{
+      const response = await fetch("api/getMarkers");
+      if (!response.ok) throw new Error("Failed to fetch locations data.");
+      const json = await response.json();  // <--- this was missing
+      setMapLocations(json.data)
+    }
+    getMapLocations()
+  }, [])
   
   // --------------------------------------------------------------------
   // 1. Initial Data Fetch for Map & Sidebar
@@ -301,6 +314,8 @@ console.log(filteredData, 'filtered data')
     }
   }, [])
 
+
+
   // --------------------------------------------------------------------
   // 8. Render Component
   // --------------------------------------------------------------------
@@ -311,35 +326,35 @@ console.log(filteredData, 'filtered data')
   // This function gets called when the map's viewport changes.
 // This function gets called when the map's viewport changes.
 // This function gets called when the map's viewport changes.
-const handleBoundsChange = async (bounds: LatLngBounds) => {
-  const northEast = bounds.getNorthEast();
-  const southWest = bounds.getSouthWest();
-  try {
-    const res = await fetch(
-      `/api/getMarkers?northEastLat=${northEast.lat}&northEastLng=${northEast.lng}&southWestLat=${southWest.lat}&southWestLng=${southWest.lng}`
-    );
-    const result = await res.json();
-    if (result.success) {
-      console.log("Fetched markers based on bounds:", result.data);
+// const handleBoundsChange = async (bounds: LatLngBounds) => {
+//   const northEast = bounds.getNorthEast();
+//   const southWest = bounds.getSouthWest();
+//   try {
+//     const res = await fetch(
+//       `/api/getMarkers?northEastLat=${northEast.lat}&northEastLng=${northEast.lng}&southWestLat=${southWest.lat}&southWestLng=${southWest.lng}`
+//     );
+//     const result = await res.json();
+//     if (result.success) {
+//       console.log("Fetched markers based on bounds:", result.data);
       
-      // Mark that lazy load has occurred
-      setLazyLoaded(true);
+//       // Mark that lazy load has occurred
+//       setLazyLoaded(true);
       
-      // Update all state variables with the full dataset
-      setFilteredData(result.data);
-      setOriginalData(result.data);
-      setLoadedData(result.data); // Display all markers immediately
-      setCurrentIndex(result.data.length);
-      setChunkIndex(1);
-      setChunkSizes([result.data.length]); // Disable further chunking
-      setTotalCount(result.data.length);
-    } else {
-      console.error("Failed to fetch markers based on bounds", result);
-    }
-  } catch (error) {
-    console.error("Error fetching markers by bounds:", error);
-  }
-};
+//       // Update all state variables with the full dataset
+//       setFilteredData(result.data);
+//       setOriginalData(result.data);
+//       setLoadedData(result.data); // Display all markers immediately
+//       setCurrentIndex(result.data.length);
+//       setChunkIndex(1);
+//       setChunkSizes([result.data.length]); // Disable further chunking
+//       setTotalCount(result.data.length);
+//     } else {
+//       console.error("Failed to fetch markers based on bounds", result);
+//     }
+//   } catch (error) {
+//     console.error("Error fetching markers by bounds:", error);
+//   }
+// };
 
 
 
@@ -382,10 +397,11 @@ const handleBoundsChange = async (bounds: LatLngBounds) => {
             ) : (
               <BsiMap
                 isAuthenticated={isAuthenticated}
-                filteredData={filteredData}
                 loadedData={loadedData}
                 hideCounter={hideCounter}
-                onBoundsChange={handleBoundsChange}
+                onMarkerHover={()=>{}}
+                filteredData={searchQuery === "" && selectedIndustry === "" ? mapLocations : filteredData}
+
               />
             )}
           </div>
