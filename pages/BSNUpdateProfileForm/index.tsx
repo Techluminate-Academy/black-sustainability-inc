@@ -19,7 +19,6 @@ const HARDCODED_MEMBER_LEVELS = [
   { id: "recEqcQWORWPnOh3d", name: "Young Environmental Scholar" },
 ];
 
-// 1. TYPES & INTERFACES
 export interface FormData {
   email: string;
   firstName: string;
@@ -54,7 +53,6 @@ export interface FormData {
   phoneCountryCodeTouched: boolean;
 }
 
-// Fallback default data
 const defaultFormData: FormData = {
   email: "",
   firstName: "",
@@ -89,12 +87,11 @@ const defaultFormData: FormData = {
   phoneCountryCodeTouched: false,
 };
 
-// Props for the update form component
 interface BSNUpdateProfileFormProps {
   initialData?: FormData;
 }
 
-// Build international options from allCountries
+// Build international options
 const internationalOptions: { code: string; country: string; iso2: string }[] =
   allCountries.map((country) => ({
     code: `+${country.dialCode}`,
@@ -102,7 +99,7 @@ const internationalOptions: { code: string; country: string; iso2: string }[] =
     iso2: country.iso2,
   }));
 
-// Map formData to Airtable fields format
+// Map formData to the fields structure expected by Airtable
 const mapFormDataToAirtableFields = (formData: FormData) => {
   const dialCode = formData.phoneCountryCode.split("-")[0];
   const fullPhone = dialCode + formData.phone;
@@ -137,7 +134,7 @@ const mapFormDataToAirtableFields = (formData: FormData) => {
 };
 
 // -------------------------------------------------------------------
-// Step1 Component (Basic Info)
+// Step1 Component – Basic Info
 // -------------------------------------------------------------------
 interface Step1Props {
   formData: FormData;
@@ -155,9 +152,7 @@ const Step1: React.FC<Step1Props> = ({
 }) => (
   <>
     <div>
-      <label className="block text-sm font-medium text-gray-700">
-        Email Address *
-      </label>
+      <label className="block text-sm font-medium text-gray-700">Email Address *</label>
       <input
         type="email"
         value={formData.email}
@@ -167,9 +162,7 @@ const Step1: React.FC<Step1Props> = ({
       {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
     </div>
     <div>
-      <label className="block text-sm font-medium text-gray-700">
-        First Name *
-      </label>
+      <label className="block text-sm font-medium text-gray-700">First Name *</label>
       <input
         type="text"
         value={formData.firstName}
@@ -179,9 +172,7 @@ const Step1: React.FC<Step1Props> = ({
       {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
     </div>
     <div>
-      <label className="block text-sm font-medium text-gray-700">
-        Last Name *
-      </label>
+      <label className="block text-sm font-medium text-gray-700">Last Name *</label>
       <input
         type="text"
         value={formData.lastName}
@@ -194,18 +185,14 @@ const Step1: React.FC<Step1Props> = ({
       <label className="block text-sm font-medium text-gray-700">Photo *</label>
       <input
         type="file"
-        onChange={(e) =>
-          handleFileChange("photo", e.target.files ? e.target.files[0] : null)
-        }
+        onChange={(e) => handleFileChange("photo", e.target.files ? e.target.files[0] : null)}
         className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
       />
       {errors.photo && <p className="text-red-500 text-sm mt-1">{errors.photo}</p>}
     </div>
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-700">Phone</label>
-      <p className="text-xs text-gray-600">
-        We want to ensure you receive BSN info via SMS (no SPAM we promise)...
-      </p>
+      <p className="text-xs text-gray-600">We want to ensure you receive BSN info via SMS (no SPAM we promise)...</p>
       <div className="flex items-center border rounded w-full sm:w-2/3">
         <CountryCodeDropdown
           value={formData.phoneCountryCode}
@@ -231,7 +218,7 @@ const Step1: React.FC<Step1Props> = ({
 );
 
 // -------------------------------------------------------------------
-// Step2 Component (Membership & Focus)
+// Step2 Component – Membership & Focus
 // -------------------------------------------------------------------
 interface Step2Props {
   formData: FormData;
@@ -424,7 +411,7 @@ const Step2: React.FC<Step2Props> = ({
 );
 
 // -------------------------------------------------------------------
-// Step3 Component (Location & Categories)
+// Step3 Component – Location & Categories
 // -------------------------------------------------------------------
 interface Step3Props {
   formData: FormData;
@@ -601,8 +588,9 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
+  const [isNextDisabled, setIsNextDisabled] = useState<boolean>(false);
 
-  // Dropdown options state for identification, gender, primary industry, etc.
+  // Dropdown options state
   const [memberLevelOptions, setMemberLevelOptions] = useState<{ id: string; name: string; icon: string | null }[]>([]);
   const [identificationOptions, setIdentificationOptions] = useState<any[]>([]);
   const [genderOptions, setGenderOptions] = useState<any[]>([]);
@@ -612,14 +600,13 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
 
   const phoneInputRef = useRef<HTMLInputElement | null>(null);
 
-  // When initialData updates, set formData accordingly
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
     }
   }, [initialData]);
 
-  // Fetch dropdown options from metadata
+  // Fetch dropdown options from Airtable metadata
   useEffect(() => {
     const fetchDropdownOptions = async () => {
       try {
@@ -628,17 +615,16 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
         // Identification Options
         const identificationField = dropdownData.find((f: any) => f.fieldName === "IDENTIFICATION");
         if (identificationField) {
-          const filteredIdentifications = identificationField.options.filter(
-            (opt: any) => opt.name !== "IDENTIFICATION"
-          );
+          const filteredIdentifications = identificationField.options.filter((opt: any) => opt.name !== "IDENTIFICATION");
           const sortedIdentifications = filteredIdentifications.slice().sort((a: any, b: any) =>
             a.name.localeCompare(b.name, "en", { sensitivity: "base" })
           );
           setIdentificationOptions(sortedIdentifications);
         }
-        // Optionally, you can add similar logic for gender, primary industry, name from location, etc.
+        // Gender Options
         const genderField = dropdownData.find((f: any) => f.fieldName === "GENDER");
         setGenderOptions(genderField?.options || []);
+        // Primary Industry Options
         const primaryIndustryField = dropdownData.find((f: any) => f.fieldName === "PRIMARY INDUSTRY HOUSE");
         if (primaryIndustryField) {
           const cleanedOptions = primaryIndustryField.options.filter((item: any) => item.name !== "PRIMARY INDUSTRY HOUSE");
@@ -649,8 +635,10 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
           });
           setPrimaryIndustryOptions(sortedIndustry);
         }
+        // Name From Location Options
         const nameFromLocationField = dropdownData.find((f: any) => f.fieldName === "Name (from Location)");
         setNameFromLocationOptions(nameFromLocationField?.options || []);
+        // Similar Categories Options
         const similarCategoriesField = dropdownData.find((f: any) => f.fieldName === "Similar Categories");
         setSimilarCategoriesOptions(similarCategoriesField?.options || []);
       } catch (error) {
@@ -688,13 +676,13 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
-  const nextStep = () => {
+  const nextStep = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();           // ← stop any accidental form submit
     if (validateStep()) {
-      setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
+      setCurrentStep((s) => Math.min(s + 1, totalSteps));
     }
   };
-
+  
   const prevStep = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
@@ -708,6 +696,7 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
     return response.data.url;
   };
 
+  console.log(isSubmitting, 'isSubmitting')
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateStep()) return;
@@ -757,9 +746,7 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
       const alreadySelected = prev.additionalFocus.includes(value);
       return {
         ...prev,
-        additionalFocus: alreadySelected
-          ? prev.additionalFocus.filter((f) => f !== value)
-          : [...prev.additionalFocus, value],
+        additionalFocus: alreadySelected ? prev.additionalFocus.filter((f) => f !== value) : [...prev.additionalFocus, value],
       };
     });
   };
@@ -770,9 +757,7 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
       const alreadySelected = selected.includes(value);
       return {
         ...prev,
-        [field]: alreadySelected
-          ? selected.filter((cat) => cat !== value)
-          : [...selected, value],
+        [field]: alreadySelected ? selected.filter((cat) => cat !== value) : [...selected, value],
       };
     });
   };
@@ -845,16 +830,17 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
                 type="button"
                 onClick={nextStep}
                 className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600"
+                disabled={isNextDisabled}
               >
                 Next
               </button>
             ) : (
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={false}
                 className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 flex items-center justify-center gap-2"
               >
-                {isSubmitting ? (
+                {false ? (
                   <>
                     <span className="animate-spin border-2 border-t-transparent border-white rounded-full w-5 h-5" />
                     Processing...
