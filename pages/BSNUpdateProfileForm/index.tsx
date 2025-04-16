@@ -11,7 +11,7 @@ import { allCountries } from "country-telephone-data";
 import logo from "@/public/png/bsn-logo.png";
 import CountryCodeDropdown from "../../components/CountryCodeDropdown/CountryCodeDropdown";
 
-// Hard-coded member level options (adjust as needed)
+// Hard-coded member level options
 const HARDCODED_MEMBER_LEVELS = [
   { id: "recGP35SbgqyZ4FQN", name: "🏢 Entity - Black & Green Organization" },
   { id: "recgWTcJQnfOQW0Dm", name: "👓 Enthusiast - Excited to Learn" },
@@ -20,7 +20,6 @@ const HARDCODED_MEMBER_LEVELS = [
 ];
 
 // 1. TYPES & INTERFACES
-
 export interface FormData {
   email: string;
   firstName: string;
@@ -55,7 +54,7 @@ export interface FormData {
   phoneCountryCodeTouched: boolean;
 }
 
-// Fallback default data to avoid undefined properties.
+// Fallback default data
 const defaultFormData: FormData = {
   email: "",
   firstName: "",
@@ -90,12 +89,12 @@ const defaultFormData: FormData = {
   phoneCountryCodeTouched: false,
 };
 
-// Props for the update profile form component
+// Props for the update form component
 interface BSNUpdateProfileFormProps {
   initialData?: FormData;
 }
 
-// Build international options
+// Build international options from allCountries
 const internationalOptions: { code: string; country: string; iso2: string }[] =
   allCountries.map((country) => ({
     code: `+${country.dialCode}`,
@@ -153,83 +152,83 @@ const Step1: React.FC<Step1Props> = ({
   errors,
   handleFileChange,
   phoneInputRef,
-}) => {
-  return (
-    <>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Email Address *
-        </label>
-        <input
-          type="email"
-          value={formData.email}
-          onChange={(e) => handleInputChange("email", e.target.value)}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+}) => (
+  <>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">
+        Email Address *
+      </label>
+      <input
+        type="email"
+        value={formData.email}
+        onChange={(e) => handleInputChange("email", e.target.value)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">
+        First Name *
+      </label>
+      <input
+        type="text"
+        value={formData.firstName}
+        onChange={(e) => handleInputChange("firstName", e.target.value)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">
+        Last Name *
+      </label>
+      <input
+        type="text"
+        value={formData.lastName}
+        onChange={(e) => handleInputChange("lastName", e.target.value)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">Photo *</label>
+      <input
+        type="file"
+        onChange={(e) =>
+          handleFileChange("photo", e.target.files ? e.target.files[0] : null)
+        }
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      {errors.photo && <p className="text-red-500 text-sm mt-1">{errors.photo}</p>}
+    </div>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Phone</label>
+      <p className="text-xs text-gray-600">
+        We want to ensure you receive BSN info via SMS (no SPAM we promise)...
+      </p>
+      <div className="flex items-center border rounded w-full sm:w-2/3">
+        <CountryCodeDropdown
+          value={formData.phoneCountryCode}
+          options={internationalOptions}
+          onChange={(newValue) => {
+            handleInputChange("phoneCountryCode", newValue);
+            handleInputChange("phoneCountryCodeTouched", true);
+          }}
         />
-        {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          First Name *
-        </label>
         <input
-          type="text"
-          value={formData.firstName}
-          onChange={(e) => handleInputChange("firstName", e.target.value)}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+          ref={phoneInputRef}
+          type="tel"
+          value={formData.phone}
+          onChange={(e) => handleInputChange("phone", e.target.value)}
+          className="px-3 py-2 w-full focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+          placeholder="Enter phone number"
+          autoComplete="off"
         />
-        {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
       </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Last Name *
-        </label>
-        <input
-          type="text"
-          value={formData.lastName}
-          onChange={(e) => handleInputChange("lastName", e.target.value)}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Photo *</label>
-        <input
-          type="file"
-          onChange={(e) => handleFileChange("photo", e.target.files ? e.target.files[0] : null)}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        {errors.photo && <p className="text-red-500 text-sm mt-1">{errors.photo}</p>}
-      </div>
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Phone</label>
-        <p className="text-xs text-gray-600">
-          We want to ensure you receive BSN info via SMS (no SPAM we promise)...
-        </p>
-        <div className="flex items-center border rounded w-full sm:w-2/3">
-          <CountryCodeDropdown
-            value={formData.phoneCountryCode}
-            options={internationalOptions}
-            onChange={(newValue) => {
-              handleInputChange("phoneCountryCode", newValue);
-              handleInputChange("phoneCountryCodeTouched", true);
-            }}
-          />
-          <input
-            ref={phoneInputRef}
-            type="tel"
-            value={formData.phone}
-            onChange={(e) => handleInputChange("phone", e.target.value)}
-            className="px-3 py-2 w-full focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-            placeholder="Enter phone number"
-            autoComplete="off"
-          />
-        </div>
-        {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
-      </div>
-    </>
-  );
-};
+      {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
+    </div>
+  </>
+);
 
 // -------------------------------------------------------------------
 // Step2 Component (Membership & Focus)
@@ -257,174 +256,172 @@ const Step2: React.FC<Step2Props> = ({
   handleToggleFocus,
   additionalFocusOpen,
   setFormData,
-}) => {
-  return (
-    <>
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Member Level *</label>
-        <select
-          value={formData.memberLevel}
-          onChange={(e) => handleInputChange("memberLevel", e.target.value)}
-          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="">Select</option>
-          {HARDCODED_MEMBER_LEVELS.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-        {errors.memberLevel && <p className="text-red-500 text-sm mt-1">{errors.memberLevel}</p>}
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Bio (250 words or less)*</label>
-        <textarea
-          value={formData.bio}
-          onChange={(e) => {
-            const text = e.target.value;
-            const words = text.split(/\s+/).filter((word) => word.length > 0);
-            if (words.length <= 250) {
-              handleInputChange("bio", text);
-            } else {
-              handleInputChange("bio", words.slice(0, 250).join(" "));
-            }
-          }}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        <p className={`text-xs mt-1 ${formData.bio.split(/\s+/).filter((w) => w.length > 0).length >= 250 ? "text-red-500" : "text-gray-600"}`}>
-          Word Count: {formData.bio.split(/\s+/).filter((w) => w.length > 0).length} / 250
-        </p>
-        {errors.bio && <p className="text-red-500 text-sm mt-1">{errors.bio}</p>}
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Organization Name (if Applicable)</label>
-        <input
-          type="text"
-          value={formData.organizationName || ""}
-          onChange={(e) => handleInputChange("organizationName", e.target.value)}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-      </div>
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Identification *</label>
-        <select
-          value={formData.identification}
-          onChange={(e) => handleInputChange("identification", e.target.value)}
-          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="">Select</option>
-          {identificationOptions.map((option: any) => (
-            <option key={option.id} value={option.name}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-        {errors.identification && <p className="text-red-500 text-sm mt-1">{errors.identification}</p>}
-      </div>
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Gender *</label>
-        <select
-          value={formData.gender}
-          onChange={(e) => handleInputChange("gender", e.target.value)}
-          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="">Select</option>
-          {genderOptions.map((option: any) => (
-            <option key={option.id} value={option.name}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-        {errors.gender && <p className="text-red-500 text-sm mt-1">{errors.gender}</p>}
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Website</label>
-        <input
-          type="url"
-          value={formData.website}
-          onChange={(e) => handleInputChange("website", e.target.value)}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2"
-        />
-      </div>
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Primary Industry House *</label>
-        <select
-          value={formData.primaryIndustry}
-          onChange={(e) => handleInputChange("primaryIndustry", e.target.value)}
-          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="">Select</option>
-          {primaryIndustryOptions.map((option: any) => (
-            <option key={option.id} value={option.name}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-        {errors.primaryIndustry && <p className="text-red-500 text-sm mt-1">{errors.primaryIndustry}</p>}
-      </div>
-      <div className="space-y-2 relative">
-        <label className="block text-sm font-medium text-gray-700">Additional Industry Houses</label>
-        <div
-          className="w-full border border-gray-300 rounded-lg p-2 cursor-pointer"
-          onClick={() =>
-            setFormData((prev) => ({
-              ...prev,
-              showDropdown: !prev.showDropdown,
-            }))
+}) => (
+  <>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Member Level *</label>
+      <select
+        value={formData.memberLevel}
+        onChange={(e) => handleInputChange("memberLevel", e.target.value)}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      >
+        <option value="">Select</option>
+        {HARDCODED_MEMBER_LEVELS.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+      {errors.memberLevel && <p className="text-red-500 text-sm mt-1">{errors.memberLevel}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">Bio (250 words or less)*</label>
+      <textarea
+        value={formData.bio}
+        onChange={(e) => {
+          const text = e.target.value;
+          const words = text.split(/\s+/).filter((word) => word.length > 0);
+          if (words.length <= 250) {
+            handleInputChange("bio", text);
+          } else {
+            handleInputChange("bio", words.slice(0, 250).join(" "));
           }
-        >
-          <div className="flex flex-wrap gap-2">
-            {formData.additionalFocus.map((focus) => (
-              <span
-                key={focus}
-                className="bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded-full cursor-pointer"
-                onClick={(evt) => {
-                  evt.stopPropagation();
-                  handleToggleFocus(focus);
-                }}
-              >
-                {focus} ✕
-              </span>
-            ))}
-          </div>
+        }}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      <p className={`text-xs mt-1 ${formData.bio.split(/\s+/).filter((w) => w.length > 0).length >= 250 ? "text-red-500" : "text-gray-600"}`}>
+        Word Count: {formData.bio.split(/\s+/).filter((w) => w.length > 0).length} / 250
+      </p>
+      {errors.bio && <p className="text-red-500 text-sm mt-1">{errors.bio}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">Organization Name (if Applicable)</label>
+      <input
+        type="text"
+        value={formData.organizationName || ""}
+        onChange={(e) => handleInputChange("organizationName", e.target.value)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+    </div>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Identification *</label>
+      <select
+        value={formData.identification}
+        onChange={(e) => handleInputChange("identification", e.target.value)}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      >
+        <option value="">Select</option>
+        {identificationOptions.map((option: any) => (
+          <option key={option.id} value={option.name}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+      {errors.identification && <p className="text-red-500 text-sm mt-1">{errors.identification}</p>}
+    </div>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Gender *</label>
+      <select
+        value={formData.gender}
+        onChange={(e) => handleInputChange("gender", e.target.value)}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      >
+        <option value="">Select</option>
+        {genderOptions.map((option: any) => (
+          <option key={option.id} value={option.name}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+      {errors.gender && <p className="text-red-500 text-sm mt-1">{errors.gender}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">Website</label>
+      <input
+        type="url"
+        value={formData.website}
+        onChange={(e) => handleInputChange("website", e.target.value)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2"
+      />
+    </div>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Primary Industry House *</label>
+      <select
+        value={formData.primaryIndustry}
+        onChange={(e) => handleInputChange("primaryIndustry", e.target.value)}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+      >
+        <option value="">Select</option>
+        {primaryIndustryOptions.map((option: any) => (
+          <option key={option.id} value={option.name}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+      {errors.primaryIndustry && <p className="text-red-500 text-sm mt-1">{errors.primaryIndustry}</p>}
+    </div>
+    <div className="space-y-2 relative">
+      <label className="block text-sm font-medium text-gray-700">Additional Industry Houses</label>
+      <div
+        className="w-full border border-gray-300 rounded-lg p-2 cursor-pointer"
+        onClick={() =>
+          setFormData((prev) => ({
+            ...prev,
+            showDropdown: !prev.showDropdown,
+          }))
+        }
+      >
+        <div className="flex flex-wrap gap-2">
+          {formData.additionalFocus.map((focus) => (
+            <span
+              key={focus}
+              className="bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded-full cursor-pointer"
+              onClick={(evt) => {
+                evt.stopPropagation();
+                handleToggleFocus(focus);
+              }}
+            >
+              {focus} ✕
+            </span>
+          ))}
         </div>
-        {formData.showDropdown && (
-          <div className="absolute z-10 bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-auto w-full">
-            {[
-              "🌾 Agriculture/Sustainable Food Production / Land Management",
-              "☀️ Alternative Energy",
-              "💰 Alternative Economics",
-              "🏘 Community Development",
-              "🛖 Eco-friendly Building",
-              "🧑🏾‍🏫 Education & Cultural Preservation",
-              "Environmental Justice",
-              "♻️ Green Lifestyle",
-              "❓ Other",
-              "💧Water",
-              "💻 Technology",
-              "🗑 Waste",
-              "🧘🏿‍♀️ Wholistic Health",
-              "Climate",
-              "Spirituality",
-              "🆘 Survival/Preparedness",
-              "Youth",
-              "Africa",
-            ].map((focus) => (
-              <div
-                key={focus}
-                className="px-4 py-2 hover:bg-blue-100 cursor-pointer"
-                onClick={() => handleToggleFocus(focus)}
-              >
-                {focus}
-              </div>
-            ))}
-          </div>
-        )}
-        {errors.additionalFocus && <span className="text-red-500 text-sm">{errors.additionalFocus}</span>}
       </div>
-    </>
-  );
-};
+      {formData.showDropdown && (
+        <div className="absolute z-10 bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-auto w-full">
+          {[
+            "🌾 Agriculture/Sustainable Food Production / Land Management",
+            "☀️ Alternative Energy",
+            "💰 Alternative Economics",
+            "🏘 Community Development",
+            "🛖 Eco-friendly Building",
+            "🧑🏾‍🏫 Education & Cultural Preservation",
+            "Environmental Justice",
+            "♻️ Green Lifestyle",
+            "❓ Other",
+            "💧Water",
+            "💻 Technology",
+            "🗑 Waste",
+            "🧘🏿‍♀️ Wholistic Health",
+            "Climate",
+            "Spirituality",
+            "🆘 Survival/Preparedness",
+            "Youth",
+            "Africa",
+          ].map((focus) => (
+            <div
+              key={focus}
+              className="px-4 py-2 hover:bg-blue-100 cursor-pointer"
+              onClick={() => handleToggleFocus(focus)}
+            >
+              {focus}
+            </div>
+          ))}
+        </div>
+      )}
+      {errors.additionalFocus && <span className="text-red-500 text-sm">{errors.additionalFocus}</span>}
+    </div>
+  </>
+);
 
 // -------------------------------------------------------------------
 // Step3 Component (Location & Categories)
@@ -604,13 +601,65 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
+
+  // Dropdown options state for identification, gender, primary industry, etc.
+  const [memberLevelOptions, setMemberLevelOptions] = useState<{ id: string; name: string; icon: string | null }[]>([]);
+  const [identificationOptions, setIdentificationOptions] = useState<any[]>([]);
+  const [genderOptions, setGenderOptions] = useState<any[]>([]);
+  const [primaryIndustryOptions, setPrimaryIndustryOptions] = useState<any[]>([]);
+  const [nameFromLocationOptions, setNameFromLocationOptions] = useState<any[]>([]);
+  const [similarCategoriesOptions, setSimilarCategoriesOptions] = useState<any[]>([]);
+
   const phoneInputRef = useRef<HTMLInputElement | null>(null);
 
+  // When initialData updates, set formData accordingly
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
     }
   }, [initialData]);
+
+  // Fetch dropdown options from metadata
+  useEffect(() => {
+    const fetchDropdownOptions = async () => {
+      try {
+        const dropdownData = await AirtableUtils.fetchTableMetadata();
+        console.log("Dropdown data:", dropdownData);
+        // Identification Options
+        const identificationField = dropdownData.find((f: any) => f.fieldName === "IDENTIFICATION");
+        if (identificationField) {
+          const filteredIdentifications = identificationField.options.filter(
+            (opt: any) => opt.name !== "IDENTIFICATION"
+          );
+          const sortedIdentifications = filteredIdentifications.slice().sort((a: any, b: any) =>
+            a.name.localeCompare(b.name, "en", { sensitivity: "base" })
+          );
+          setIdentificationOptions(sortedIdentifications);
+        }
+        // Optionally, you can add similar logic for gender, primary industry, name from location, etc.
+        const genderField = dropdownData.find((f: any) => f.fieldName === "GENDER");
+        setGenderOptions(genderField?.options || []);
+        const primaryIndustryField = dropdownData.find((f: any) => f.fieldName === "PRIMARY INDUSTRY HOUSE");
+        if (primaryIndustryField) {
+          const cleanedOptions = primaryIndustryField.options.filter((item: any) => item.name !== "PRIMARY INDUSTRY HOUSE");
+          const sortedIndustry = cleanedOptions.slice().sort((a: any, b: any) => {
+            const aName = a.name.replace(/^[^a-zA-Z]+/, '').trim();
+            const bName = b.name.replace(/^[^a-zA-Z]+/, '').trim();
+            return aName.localeCompare(bName, "en", { sensitivity: "base" });
+          });
+          setPrimaryIndustryOptions(sortedIndustry);
+        }
+        const nameFromLocationField = dropdownData.find((f: any) => f.fieldName === "Name (from Location)");
+        setNameFromLocationOptions(nameFromLocationField?.options || []);
+        const similarCategoriesField = dropdownData.find((f: any) => f.fieldName === "Similar Categories");
+        setSimilarCategoriesOptions(similarCategoriesField?.options || []);
+      } catch (error) {
+        console.error("Error fetching dropdown options:", error);
+      }
+    };
+
+    fetchDropdownOptions();
+  }, []);
 
   const validateStep = (): boolean => {
     const newErrors: Partial<Record<keyof FormData, string>> = {};
@@ -679,7 +728,6 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
         photoUrl,
         logoUrl,
       });
-      // Call your update endpoint
       const response = await axios.post("/api/updateMember", {
         recordId: initialData?.id,
         airtableId: initialData?.airtableId,
@@ -709,7 +757,9 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
       const alreadySelected = prev.additionalFocus.includes(value);
       return {
         ...prev,
-        additionalFocus: alreadySelected ? prev.additionalFocus.filter((f) => f !== value) : [...prev.additionalFocus, value],
+        additionalFocus: alreadySelected
+          ? prev.additionalFocus.filter((f) => f !== value)
+          : [...prev.additionalFocus, value],
       };
     });
   };
@@ -720,7 +770,9 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
       const alreadySelected = selected.includes(value);
       return {
         ...prev,
-        [field]: alreadySelected ? selected.filter((cat) => cat !== value) : [...selected, value],
+        [field]: alreadySelected
+          ? selected.filter((cat) => cat !== value)
+          : [...selected, value],
       };
     });
   };
@@ -757,10 +809,10 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
               formData={formData}
               handleInputChange={handleInputChange}
               errors={errors}
-              memberLevelOptions={[]} // Replace with actual options if available
-              identificationOptions={[]}
-              genderOptions={[]}
-              primaryIndustryOptions={[]}
+              memberLevelOptions={memberLevelOptions}
+              identificationOptions={identificationOptions}
+              genderOptions={genderOptions}
+              primaryIndustryOptions={primaryIndustryOptions}
               handleToggleFocus={handleToggleFocus}
               additionalFocusOpen={!!formData.showDropdown}
               setFormData={setFormData}
@@ -771,8 +823,8 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
               formData={formData}
               handleInputChange={handleInputChange}
               errors={errors}
-              nameFromLocationOptions={[]} // Replace with actual options if available
-              similarCategoriesOptions={[]} // Replace with actual options if available
+              nameFromLocationOptions={nameFromLocationOptions}
+              similarCategoriesOptions={similarCategoriesOptions}
               showDropdown={showDropdown}
               setShowDropdown={setShowDropdown}
               handleToggleCategory={handleToggleCategory}

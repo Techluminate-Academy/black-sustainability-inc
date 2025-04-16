@@ -125,7 +125,10 @@ export default function UpdateProfilePage() {
       <main className="flex flex-col items-center justify-center flex-1 bg-gray-100 py-12">
         <h1 className="text-3xl font-bold mb-6">Update Your Profile</h1>
         {/* Pass the initialData to the update form component */}
-        <BSNUpdateProfileForm initialData={initialData} />
+        <div className="w-full max-w-3xl">
+    <BSNUpdateProfileForm initialData={initialData} />
+  </div>
+
       </main>
       <Footer />
     </div>
