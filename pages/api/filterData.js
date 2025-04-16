@@ -17,7 +17,11 @@ export default async function handler(req, res) {
     const cacheStart = Date.now();
     const cachedData = await redis.get(cacheKey);
     console.log(`Redis Fetch Time: ${Date.now() - cacheStart}ms`);
-
+    redis.keys("*").then((keys) => {
+      console.log("All keys:", keys);
+    }).catch((err) => {
+      console.error("Error fetching keys:", err);
+    });
     if (cachedData) {
       // console.log("✅ Serving from Cache");
       return res.status(200).json(JSON.parse(cachedData));

@@ -26,8 +26,8 @@ const BASE_OFFSET = 0.0002;
 function offsetDuplicateCoordinates(dataArray: any[]) {
   const coordMap: Record<string, any[]> = {};
   for (const item of dataArray) {
-    const lat = parseFloat(item.location.coordinates[1]);
-    const lng = parseFloat(item.location.coordinates[0]);
+    const lat = parseFloat(item?.location?.coordinates[1]);
+    const lng = parseFloat(item?.location?.coordinates[0]);
     if (isNaN(lat) || isNaN(lng)) continue;
     const key = `${lat},${lng}`;
     if (!coordMap[key]) coordMap[key] = [];
@@ -101,8 +101,8 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                 geometry: {
                   type: "Point",
                   coordinates: [
-                    parseFloat(item.location.coordinates[0]) || mapCenter[0],
-                    parseFloat(item.location.coordinates[1]) || mapCenter[1],
+                    parseFloat(item?.location?.coordinates[0]) || mapCenter[0],
+                    parseFloat(item?.location?.coordinates[1]) || mapCenter[1],
                   ],
                 },
               })),
@@ -171,7 +171,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
               source.getClusterExpansionZoom(clusterId, (err, zoom) => {
                 if (err) return;
                 mapRef.current?.easeTo({
-                  center: (features[0].geometry as any).coordinates,
+                  center: (features[0].geometry as any)?.coordinates,
                   zoom,
                   duration: 1000,
                 });
@@ -205,8 +205,8 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
 
               const marker = new mapboxgl.Marker({ element: markerEl })
                 .setLngLat({
-                  lng: parseFloat(data.location.coordinates[0]) || mapCenter[0],
-                  lat: parseFloat(data.location.coordinates[1]) || mapCenter[1],
+                  lng: parseFloat(data?.location?.coordinates[0]) || mapCenter[0],
+                  lat: parseFloat(data?.location?.coordinates[1]) || mapCenter[1],
                 })
                 .setPopup(popup)
                 .addTo(mapRef.current!);
