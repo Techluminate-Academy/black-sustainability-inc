@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
+import ReactDOM from "react-dom";
 import mapboxgl, { Map as MapboxMap } from "mapbox-gl";
 import ReactDOMServer from "react-dom/server";
 import CustomIconContent from "./CustomIconContent";
@@ -183,7 +184,11 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
               const popupHtml = ReactDOMServer.renderToStaticMarkup(
                 <div className="popup-wrapper">
                   <InfoCard
-                    imgUrl={data.fields?.userphoto || "/png/default.png"}
+                      imgUrl={
+                        data.fields?.PHOTO && data.fields.PHOTO.length > 0
+                          ? data.fields.PHOTO[0].url
+                          : "/png/default.png"
+                      }
                     LAST_NAME={data.fields["LAST NAME"]}
                     FIRST_NAME={data.fields["FIRST NAME"]}
                     BIO={data.fields?.BIO}
@@ -193,6 +198,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                     WEBSITE={data.fields.WEBSITE}
                     MEMBER_LEVEL={data.fields["MEMBER LEVEL"]}
                     isAuthenticated={isAuthenticated}
+                    onClose={() => popup.remove()}
                   />
                 </div>
               );
