@@ -224,7 +224,11 @@ const LeafletMap: React.FC<IProps> = ({
                 }}
               >
                 <InfoCard
-                  imgUrl={data.fields?.userphoto || "/png/default.png"}
+                     imgUrl={
+                      data.fields?.PHOTO && data.fields.PHOTO.length > 0
+                        ? data.fields.PHOTO[0].url
+                        : "/png/default.png"
+                    }
                   LAST_NAME={data.fields["LAST NAME"]}
                   FIRST_NAME={data.fields["FIRST NAME"]}
                   BIO={data.fields?.BIO}
