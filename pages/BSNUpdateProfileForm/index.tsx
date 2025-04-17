@@ -19,6 +19,11 @@ const HARDCODED_MEMBER_LEVELS = [
   { id: "recEqcQWORWPnOh3d", name: "Young Environmental Scholar" },
 ];
 
+
+
+
+
+
 export interface FormData {
   email: string;
   firstName: string;
@@ -599,6 +604,68 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
   const [similarCategoriesOptions, setSimilarCategoriesOptions] = useState<any[]>([]);
 
   const phoneInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [authenticatedUser, setAuthenticatedUser] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // 1) Your real user object:
+    const mockUser = {
+      _id: "ba11db76-b38e-4420-a4fe-502bf113fe57",
+      contactId: "ba11db76-b38e-4420-a4fe-502bf113fe57",
+      loginEmail: "jerrybony5@gmail.com",
+      profile: {
+        nickname: "Jerry Bony",
+        slug: "jerrybony5",
+        profilePhoto: {
+          id: "",
+          url: "https://lh3.googleusercontent.com/a/ACg8ocLTMKsnHOo3GtzAZd2Qa5YfGH6F1PvQybDojCh6SQ2ks9LrpbbB=s96-c",
+          height: 0,
+          width: 0,
+        },
+      },
+      contactDetails: {
+        contactId: "ba11db76-b38e-4420-a4fe-502bf113fe57",
+        firstName: "Jerry",
+        lastName: "Bony",
+        phones: [],
+        emails: [],
+        addresses: [],
+        customFields: {},
+      },
+      activityStatus: "ACTIVE",
+      privacyStatus: "PUBLIC",
+      status: "APPROVED",
+      lastLoginDate: "2025-02-04T14:53:44Z",
+      _createdDate: "2024-12-26T15:28:49Z",
+      _updatedDate: "2024-12-26T15:28:49.236Z",
+    };
+
+    // 2) Write it to a cookie
+    document.cookie = `bsn_user=${encodeURIComponent(
+      JSON.stringify(mockUser)
+    )}; path=/; max-age=${60 * 60 * 24 * 7}`; // 7 days
+
+    // 3) Cookie‑reader helper
+    const getCookie = (name: string) => {
+      const match = document.cookie.match(
+        new RegExp("(^| )" + name + "=([^;]+)")
+      );
+      return match ? decodeURIComponent(match[2]) : "";
+    };
+
+    // 4) Parse back into React state
+    const raw = getCookie("bsn_user");
+    if (raw) {
+      try {
+        const user = JSON.parse(raw);
+        setAuthenticatedUser(user.loginEmail);
+        setIsAuthenticated(true);
+      } catch (err) {
+        console.error("Failed to parse bsn_user cookie", err);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (initialData) {
