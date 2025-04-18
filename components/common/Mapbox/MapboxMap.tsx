@@ -1,8 +1,9 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
-import mapboxgl, { Map as MapboxMap } from "mapbox-gl";
+// import mapboxgl, { Map as MapboxMap } from "mapbox-gl";
 import ReactDOMServer from "react-dom/server";
+import mapboxgl from "mapbox-gl";  
 import CustomIconContent from "./CustomIconContent";
 import InfoCard from "../InfoCard";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -66,7 +67,7 @@ const createMarkerElement = (record: any, isAuthenticated: boolean): HTMLElement
 
 const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, filteredData }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<MapboxMap | null>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<MarkerWithId[]>([]);
   const mapCenter: [number, number] = [-84.3877, 33.7488];
   const [loading, setLoading] = useState(true); // <-- loading state
@@ -94,7 +95,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
           mapRef.current.on("load", () => {
             if (!mapRef.current) return;
 
-            const geoJsonData = {
+            const geoJsonData: GeoJSON.FeatureCollection = {
               type: "FeatureCollection",
               features: fetchedLocations.map((item: any) => ({
                 type: "Feature",
@@ -170,7 +171,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
               const clusterId = features[0].properties?.cluster_id;
               const source = mapRef.current?.getSource("users-cluster") as mapboxgl.GeoJSONSource;
               source.getClusterExpansionZoom(clusterId, (err, zoom) => {
-                if (err) return;
+                if (err || zoom == null) return;
                 mapRef.current?.easeTo({
                   center: (features[0].geometry as any)?.coordinates,
                   zoom,
@@ -198,7 +199,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                     WEBSITE={data.fields.WEBSITE}
                     MEMBER_LEVEL={data.fields["MEMBER LEVEL"]}
                     isAuthenticated={isAuthenticated}
-                    onClose={() => popup.remove()}
+         
                   />
                 </div>
               );
@@ -236,8 +237,25 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
             setLoading(false); // Stop loading after markers are added
           });
 
-          mapRef.current.on("moveend", () => {
-            const bounds = mapRef.current!.getBounds();
+          // mapRef.current.on("moveend", () => {
+          //   const bounds = mapRef.current!.getBounds();
+          //   if (onMarkerHover) {
+          //     const fakeLeafletBounds = {
+          //       getNorthEast: () => ({ lat: bounds.getNorthEast().lat, lng: bounds.getNorthEast().lng }),
+          //       getSouthWest: () => ({ lat: bounds.getSouthWest().lat, lng: bounds.getSouthWest().lng }),
+          //     } as unknown as LatLngBounds;
+          //     onMarkerHover(fakeLeafletBounds);
+          //   }
+          // });
+          mapRef.current!.on("moveend", () => {
+            // 1) Make sure the map still exists
+            if (!mapRef.current) return;
+          
+            // 2) Grab bounds and bail if it came back null
+            const bounds = mapRef.current.getBounds();
+            if (!bounds) return;    // ← FIX: guard against nullish bounds
+          
+            // 3) Your existing fake‑Leaflet conversion
             if (onMarkerHover) {
               const fakeLeafletBounds = {
                 getNorthEast: () => ({ lat: bounds.getNorthEast().lat, lng: bounds.getNorthEast().lng }),
@@ -246,6 +264,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
               onMarkerHover(fakeLeafletBounds);
             }
           });
+          
         }
       } catch (error) {
         console.error("Error loading locations:", error);
