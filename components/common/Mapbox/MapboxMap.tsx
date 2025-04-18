@@ -6,6 +6,7 @@ import CustomIconContent from "./CustomIconContent";
 import InfoCard from "../InfoCard";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { LatLngBounds } from "leaflet";
+import { FeatureCollection, Point } from 'geojson';
 import { BsiUserObjectArray } from "@/typings";
 
 interface IProps {
@@ -93,7 +94,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
           mapRef.current.on("load", () => {
             if (!mapRef.current) return;
 
-            const geoJsonData = {
+            const geoJsonData: FeatureCollection<Point> = {
               type: "FeatureCollection",
               features: fetchedLocations.map((item: any) => ({
                 type: "Feature",
@@ -169,6 +170,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
               const clusterId = features[0].properties?.cluster_id;
               const source = mapRef.current?.getSource("users-cluster") as mapboxgl.GeoJSONSource;
               source.getClusterExpansionZoom(clusterId, (err, zoom) => {
+                if (err || zoom === null || zoom === undefined) return;
                 if (err) return;
                 mapRef.current?.easeTo({
                   center: (features[0].geometry as any)?.coordinates,
@@ -178,10 +180,25 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
               });
             });
 
+
             fetchedLocations.forEach((data: any) => {
               const markerEl = createMarkerElement(data, isAuthenticated);
               const popupHtml = ReactDOMServer.renderToStaticMarkup(
                 <div className="popup-wrapper">
+                  <button
+                    className="close-popup-btn"
+                    style={{
+                      position: 'absolute',
+                      right:'-160px',
+                      top:'10px',
+                      border: 'none',
+                      fontSize: '13px',
+                      outline: 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    X
+                  </button>
                   <InfoCard
                     imgUrl={data.fields?.userphoto || "/png/default.png"}
                     LAST_NAME={data.fields["LAST NAME"]}
@@ -212,7 +229,18 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                 .addTo(mapRef.current!);
 
               markersRef.current.push({ marker, recordId: data.id });
+              // ⬇️ Attach close button listener after popup is added
+              popup.on('open', () => {
+                const closeBtn = document.querySelector('.close-popup-btn');
+                if (closeBtn) {
+                  closeBtn.addEventListener('click', () => {
+                    popup.remove();
+                  });
+                }
+              });
             });
+
+
 
             const hideClusteredMarkers = () => {
               if (!mapRef.current) return;
@@ -230,16 +258,20 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
             setLoading(false); // Stop loading after markers are added
           });
 
-          mapRef.current.on("moveend", () => {
-            const bounds = mapRef.current!.getBounds();
+          mapRef.current?.on("moveend", () => {
+            const bounds = mapRef.current?.getBounds();
+            if (!bounds) return;  // safety check
+
             if (onMarkerHover) {
               const fakeLeafletBounds = {
                 getNorthEast: () => ({ lat: bounds.getNorthEast().lat, lng: bounds.getNorthEast().lng }),
                 getSouthWest: () => ({ lat: bounds.getSouthWest().lat, lng: bounds.getSouthWest().lng }),
               } as unknown as LatLngBounds;
+
               onMarkerHover(fakeLeafletBounds);
             }
           });
+
         }
       } catch (error) {
         console.error("Error loading locations:", error);

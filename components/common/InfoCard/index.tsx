@@ -33,11 +33,10 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, ...UserProps }) => {
                 isAuthenticated ? "blur-none" : "blur-md"
               } w-full object-cover object-center h-full rounded-md`}
               alt={`${UserProps.FIRST_NAME} ${UserProps.LAST_NAME}  profile image`}
-              fill
               loading="lazy"
             />
           ) : (
-            <img src={UserProps.imgUrl} blurAmount={16} />
+            <img src={UserProps.imgUrl} />
           )}
         </div>
         <div className="w-[60%] flex flex-col justify-between gap-y-0.5 h-[133px] p-1 ">
