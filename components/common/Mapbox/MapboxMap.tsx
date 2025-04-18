@@ -95,7 +95,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
           mapRef.current.on("load", () => {
             if (!mapRef.current) return;
 
-            const geoJsonData: GeoJSON.FeatureCollection = {
+            const geoJsonData = {
               type: "FeatureCollection",
               features: fetchedLocations.map((item: any) => ({
                 type: "Feature",
@@ -112,6 +112,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
 
             mapRef.current.addSource("users-cluster", {
               type: "geojson",
+              // @ts-ignore: using plain object for geojson source
               data: geoJsonData,
               cluster: true,
               clusterMaxZoom: 20,
@@ -248,23 +249,23 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
           //   }
           // });
           mapRef.current!.on("moveend", () => {
-            // 1) Make sure the map still exists
-            if (!mapRef.current) return;
-          
-            // 2) Grab bounds and bail if it came back null
-            const bounds = mapRef.current.getBounds();
-            if (!bounds) return;    // ← FIX: guard against nullish bounds
-          
-            // 3) Your existing fake‑Leaflet conversion
-            if (onMarkerHover) {
-              const fakeLeafletBounds = {
-                getNorthEast: () => ({ lat: bounds.getNorthEast().lat, lng: bounds.getNorthEast().lng }),
-                getSouthWest: () => ({ lat: bounds.getSouthWest().lat, lng: bounds.getSouthWest().lng }),
-              } as unknown as LatLngBounds;
-              onMarkerHover(fakeLeafletBounds);
-            }
-          });
-          
+  // 1) Make sure the map still exists
+  if (!mapRef.current) return;
+
+  // 2) Grab bounds and bail if it came back null
+  const bounds = mapRef.current.getBounds();
+  if (!bounds) return;    // ← FIX: guard against nullish bounds
+
+  // 3) Your existing fake‑Leaflet conversion
+  if (onMarkerHover) {
+    const fakeLeafletBounds = {
+      getNorthEast: () => ({ lat: bounds.getNorthEast().lat, lng: bounds.getNorthEast().lng }),
+      getSouthWest: () => ({ lat: bounds.getSouthWest().lat, lng: bounds.getSouthWest().lng }),
+    } as unknown as LatLngBounds;
+    onMarkerHover(fakeLeafletBounds);
+  }
+});
+
         }
       } catch (error) {
         console.error("Error loading locations:", error);
