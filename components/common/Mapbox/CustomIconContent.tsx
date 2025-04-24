@@ -7,7 +7,7 @@ interface CustomIconContentProps {
     isAuthenticated: boolean;
     fields: {
       "PRIMARY INDUSTRY HOUSE"?: string;
-      userphoto?: string;
+      PHOTO?: { url: string }[];
     };
   };
 }
@@ -36,7 +36,6 @@ const getColorByIconTag = (iconTag?: string): string => {
 const CustomIconContent: React.FC<CustomIconContentProps> = ({ record }) => {
   const { isAuthenticated, fields } = record;
   const bgColor = getColorByIconTag(fields["PRIMARY INDUSTRY HOUSE"]);
-  const photoUrl = fields.userphoto;
 
   return (
     <div
@@ -63,7 +62,9 @@ const CustomIconContent: React.FC<CustomIconContentProps> = ({ record }) => {
         }}
       >
         <Image
-          src={photoUrl || "/png/default.png"}
+          src={fields?.PHOTO && fields.PHOTO.length > 0
+            ? fields.PHOTO[0].url
+            : "/png/default.png"}
           alt="member"
           fill
           loading="lazy"
