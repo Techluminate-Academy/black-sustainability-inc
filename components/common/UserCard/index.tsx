@@ -43,8 +43,13 @@ const UserCard: React.FC<IProps> = ({
       <div className="relative">
         {isAuthenticated ? (
           <div className="relative h-[250px] w-full bg-[#FFF8E5] rounded-xl">
-          <BlurImage imageUrl={imgUrl} blurAmount={80} />
-           
+            <Image
+              src={imgUrl}
+              alt="profile image"
+              fill
+              className="rounded-xl object-top object-cover "
+              loading="lazy"
+            />
           </div>
         ) : (
           <BlurImage imageUrl={imgUrl} blurAmount={80} />
