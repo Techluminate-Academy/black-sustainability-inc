@@ -89,7 +89,7 @@ const CustomIconContent: React.FC<CustomIconContentProps> = ({ record }) => {
               height: "100%",
               objectFit: "cover",
               backgroundColor: "white",
-              filter: isAuthenticated ? "blur(8px)" : "none",
+              filter: !isAuthenticated ? "blur(8px)" : "none",
             }}
           />
         </div>
