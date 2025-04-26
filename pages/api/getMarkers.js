@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     // 🔹 Check Redis cache first
     const cacheStart = Date.now();
     const cachedData = await redis.get(cacheKey);
-    
+
     if (cachedData) {
       const decompressedData = await inflate(Buffer.from(cachedData, 'base64'));  // Decompress the data from Redis
       const parsedData = JSON.parse(decompressedData.toString());
@@ -45,7 +45,14 @@ export default async function handler(req, res) {
             'MEMBER LEVEL': '$fields.MEMBER LEVEL',
             'PRIMARY INDUSTRY HOUSE': '$fields.PRIMARY INDUSTRY HOUSE',
             'Location (Nearest City)': '$fields.Location (Nearest City)',
-            'ORGANIZATION NAME': '$fields.ORGANIZATION NAME'
+            'ORGANIZATION NAME': '$fields.ORGANIZATION NAME',
+            'PHOTO': {
+              $cond: {
+                if: { $gt: [{ $size: { $ifNull: ["$fields.PHOTO", []] } }, 0] },
+                then: { $arrayElemAt: ["$fields.PHOTO.url", 0] },  // Extract the first URL directly from PHOTO array
+                else: null
+              }
+            }
           },
           location: {
             type: { $literal: 'Point' },
@@ -64,7 +71,7 @@ export default async function handler(req, res) {
         }
       }
     ];
-    
+
 
     const data = await collection.aggregate(pipeline).toArray();
     console.log(`MongoDB Fetch Time: ${Date.now() - mongoStart}ms`);
