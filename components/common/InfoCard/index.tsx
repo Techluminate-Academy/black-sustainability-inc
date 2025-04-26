@@ -26,7 +26,7 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, ...UserProps }) => {
     <div className="popup-info-card">
       <div className="flex gap-x-5 items-start ">
         <div className="relative w-[40%] h-[133px] rounded-md overflow-hidden">
-          {isAuthenticated ? (
+          {!isAuthenticated ? (
             <img
               src={UserProps.imgUrl}
               className={`${
