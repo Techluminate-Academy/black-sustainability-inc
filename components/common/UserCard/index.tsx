@@ -52,7 +52,14 @@ const UserCard: React.FC<IProps> = ({
             />
           </div>
         ) : (
-          <BlurImage imageUrl={imgUrl} blurAmount={16} />
+          <img
+              src={imgUrl}
+              className={`${
+                isAuthenticated ? "blur-none" : "blur-md"
+              } w-full object-cover object-center h-full rounded-md`}
+              alt={` profile image`}
+              loading="lazy"
+            />
         )}
       </div>
 
