@@ -7,7 +7,7 @@ interface CustomIconContentProps {
     isAuthenticated: boolean;
     fields: {
       "PRIMARY INDUSTRY HOUSE"?: string;
-      PHOTO?: { url: string }[];
+      PHOTO?: { url: string }[] | string;
     };
   };
 }
@@ -55,23 +55,44 @@ const CustomIconContent: React.FC<CustomIconContentProps> = ({ record }) => {
           backgroundColor: bgColor,
           borderColor: bgColor,
           transform: "rotate(-35deg)",
-          border: "2px solid",
+          border: "1.9px solid",
           overflow: "hidden",
           borderRadius: "52% 52% 100% 0% / 95% 38% 62% 5%",
           position: "relative",
         }}
       >
-        <Image
-          src={fields?.PHOTO && fields.PHOTO.length > 0
-            ? fields.PHOTO[0].url
-            : "/png/default.png"}
-          alt="member"
-          fill
-          loading="lazy"
-          className={`absolute inset-0 w-[120%] h-[120%] object-cover bg-white ${
-            !isAuthenticated ? "blur-md" : ""
-          }`}
-        />
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            width: "128%",
+            height: "125%",
+            transform: "translate(-50%, -50%) rotate(35deg)",
+          }}
+        >
+          <Image
+           src={
+            Array.isArray(fields?.PHOTO) && fields.PHOTO.length > 0
+              ? fields.PHOTO[0].url || "/png/default.png"  // If it's an array, use the first item's URL
+              : typeof fields?.PHOTO === 'string'
+              ? fields.PHOTO  // If it's a string, use the string directly
+              : "/png/default.png"  // Fallback if PHOTO is not available or doesn't match any case
+          }
+          
+            alt="member"
+            width={60} // Set width and height to match the div's size
+            height={64}
+            loading="lazy"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              backgroundColor: "white",
+              filter: isAuthenticated ? "blur(8px)" : "none",
+            }}
+          />
+        </div>
       </div>
     </div>
   );
