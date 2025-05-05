@@ -20,9 +20,14 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
     setMobileNavOpen(!isMobileNavOpen);
   };
 
-  const parsedUser = authenticatedUser.length
-    ? JSON.parse(authenticatedUser)
-    : "";
+// // before
+// const parsedUser = authenticatedUser.length
+//   ? JSON.parse(authenticatedUser)
+//   : "";
+
+// after
+const parsedUser = authenticatedUser || "";
+
 
   return (
     <nav className="bg-white w-full fixed top-0 left-0 !z-[9999] font-lexen">

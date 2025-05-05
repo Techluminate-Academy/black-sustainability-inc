@@ -19,22 +19,26 @@ export default async function handler(
       .json({ success: false, message: "Method not allowed" });
   }
 
-  const { recordId, airtableId, updatedData, mappedAirtableFields } = req.body;
-  if (!recordId || !airtableId || !updatedData || !mappedAirtableFields) {
+  // ⬅️ now only expect airtableId + fields
+  const { airtableId, fields } = req.body;
+  if (!airtableId || !fields) {
     return res
       .status(400)
-      .json({ success: false, message: "Missing required parameters" });
+      .json({ success: false, message: "Missing airtableId or fields" });
   }
 
   try {
-    // 1) Update Airtable
-    const airtableResult = await AirtableUtils.updateRecord(recordId, updatedData);
+    // 1) Update Airtable with the record key + mapped fields
+    const airtableResult = await AirtableUtils.updateRecord(
+      airtableId,
+      fields
+    );
 
-    // 2) Update MongoDB
+    // 2) Mirror into MongoDB
     const { db } = await connectToDatabase();
     await db.collection("users").updateOne(
       { airtableId },
-      { $set: mappedAirtableFields },
+      { $set: fields },
       { upsert: true }
     );
 

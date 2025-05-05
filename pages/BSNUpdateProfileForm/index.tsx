@@ -92,17 +92,41 @@ const defaultFormData: FormData = {
   phoneCountryCodeTouched: false,
 };
 
-interface BSNUpdateProfileFormProps {
-  initialData?: FormData;
+
+export interface InitialData extends FormData {
+  id: string;           // Airtable record ID  
+  airtableId: string;   // same as `id`, used for Mongo lookup  
 }
 
-// Build international options
-const internationalOptions: { code: string; country: string; iso2: string }[] =
-  allCountries.map((country) => ({
-    code: `+${country.dialCode}`,
-    country: country.name,
-    iso2: country.iso2,
-  }));
+interface BSNUpdateProfileFormProps {
+  /** ⬅️ MODIFIED: expects InitialData, not just FormData */
+  initialData?: InitialData;
+}
+
+
+
+// 1) Raw shape from country-telephone-data  
+interface RawCountry {
+  name: string;
+  dialCode: string;
+  iso2?: string;
+}
+
+// 2) Target shape  
+interface IntlOption {
+  code: string;
+  country: string;
+  iso2: string;
+}
+
+// 3) Cast + map with coalesce  
+const raw = allCountries as RawCountry[];
+const internationalOptions: IntlOption[] = raw.map((country) => ({
+  code:    `+${country.dialCode}`,
+  country: country.name,
+  iso2:    country.iso2 ?? "",       // ⬅️ MODIFIED: guarantee string
+}));
+
 
 // Map formData to the fields structure expected by Airtable
 const mapFormDataToAirtableFields = (formData: FormData) => {
@@ -768,9 +792,22 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
     e.preventDefault();
     if (!validateStep()) return;
     setIsSubmitting(true);
+  
+    // ⬅️ MODIFIED: make sure we actually have an Airtable ID
+    if (!initialData?.airtableId && !initialData?.id) {
+      console.error("No Airtable record ID available");
+      setIsSubmitting(false);
+      return;
+    }
+  
+    // ⬅️ MODIFIED: coalesce to a guaranteed string
+    const airtableId = initialData.airtableId ?? initialData.id;
+  
     try {
+      // 1) upload files if needed
       let photoUrl = formData.photoUrl;
-      let logoUrl = formData.logoUrl;
+      let logoUrl  = formData.logoUrl;
+  
       if (formData.photo && !formData.photoUrl) {
         photoUrl = await uploadFile(formData.photo);
         setFormData((prev) => ({ ...prev, photoUrl }));
@@ -779,17 +816,24 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
         logoUrl = await uploadFile(formData.logo);
         setFormData((prev) => ({ ...prev, logoUrl }));
       }
+  
+      // 2) build your Airtable-shaped fields once
       const finalAirtableFields = mapFormDataToAirtableFields({
         ...formData,
         photoUrl,
         logoUrl,
       });
-      const response = await axios.post("/api/updateMember", {
-        recordId: initialData?.id,
-        airtableId: initialData?.airtableId,
-        updatedData: finalAirtableFields,
-        mappedAirtableFields: finalAirtableFields,
+  
+      // 3) ⬅️ MODIFIED: send only airtableId + fields
+      const response = await axios.post<{
+        success: boolean;
+        airtable?: any;
+        message?: string;
+      }>("/api/updateMember", {
+        airtableId,                      // record key
+        fields: finalAirtableFields,     // mapped fields object
       });
+  
       console.log("Profile updated successfully:", response.data);
       setIsSubmitted(true);
     } catch (error) {
@@ -799,6 +843,7 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
       setIsSubmitting(false);
     }
   };
+  
 
   const handleInputChange = (field: keyof FormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
