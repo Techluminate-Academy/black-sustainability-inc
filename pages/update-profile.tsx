@@ -2,107 +2,147 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import Nav from "@/components/layouts/Nav";
 import Footer from "@/components/layouts/Footer";
-// Import the shared form component and its InitialData type
+// Make sure this path matches your project structure
 import BSNUpdateProfileForm, { InitialData } from "@/pages/BSNUpdateProfileForm";
 
 export default function UpdateProfilePage() {
-  const router = useRouter();
-  // useSearchParams() can be null, so we use optional chaining + a fallback
-  const searchParams = useSearchParams();
-  const airtableId = searchParams?.get("airtableId") ?? "recyBLdfpSIMTFV8J";
-
-  // State now typed to the superset InitialData (includes id & airtableId)
+  // Form’s initial data (once loaded)
   const [initialData, setInitialData] = useState<InitialData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
+
+  // Helper to read & decode a cookie by name
+  function getCookie(name: string): string {
+    const match = document.cookie.match(
+      new RegExp("(^| )" + name + "=([^;]+)")
+    );
+    return match ? decodeURIComponent(match[2]) : "";
+  }
 
   useEffect(() => {
-    async function fetchRecord() {
-      setLoading(true);
+    // ── 1) MOCK YOUR LOGGED-IN USER COOKIE ────────────────────────────────
+    const mockUser = {
+      _id:         "e10efef3-e3ce-455a-bb6f-18f711f04b8f",
+      contactId:   "e10efef3-e3ce-455a-bb6f-18f711f04b8f",
+      loginEmail:  "jerry@techluminateacademy.com",
+      profile: {
+        nickname:     "Jerry Bony",
+        slug:         "jerry",
+        profilePhoto: {
+          id:  "",
+          url: "https://lh3.googleusercontent.com/a/ACg8ocKWZ0GFq5FHgvXMDTTqpOJPD9D5yoxOnWKI71oNHwnlhhfcMfM=s96-c",
+          height: 0,
+          width:  0,
+        },
+      },
+      contactDetails: {
+        contactId:   "e10efef3-e3ce-455a-bb6f-18f711f04b8f",
+        firstName:   "Jerry",
+        lastName:    "Bony",
+        phones:      [],
+        emails:      [],
+        addresses:   [],
+        customFields:{},
+      },
+      activityStatus:  "ACTIVE",
+      privacyStatus:   "PUBLIC",
+      status:          "APPROVED",
+      lastLoginDate:   "2025-04-26T19:27:44Z",
+      _createdDate:    "2024-12-12T23:43:07Z",
+      _updatedDate:    "2024-12-12T23:43:07.711Z",
+    };
+
+    document.cookie = `bsn_user=${encodeURIComponent(
+      JSON.stringify(mockUser)
+    )}; path=/; max-age=${60 * 60 * 24 * 7}`; // valid for 7 days
+
+    // ── 2) NOW FETCH THE USER’S RECORD ─────────────────────────────────
+    (async () => {
       try {
-        const response = await axios.get(
-          `/api/getSingleRecord?airtableId=${airtableId}`
-        );
-        if (!response.data.success) {
-          console.error("Record not found:", response.data.message);
-          return;
+        const rawCookie = getCookie("bsn_user");
+        if (!rawCookie) {
+          throw new Error("bsn_user cookie not found");
         }
 
-        const record = response.data.data;
-        const fields = record.fields || {};
+        // You could JSON.parse(rawCookie) here to double-check,
+        // but your API on the server re-reads and parses it itself.
 
-        // Build an InitialData object: all your FormData fields + the two IDs
+        const resp = await axios.get("/api/getRecordByEmail");
+        if (!resp.data.success) {
+          throw new Error(resp.data.message || "Unknown API error");
+        }
+
+        const record = resp.data.data;
+        const f = record.fields || {};
+
+        // ── TRANSFORM INTO YOUR FORM’S INITIAL SHAPE ────────────────
         const transformed: InitialData = {
-          email:            fields["EMAIL ADDRESS"]           ?? "",
-          firstName:        fields["FIRST NAME"]              ?? "",
-          lastName:         fields["LAST NAME"]               ?? "",
-          memberLevel:      (fields["MEMBER LEVEL"]?.[0] as string) ?? "",
-          bio:              fields["BIO"]                     ?? "",
-          organizationName: fields["ORGANIZATION NAME"]       ?? "",
-          affiliatedEntity: fields["AFFILIATED ENTITY"]       ?? "",
+          email:            f["EMAIL ADDRESS"]           ?? "",
+          firstName:        f["FIRST NAME"]              ?? "",
+          lastName:         f["LAST NAME"]               ?? "",
+          memberLevel:      (f["MEMBER LEVEL"]?.[0] as string) ?? "",
+          bio:              f["BIO"]                     ?? "",
+          organizationName: f["ORGANIZATION NAME"]       ?? "",
+          affiliatedEntity: f["AFFILIATED ENTITY"]       ?? "",
           photo:            null,
           photoUrl:         "",
           logo:             null,
-          logoUrl:          "",
-          identification:   fields["IDENTIFICATION"]          ?? "",
-          gender:           fields["GENDER"]                  ?? "",
-          website:          fields["WEBSITE"]                 ?? "",
+          logoUrl:   Array.isArray(f.LOGO)     ? f.LOGO[0].url    : "",
+          identification:   f["IDENTIFICATION"]          ?? "",
+          gender:           f["GENDER"]                  ?? "",
+          website:          f["WEBSITE"]                 ?? "",
           phoneCountryCode: "+1-us",
-          phone:            `${fields["PHONE US/CAN ONLY"] ?? ""}`.replace(/^\+/, ""),
-          additionalFocus:  fields["ADDITIONAL FOCUS AREAS"]  ?? [],
-          primaryIndustry:  fields["PRIMARY INDUSTRY HOUSE"]  ?? "",
-          address:          fields["Address"]                 ?? "",
-          zipCode:          fields["Zip/Postal Code"]         ?? 0,
-          youtube:          fields["YOUTUBE"]                 ?? "",
-          nearestCity:      fields["Location (Nearest City)"] ?? "",
-          nameFromLocation: fields["Name (from Location)"]    ?? "",
-          fundingGoal:      fields["FUNDING GOAL"]            ?? "",
-          similarCategories:fields["Similar Categories"]      ?? [],
-          naicsCode:        fields["NAICS Code"]              ?? "",
-          includeOnMap:     Boolean(fields["Featured"]),
-          latitude:         fields["Latitude"]
-                               ? parseFloat(fields["Latitude"])
-                               : null,
-          longitude:        fields["Longitude"]
-                               ? parseFloat(fields["Longitude"])
-                               : null,
+          phone:            `${f["PHONE US/CAN ONLY"] ?? ""}`.replace(/^\+/, ""),
+          additionalFocus:  f["ADDITIONAL FOCUS AREAS"]  ?? [],
+          primaryIndustry:  f["PRIMARY INDUSTRY HOUSE"]  ?? "",
+          address:          f["Address"]                 ?? "",
+          zipCode:          f["Zip/Postal Code"]         ?? 0,
+          youtube:          f["YOUTUBE"]                 ?? "",
+          nearestCity:      f["Location (Nearest City)"] ?? "",
+          nameFromLocation: f["Name (from Location)"]    ?? "",
+          fundingGoal:      f["FUNDING GOAL"]            ?? "",
+          similarCategories:f["Similar Categories"]      ?? [],
+          naicsCode:        f["NAICS Code"]              ?? "",
+          includeOnMap:     Boolean(f["Featured"]),
+          latitude:         f["Latitude"]  ? parseFloat(f["Latitude"])  : null,
+          longitude:        f["Longitude"] ? parseFloat(f["Longitude"]) : null,
           showDropdown:     false,
           phoneCountryCodeTouched: false,
 
-          // **The two record IDs** required by the form
-          id:           record.id,
-          airtableId:   record.id,
+          // The two IDs your form needs:
+          id:         record.airtableId as string,
+          airtableId: record.airtableId as string,
         };
 
         setInitialData(transformed);
-      } catch (error) {
-        console.error("Error fetching record:", error);
+      } catch (err: any) {
+        console.error("load record error:", err);
+        setError(err.message || "Failed to load record");
       } finally {
         setLoading(false);
       }
-    }
-
-    fetchRecord();
-  }, [airtableId]);
+    })();
+  }, []);
 
   if (loading) {
     return <div>Loading profile data…</div>;
   }
+  if (error) {
+    return <div style={{ color: "red" }}>Error: {error}</div>;
+  }
   if (!initialData) {
-    return <div>Error loading profile. Please try again later.</div>;
+    return <div>No profile data found.</div>;
   }
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* You can wire up Nav with the user’s email */}
       <Nav isAuthenticated={true} authenticatedUser={initialData.email} />
       <main className="flex-1 flex flex-col items-center justify-center bg-gray-100 py-12">
         <h1 className="text-3xl font-bold mb-6">Update Your Profile</h1>
         <div className="w-full max-w-3xl">
-          {/* Pass the fully-typed InitialData into your form */}
           <BSNUpdateProfileForm initialData={initialData} />
         </div>
       </main>

@@ -1,0 +1,73 @@
+import type { NextApiRequest, NextApiResponse } from "next";
+import { connectToDatabase } from "@/lib/mongodb";
+import cookie from "cookie";
+
+type Data =
+  | { success: true; data: any }
+  | { success: false; message: string };
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<Data>
+) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ success: false, message: "Method not allowed" });
+  }
+
+  // 1) Parse cookies
+  const cookies = cookie.parse(req.headers.cookie || "");
+  const raw = cookies.bsn_user;
+  if (!raw) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Missing bsn_user cookie" });
+  }
+
+  // 2) decode & parse the user object
+  let userObj: any;
+  try {
+    userObj = JSON.parse(decodeURIComponent(raw));
+  } catch (err) {
+    console.error("Failed to parse cookie JSON:", err);
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid bsn_user cookie" });
+  }
+
+  const email = userObj.loginEmail;
+  if (!email) {
+    return res
+      .status(400)
+      .json({ success: false, message: "No loginEmail in cookie" });
+  }
+
+  try {
+    // 3) Lookup in Mongo
+    const { db } = await connectToDatabase();
+    const record = await db
+      .collection("airtableRecords")
+      .findOne({ "fields.Created By.email": email });
+
+    if (!record) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Record not found" });
+    }
+
+    // 4) Pull off first PHOTO and first LOGO URLs
+    const flds = record.fields as any;
+    record.fields.photoUrl = Array.isArray(flds.PHOTO) && flds.PHOTO.length
+      ? flds.PHOTO[0].url
+      : "";
+    record.fields.logoUrl = Array.isArray(flds.LOGO) && flds.LOGO.length
+      ? flds.LOGO[0].url
+      : "";
+
+    return res.status(200).json({ success: true, data: record });
+  } catch (error: any) {
+    console.error("getRecordByEmail error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: error.message });
+  }
+}
