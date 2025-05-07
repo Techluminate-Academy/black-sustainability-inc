@@ -2,74 +2,49 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import axios from "axios";
 import Nav from "@/components/layouts/Nav";
 import Footer from "@/components/layouts/Footer";
-// Make sure this path matches your project structure
 import BSNUpdateProfileForm, { InitialData } from "@/pages/BSNUpdateProfileForm";
 
 export default function UpdateProfilePage() {
-  // Form’s initial data (once loaded)
+  const router = useRouter();
   const [initialData, setInitialData] = useState<InitialData | null>(null);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
+  const [parsedUser, setParsedUser] = useState<any>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Helper to read & decode a cookie by name
   function getCookie(name: string): string {
-    const match = document.cookie.match(
-      new RegExp("(^| )" + name + "=([^;]+)")
-    );
+    const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
     return match ? decodeURIComponent(match[2]) : "";
   }
 
   useEffect(() => {
-    // ── 1) MOCK YOUR LOGGED-IN USER COOKIE ────────────────────────────────
-    const mockUser = {
-      _id:         "e10efef3-e3ce-455a-bb6f-18f711f04b8f",
-      contactId:   "e10efef3-e3ce-455a-bb6f-18f711f04b8f",
-      loginEmail:  "jerry@techluminateacademy.com",
-      profile: {
-        nickname:     "Jerry Bony",
-        slug:         "jerry",
-        profilePhoto: {
-          id:  "",
-          url: "https://img.icons8.com/ios-filled/50/000000/user-male-circle.png",
-          height: 0,
-          width:  0,
-        },
-      },
-      contactDetails: {
-        contactId:   "e10efef3-e3ce-455a-bb6f-18f711f04b8f",
-        firstName:   "Jerry",
-        lastName:    "Bony",
-        phones:      [],
-        emails:      [],
-        addresses:   [],
-        customFields:{},
-      },
-      activityStatus:  "ACTIVE",
-      privacyStatus:   "PUBLIC",
-      status:          "APPROVED",
-      lastLoginDate:   "2025-04-26T19:27:44Z",
-      _createdDate:    "2024-12-12T23:43:07Z",
-      _updatedDate:    "2024-12-12T23:43:07.711Z",
-    };
+    // 1) Read & parse the user cookie
+    const rawCookie = getCookie("bsn_user");
+    if (!rawCookie) {
+      // not authenticated → redirect
+      router.replace("/");
+      return;
+    }
 
-    document.cookie = `bsn_user=${encodeURIComponent(
-      JSON.stringify(mockUser)
-    )}; path=/; max-age=${60 * 60 * 24 * 7}`; // valid for 7 days
+    let user;
+    try {
+      user = JSON.parse(rawCookie);
+    } catch {
+      // invalid cookie → redirect
+      router.replace("/");
+      return;
+    }
 
-    // ── 2) NOW FETCH THE USER’S RECORD ─────────────────────────────────
+    setParsedUser(user);
+    setIsAuthenticated(true);
+
+    // 2) Fetch the user’s Airtable record
     (async () => {
       try {
-        const rawCookie = getCookie("bsn_user");
-        if (!rawCookie) {
-          throw new Error("bsn_user cookie not found");
-        }
-
-        // You could JSON.parse(rawCookie) here to double-check,
-        // but your API on the server re-reads and parses it itself.
-
         const resp = await axios.get("/api/getRecordByEmail");
         if (!resp.data.success) {
           throw new Error(resp.data.message || "Unknown API error");
@@ -78,8 +53,7 @@ export default function UpdateProfilePage() {
         const record = resp.data.data;
         const f = record.fields || {};
 
-        // ── TRANSFORM INTO YOUR FORM’S INITIAL SHAPE ────────────────
-        // Strip all '+' characters and then split off leading '1' if US
+        // Transform into InitialData shape
         const rawPhone = (f["PHONE US/CAN ONLY"] ?? "")
           .toString()
           .replace(/\+/g, "");
@@ -96,7 +70,7 @@ export default function UpdateProfilePage() {
           organizationName: f["ORGANIZATION NAME"]       ?? "",
           affiliatedEntity: f["AFFILIATED ENTITY"]       ?? "",
           photo:            null,
-          photoUrl: Array.isArray(f.PHOTO) ? f.PHOTO[0].url : "",
+          photoUrl:         Array.isArray(f.PHOTO) ? f.PHOTO[0].url : "",
           logo:             null,
           logoUrl:          Array.isArray(f.LOGO) ? f.LOGO[0].url : "",
           identification:   f["IDENTIFICATION"]          ?? "",
@@ -119,8 +93,6 @@ export default function UpdateProfilePage() {
           longitude:        f["Longitude"] ? parseFloat(f["Longitude"]) : null,
           showDropdown:     false,
           phoneCountryCodeTouched: false,
-
-          // The two IDs your form needs:
           id:         record.airtableId as string,
           airtableId: record.airtableId as string,
         };
@@ -133,7 +105,7 @@ export default function UpdateProfilePage() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [router]);
 
   if (loading) {
     return <div>Loading profile data…</div>;
@@ -147,7 +119,10 @@ export default function UpdateProfilePage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Nav isAuthenticated={true} authenticatedUser={initialData.email} />
+      <Nav
+        isAuthenticated={isAuthenticated}
+        authenticatedUser={parsedUser}
+      />
       <main className="flex-1 flex flex-col items-center justify-center bg-gray-100 py-12">
         <h1 className="text-3xl font-bold mb-6">Update Your Profile</h1>
         <div className="w-full max-w-3xl">
