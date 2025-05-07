@@ -79,6 +79,14 @@ export default function UpdateProfilePage() {
         const f = record.fields || {};
 
         // ── TRANSFORM INTO YOUR FORM’S INITIAL SHAPE ────────────────
+        // Strip all '+' characters and then split off leading '1' if US
+        const rawPhone = (f["PHONE US/CAN ONLY"] ?? "")
+          .toString()
+          .replace(/\+/g, "");
+        const isUS = rawPhone.startsWith("1");
+        const phoneCountryCode = isUS ? "+1-us" : "+1-us";
+        const phone = isUS ? rawPhone.slice(1) : rawPhone;
+
         const transformed: InitialData = {
           email:            f["EMAIL ADDRESS"]           ?? "",
           firstName:        f["FIRST NAME"]              ?? "",
@@ -88,14 +96,14 @@ export default function UpdateProfilePage() {
           organizationName: f["ORGANIZATION NAME"]       ?? "",
           affiliatedEntity: f["AFFILIATED ENTITY"]       ?? "",
           photo:            null,
-          photoUrl:         "",
+          photoUrl: Array.isArray(f.PHOTO) ? f.PHOTO[0].url : "",
           logo:             null,
-          logoUrl:   Array.isArray(f.LOGO)     ? f.LOGO[0].url    : "",
+          logoUrl:          Array.isArray(f.LOGO) ? f.LOGO[0].url : "",
           identification:   f["IDENTIFICATION"]          ?? "",
           gender:           f["GENDER"]                  ?? "",
           website:          f["WEBSITE"]                 ?? "",
-          phoneCountryCode: "+1-us",
-          phone:            `${f["PHONE US/CAN ONLY"] ?? ""}`.replace(/^\+/, ""),
+          phoneCountryCode,
+          phone,
           additionalFocus:  f["ADDITIONAL FOCUS AREAS"]  ?? [],
           primaryIndustry:  f["PRIMARY INDUSTRY HOUSE"]  ?? "",
           address:          f["Address"]                 ?? "",

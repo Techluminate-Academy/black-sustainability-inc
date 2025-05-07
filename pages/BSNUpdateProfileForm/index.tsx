@@ -10,7 +10,7 @@ import Image from "next/image";
 import { allCountries } from "country-telephone-data";
 import logo from "@/public/png/bsn-logo.png";
 import CountryCodeDropdown from "../../components/CountryCodeDropdown/CountryCodeDropdown";
-
+import Link from "next/link";
 // Hard-coded member level options
 const HARDCODED_MEMBER_LEVELS = [
   { id: "recGP35SbgqyZ4FQN", name: "🏢 Entity - Black & Green Organization" },
@@ -130,8 +130,19 @@ const internationalOptions: IntlOption[] = raw.map((country) => ({
 
 // Map formData to the fields structure expected by Airtable
 const mapFormDataToAirtableFields = (formData: FormData) => {
-  const dialCode = formData.phoneCountryCode.split("-")[0];
-  const fullPhone = dialCode + formData.phone;
+    // 1) get your dial code ("+1")
+    const dialCode = formData.phoneCountryCode.split("-")[0];
+
+    // 2) strip any extra leading "1" off the saved phone
+    let phoneToSave = formData.phone;
+    if (phoneToSave.startsWith("1")) {
+      phoneToSave = phoneToSave.slice(1);
+    }
+  
+    // 3) recombine
+    const fullPhone = dialCode + phoneToSave;
+  // const dialCode = formData.phoneCountryCode.split("-")[0];
+  // const fullPhone = dialCode + formData.phone;
   return {
     "EMAIL ADDRESS": formData.email,
     "FIRST NAME": formData.firstName,
@@ -210,6 +221,21 @@ const Step1: React.FC<Step1Props> = ({
       />
       {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
     </div>
+       {/* Current Photo Preview */}
+       <div className="mt-4">
+      <label className="block text-sm font-medium text-gray-700">Current Photo</label>
+      {formData.photoUrl ? (
+        <Image
+          src={formData.photoUrl}
+          alt="Your photo"
+          width={120}
+          height={120}
+          className="rounded mb-2"
+        />
+      ) : (
+        <p className="text-gray-500 mb-2">No photo yet.</p>
+      )}
+    </div>
     <div>
       <label className="block text-sm font-medium text-gray-700">Photo *</label>
       <input
@@ -219,18 +245,29 @@ const Step1: React.FC<Step1Props> = ({
       />
       {errors.photo && <p className="text-red-500 text-sm mt-1">{errors.photo}</p>}
     </div>
-    {formData.logoUrl && (
-  <div className="mt-2">
-    <p className="text-sm text-gray-600">Current logo:</p>
+    <div className="mt-4">
+  <label className="block text-sm font-medium text-gray-700">Current Logo</label>
+  {formData.logoUrl ? (
     <Image
       src={formData.logoUrl}
       alt="Your logo"
       width={120}
       height={120}
-      className="rounded"
+      className="rounded mb-2"
     />
-  </div>
-)}
+  ) : (
+    <p className="text-gray-500 mb-2">No logo yet.</p>
+  )}
+  <label className="block text-sm font-medium text-gray-700">Upload Logo</label>
+  <input
+    type="file"
+    accept="image/*"
+    onChange={e => handleFileChange("logo", e.target.files?.[0] ?? null)}
+    className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+  />
+  {errors.logo && <p className="text-red-500 text-sm mt-1">{errors.logo}</p>}
+</div>
+
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-700">Phone</label>
       <p className="text-xs text-gray-600">We want to ensure you receive BSN info via SMS (no SPAM we promise)...</p>
@@ -647,11 +684,14 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
 
 
   useEffect(() => {
-    if (initialData) {
-      setFormData(initialData);
-    }
+    if (!initialData) return;
+    setFormData({
+      ...initialData,
+      // nothing fancy needed — initialData.logoUrl is already the string you want
+    });
+    console.log(initialData)
   }, [initialData]);
-
+  
   // Fetch dropdown options from Airtable metadata
   useEffect(() => {
     const fetchDropdownOptions = async () => {
@@ -743,6 +783,7 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
   };
 
   console.log(isSubmitting, 'isSubmitting')
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateStep()) return;
@@ -759,17 +800,13 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
     const airtableId = initialData.airtableId ?? initialData.id;
   
     try {
-      // 1) upload files if needed
       let photoUrl = formData.photoUrl;
-      let logoUrl  = formData.logoUrl;
-  
-      if (formData.photo && !formData.photoUrl) {
-        photoUrl = await uploadFile(formData.photo);
-        setFormData((prev) => ({ ...prev, photoUrl }));
+      if (formData.photo) {
+        photoUrl = await uploadFile(formData.photo);       // returns the Cloudinary URL
       }
-      if (formData.logo && !formData.logoUrl) {
+      let logoUrl = formData.logoUrl;
+      if (formData.logo) {
         logoUrl = await uploadFile(formData.logo);
-        setFormData((prev) => ({ ...prev, logoUrl }));
       }
   
       // 2) build your Airtable-shaped fields once
@@ -778,7 +815,11 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
         photoUrl,
         logoUrl,
       });
-  
+    // 👉 Add this line:
+    console.log("🚀 About to POST updateMember:", photoUrl, {
+      airtableId,
+      fields: finalAirtableFields,
+    });
       // 3) ⬅️ MODIFIED: send only airtableId + fields
       const response = await axios.post<{
         success: boolean;
@@ -803,10 +844,29 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
   const handleInputChange = (field: keyof FormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+// signature stays (field: keyof FormData, file: File | null)
+const handleFileChange = (field: keyof FormData, file: File | null) => {
+  // guard so we only ever manage photo/logo here
+  if (field !== "photo" && field !== "logo") return;
 
-  const handleFileChange = (field: keyof FormData, file: File | null) => {
-    setFormData((prev) => ({ ...prev, [field]: file }));
-  };
+  if (!file) {
+    // user cleared the input
+    setFormData((prev) => ({
+      ...prev,
+      [field]: null,
+      ...(field === "photo" ? { photoUrl: "" } : { logoUrl: "" }),
+    }));
+  } else {
+    // show a local preview immediately
+    const previewUrl = URL.createObjectURL(file);
+    setFormData((prev) => ({
+      ...prev,
+      [field]: file,
+      ...(field === "photo" ? { photoUrl: previewUrl } : { logoUrl: previewUrl }),
+    }));
+  }
+};
+  
 
   const handleToggleFocus = (value: string) => {
     setFormData((prev) => {
@@ -832,12 +892,25 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 py-12">
       {isSubmitted ? (
-        <div className="max-w-xl bg-white p-6 rounded-lg shadow-md text-center">
-          <h2 className="text-2xl font-bold text-green-600 mb-4">SUCCESS!</h2>
-          <p className="text-gray-700 mb-4">
-            Your profile has been updated. It will be reviewed and your new pin will appear on the map shortly.
-          </p>
-        </div>
+     <div className="max-w-xl bg-white p-6 rounded-lg shadow-md text-center space-y-4">
+     <h2 className="text-2xl font-bold text-green-600">SUCCESS!</h2>
+     <p className="text-gray-700">
+       Your profile has been updated. It will be reviewed and your new pin will appear on the map shortly.
+     </p>
+     <div className="flex justify-center gap-4">
+       <Link href="/" passHref>
+         <p className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+           Go Home
+         </p>
+       </Link>
+       <button
+         onClick={() => setIsSubmitted(false)}
+         className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+       >
+         Edit Again
+       </button>
+     </div>
+   </div>
       ) : (
         <form onSubmit={handleSubmit} className="w-full max-w-3xl bg-white p-6 rounded-lg shadow-md space-y-6">
           <div className="flex justify-center mb-6">
@@ -904,10 +977,10 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
             ) : (
               <button
                 type="submit"
-                disabled={false}
+                disabled={isSubmitting}
                 className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 flex items-center justify-center gap-2"
               >
-                {false ? (
+                {isSubmitting ? (
                   <>
                     <span className="animate-spin border-2 border-t-transparent border-white rounded-full w-5 h-5" />
                     Processing...

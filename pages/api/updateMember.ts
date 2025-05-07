@@ -14,39 +14,38 @@ export default async function handler(
   res: NextApiResponse<Data>
 ) {
   if (req.method !== "POST") {
-    return res
-      .status(405)
-      .json({ success: false, message: "Method not allowed" });
+    return res.status(405).json({ success: false, message: "Method not allowed" });
   }
 
-  // ⬅️ now only expect airtableId + fields
   const { airtableId, fields } = req.body;
   if (!airtableId || !fields) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Missing airtableId or fields" });
+    return res.status(400).json({ success: false, message: "Missing airtableId or fields" });
   }
 
   try {
-    // 1) Update Airtable with the record key + mapped fields
-    const airtableResult = await AirtableUtils.updateRecord(
-      airtableId,
-      fields
-    );
+    // 1) Push your update up to Airtable
+    const airtableResult = await AirtableUtils.updateRecord(airtableId, fields);
+    console.log("→ Airtable returned fields:", JSON.stringify(airtableResult.fields, null, 2));
+    // 2) Grab the *actual* fields Airtable saved (including attachments)
+    const saved = airtableResult.fields;
 
-    // 2) Mirror into MongoDB
+    // 3) Mirror that into Mongo, nesting it under `fields`
     const { db } = await connectToDatabase();
-    await db.collection("users").updateOne(
+  const result=   await db.collection("airtableRecords").updateOne(
       { airtableId },
-      { $set: fields },
+      {
+        $set: {
+          fields: saved,
+          id: airtableResult.id,
+          createdTime: airtableResult.createdTime,
+        }
+      },
       { upsert: true }
     );
-
+    console.log("→ Mongo updateOne:", JSON.stringify(result, null, 2));
     return res.status(200).json({ success: true, airtable: airtableResult });
   } catch (error: any) {
     console.error("updateMember error:", error);
-    return res
-      .status(500)
-      .json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 }
