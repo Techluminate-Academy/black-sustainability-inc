@@ -53,6 +53,7 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
+    "@types/cookie": "^0.6.0",
     "@types/maplibre-gl": "^1.14.0",
     "@types/node": "^20",
     "@types/react": "^18.3.18",
