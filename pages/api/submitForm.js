@@ -98,8 +98,42 @@ const submitToAirtable = async (dataToSubmit) => {
     }
   };
   
+
+  /**
+ * Updates an existing record in Airtable
+ * @param {String} recordId - The Airtable record ID to update
+ * @param {Object} dataToUpdate - The fields to update
+ * @returns {Promise<any>} - Response from Airtable API
+ */
+  const updateRecord = async (recordId, dataToUpdate) => {
+    const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}/${recordId}`;
+    const config = {
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+    };
+  
+    try {
+      const response = await axios.patch(
+        url,
+        { fields: dataToUpdate },
+        config
+      );
+      console.log("Record updated successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error(
+        "Error updating data in Airtable:",
+        error.response?.data || error.message
+      );
+      throw new Error("Failed to update data in Airtable.");
+    }
+  };
+
   export default {
     fetchTableMetadata,
-    submitToAirtable
+    submitToAirtable,
+    updateRecord
   } 
 
