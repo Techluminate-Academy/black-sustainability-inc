@@ -33,7 +33,7 @@ export default function UpdateProfilePage() {
         slug:         "jerry",
         profilePhoto: {
           id:  "",
-          url: "https://lh3.googleusercontent.com/a/ACg8ocKWZ0GFq5FHgvXMDTTqpOJPD9D5yoxOnWKI71oNHwnlhhfcMfM=s96-c",
+          url: "https://img.icons8.com/ios-filled/50/000000/user-male-circle.png",
           height: 0,
           width:  0,
         },

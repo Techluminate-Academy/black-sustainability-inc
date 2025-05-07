@@ -56,7 +56,7 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
                 <div className="flex space-x-2">
                   <div className="relative w-7 h-7">
                     <Image
-                      src={parsedUser?.profile?.profilePhoto?.url}
+                      src={'https://img.icons8.com/ios-filled/50/000000/user-male-circle.png'}
                       alt="user"
                       fill
                       className="rounded-full"
