@@ -28,7 +28,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredData, setFilteredData] = useState<BsiUserObjectArray>([]);
   const [OriginalData, setOriginalData] = useState<BsiUserObjectArray>([]);
-  const [authenticatedUser, setAuthenticatedUser] = useState("");
+  const [authenticatedUser, setAuthenticatedUser] = useState<any>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isPopUpActive, setIsPopUpActive] = useState(false);
@@ -288,31 +288,29 @@ console.log(filteredData, 'filtered data')
   };
 
   useEffect(() => {
-    function getCookie(cname: string) {
-      let name = cname + "=";
-      let decodedCookie = decodeURIComponent(document.cookie);
-      let ca = decodedCookie.split(";");
-      for (let i = 0; i < ca.length; i++) {
-        let c = ca[i];
-        while (c.charAt(0) == " ") {
-          c = c.substring(1);
-        }
-        if (c.indexOf(name) == 0) {
-          return c.substring(name.length, c.length);
-        }
-      }
-      return "";
+    // helper to read a cookie by name
+    function getCookie(name: string): string {
+      const match = document.cookie.match(
+        new RegExp("(^| )" + name + "=([^;]+)")
+      );
+      return match ? decodeURIComponent(match[2]) : "";
     }
-
-    const user = getCookie("bsn_user");
-    if (user.length > 0) {
-      setAuthenticatedUser(user);
+  
+    const raw = getCookie("bsn_user");
+    if (!raw) {
+      return; // no cookie → stay unauthenticated
+    }
+  
+    try {
+      const userObj = JSON.parse(raw);
+      setAuthenticatedUser(userObj);
       setIsAuthenticated(true);
-
-      console.log(user, " authenticated user data");
-      console.log(isAuthenticated, " is user authenticated");
+      console.log(userObj, "authenticated user data");
+    } catch (err) {
+      console.error("Failed to parse bsn_user cookie:", err);
     }
-  }, [])
+  }, []);
+  
 
 
 
