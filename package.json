@@ -28,7 +28,7 @@
     "leaflet": "^1.9.4",
     "libphonenumber-js": "^1.12.5",
     "lodash.debounce": "^4.0.8",
-    "mapbox-gl": "^3.11.0",
+    "mapbox-gl": "^3.11.1",
     "maplibre-gl": "^5.3.0",
     "mongodb": "^5.9.2",
     "multer": "^1.4.5-lts.1",
