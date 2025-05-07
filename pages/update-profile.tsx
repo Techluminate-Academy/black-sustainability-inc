@@ -1,4 +1,3 @@
-// pages/updateProfilePage.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -25,7 +24,6 @@ export default function UpdateProfilePage() {
     // 1) Read & parse the user cookie
     const rawCookie = getCookie("bsn_user");
     if (!rawCookie) {
-      // not authenticated → redirect
       router.replace("/");
       return;
     }
@@ -34,7 +32,6 @@ export default function UpdateProfilePage() {
     try {
       user = JSON.parse(rawCookie);
     } catch {
-      // invalid cookie → redirect
       router.replace("/");
       return;
     }
@@ -107,9 +104,34 @@ export default function UpdateProfilePage() {
     })();
   }, [router]);
 
+  // ← Replace the plain text loader with this spinner
   if (loading) {
-    return <div>Loading profile data…</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <svg
+          className="animate-spin h-12 w-12 text-blue-500"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          />
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+          />
+        </svg>
+      </div>
+    );
   }
+
   if (error) {
     return <div style={{ color: "red" }}>Error: {error}</div>;
   }
@@ -119,10 +141,7 @@ export default function UpdateProfilePage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Nav
-        isAuthenticated={isAuthenticated}
-        authenticatedUser={parsedUser}
-      />
+      <Nav isAuthenticated={isAuthenticated} authenticatedUser={parsedUser} />
       <main className="flex-1 flex flex-col items-center justify-center bg-gray-100 py-12">
         <h1 className="text-3xl font-bold mb-6">Update Your Profile</h1>
         <div className="w-full max-w-3xl">
