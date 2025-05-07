@@ -51,7 +51,7 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
                     pathname === "/profile" ? "text-blue-600" : "text-black-600"
                   }`}
                 >
-                  Profile
+                 Update Map Listing
                 </Link>
                 <div className="flex space-x-2">
                   <div className="relative w-7 h-7">
@@ -113,7 +113,7 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
                         href="/update-profile"
                         className="py-1.5 px-2 text-black-600 hover:text-gray-600"
                       >
-                        Profile
+                       Update Map Listing
                       </Link>
                       <div className="flex space-x-2">
                         <div className="relative w-4 h-4">
