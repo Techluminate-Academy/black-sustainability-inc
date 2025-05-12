@@ -207,6 +207,16 @@ console.log(filteredData, 'filtered data')
     }
   };
 
+  // useEffect(() => {
+  //   if (isAuthenticated === false) {
+  //     setTimeout(() => {
+  //       if (loadedData?.length === filteredData?.length) {
+  //         setIsPopUpActive(true);
+  //       }
+  //     }, 6000);
+  //   }
+  // }, []);
+
   useEffect(() => {
     if (isAuthenticated === false) {
       setTimeout(() => {
