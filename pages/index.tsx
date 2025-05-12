@@ -216,16 +216,6 @@ console.log(filteredData, 'filtered data')
   //     }, 6000);
   //   }
   // }, []);
-
-  useEffect(() => {
-    if (isAuthenticated === false) {
-      setTimeout(() => {
-        if (loadedData?.length === filteredData?.length) {
-          setIsPopUpActive(true);
-        }
-      }, 6000);
-    }
-  }, []);
   // --------------------------------------------------------------------
   // 6. Search Filtering: Call the search API when searchQuery changes
   // --------------------------------------------------------------------
@@ -404,6 +394,24 @@ useEffect(() => {
 
   bootstrapAuth();
 }, []);
+
+useEffect(() => {
+  // only non-logged-in users should ever see it
+  if (!isAuthenticated) {
+    // once all chunks are loaded...
+    if (
+      loadedData.length > 0 &&
+      loadedData.length === filteredData.length
+    ) {
+      const timer = setTimeout(() => {
+        setIsPopUpActive(true);
+      }, 6000);
+
+      // cleanup if auth or data changes before 6s
+      return () => clearTimeout(timer);
+    }
+  }
+}, [isAuthenticated, loadedData.length, filteredData.length]);
 
   return (
     <div className="relative h-screen w-full">
