@@ -287,29 +287,29 @@ console.log(filteredData, 'filtered data')
     }
   };
 
-  useEffect(() => {
-    // helper to read a cookie by name
-    function getCookie(name: string): string {
-      const match = document.cookie.match(
-        new RegExp("(^| )" + name + "=([^;]+)")
-      );
-      return match ? decodeURIComponent(match[2]) : "";
-    }
+  // useEffect(() => {
+  //   // helper to read a cookie by name
+  //   function getCookie(name: string): string {
+  //     const match = document.cookie.match(
+  //       new RegExp("(^| )" + name + "=([^;]+)")
+  //     );
+  //     return match ? decodeURIComponent(match[2]) : "";
+  //   }
   
-    const raw = getCookie("bsn_user");
-    if (!raw) {
-      return; // no cookie → stay unauthenticated
-    }
+  //   const raw = getCookie("bsn_user");
+  //   if (!raw) {
+  //     return; // no cookie → stay unauthenticated
+  //   }
   
-    try {
-      const userObj = JSON.parse(raw);
-      setAuthenticatedUser(userObj);
-      setIsAuthenticated(true);
-      console.log(userObj, "authenticated user data");
-    } catch (err) {
-      console.error("Failed to parse bsn_user cookie:", err);
-    }
-  }, []);
+  //   try {
+  //     const userObj = JSON.parse(raw);
+  //     setAuthenticatedUser(userObj);
+  //     setIsAuthenticated(true);
+  //     console.log(userObj, "authenticated user data");
+  //   } catch (err) {
+  //     console.error("Failed to parse bsn_user cookie:", err);
+  //   }
+  // }, []);
   
 
 
@@ -355,6 +355,45 @@ console.log(filteredData, 'filtered data')
 // };
 
 
+useEffect(() => {
+  async function bootstrapAuth() {
+    // 0. Simple Safari detection:
+    const ua = navigator.userAgent;
+    const isSafari = ua.includes('Safari') && !ua.includes('Chrome');
+
+    // 1) Only ask for storage access in Safari:
+    if (isSafari && document.hasStorageAccess) {
+      try {
+        const has = await document.hasStorageAccess();
+        if (!has) {
+          await document.requestStorageAccess();
+        }
+      } catch (e) {
+        console.warn('Safari storage access denied; cookie stays hidden');
+      }
+    }
+
+    // 2) Read the cookie normally in all browsers:
+    function getCookie(name: string): string {
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+      return match ? decodeURIComponent(match[2]) : '';
+    }
+
+    const raw = getCookie('bsn_user');
+    if (!raw) return; // still no cookie
+
+    try {
+      const userObj = JSON.parse(raw);
+      setAuthenticatedUser(userObj);
+      setIsAuthenticated(true);
+      console.log(userObj, 'authenticated user data');
+    } catch (err) {
+      console.error('Failed to parse bsn_user cookie:', err);
+    }
+  }
+
+  bootstrapAuth();
+}, []);
 
   return (
     <div className="relative h-screen w-full">
