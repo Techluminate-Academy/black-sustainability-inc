@@ -37,18 +37,34 @@ export default async function handler(
   }
 
   const email = userObj.loginEmail;
-  if (!email) {
-    return res
-      .status(400)
-      .json({ success: false, message: "No loginEmail in cookie" });
+  const firstName = userObj.contactDetails?.firstName;
+  const lastName  = userObj.contactDetails?.lastName;
+
+  if (!email && !(firstName && lastName)) {
+    return res.status(400).json({
+      success: false,
+      message: "Cookie must contain either loginEmail or both firstName+lastName"
+    });
   }
 
   try {
-    // 3) Lookup in Mongo by "EMAIL ADDRESS" field
+    // 3) Lookup in Mongo, first by email...
     const { db } = await connectToDatabase();
-    const record = await db
-      .collection("airtableRecords")
-      .findOne({ "fields.EMAIL ADDRESS": email });
+    let record = email
+      ? await db
+          .collection("airtableRecords")
+          .findOne({ "fields.EMAIL ADDRESS": email })
+      : null;
+
+    // ...if not found by email, fallback to first+last name
+    if (!record && firstName && lastName) {
+      record = await db
+        .collection("airtableRecords")
+        .findOne({
+          "fields.FIRST NAME": firstName,
+          "fields.LAST NAME":  lastName
+        });
+    }
 
     if (!record) {
       return res
@@ -69,7 +85,7 @@ export default async function handler(
 
     return res.status(200).json({ success: true, data: record });
   } catch (error: any) {
-    console.error("getRecordByEmail error:", error);
+    console.error("getRecordByEmailOrName error:", error);
     return res
       .status(500)
       .json({ success: false, message: error.message });
