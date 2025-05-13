@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -18,6 +18,8 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
   const router = useRouter();
   const toggleMobileNav = () => setMobileNavOpen(!isMobileNavOpen);
   const parsedUser = authenticatedUser || "";
+
+  const greenBtn = "py-2 px-4 bg-green-500 text-white rounded-md font-semibold uppercase text-xs transition hover:bg-green-600";
 
   return (
     <nav className="bg-white w-full fixed top-0 left-0 !z-[9999] font-lexen">
@@ -45,7 +47,7 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
             {isAuthenticated ? (
               <>
                 <Link href="/update-profile">
-                  <button className="py-2 px-4 bg-[#FFBF23] text-black-600 rounded-md font-semibold uppercase text-xs transition hover:bg-yellow-500">
+                  <button className={greenBtn}>
                     Update Profile / Map Listing
                   </button>
                 </Link>
@@ -61,11 +63,14 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
                 </div>
               </>
             ) : (
-              <Link href="https://www.blacksustainability.org/">
-                <button className="py-2 px-4 bg-[#FFBF23] text-black-600 rounded-md font-semibold uppercase text-xs transition hover:bg-yellow-500">
-                  Login
-                </button>
-              </Link>
+              <button
+                className={greenBtn}
+                onClick={() =>
+                  router.replace("https://www.blacksustainability.org/")
+                }
+              >
+                Login
+              </button>
             )}
 
             <Link
@@ -102,7 +107,7 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
                   {isAuthenticated ? (
                     <>
                       <Link href="/update-profile">
-                        <button className="py-1.5 px-4 bg-[#FFBF23] text-black-600 rounded-md font-semibold uppercase text-xs transition hover:bg-yellow-500">
+                        <button className={greenBtn}>
                           Update Profile / Map Listing
                         </button>
                       </Link>
@@ -119,11 +124,11 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
                     </>
                   ) : (
                     <button
+                      className={greenBtn}
                       onClick={() => {
                         toggleMobileNav();
                         router.replace("https://www.blacksustainability.org/");
                       }}
-                      className="py-1.5 px-4 bg-[#FFBF23] text-black-600 rounded-md font-semibold uppercase text-xs transition hover:bg-yellow-500"
                     >
                       Login
                     </button>
