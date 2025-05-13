@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import Image from "next/image";
 import Link from "next/link";
@@ -17,7 +17,6 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
   const [isMobileNavOpen, setMobileNavOpen] = useState(false);
   const router = useRouter();
   const toggleMobileNav = () => setMobileNavOpen(!isMobileNavOpen);
-
   const parsedUser = authenticatedUser || "";
 
   return (
@@ -45,13 +44,10 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
           <div className="hidden lg:flex items-center xl:space-x-8 space-x-3 font-inter uppercase font-semibold text-xs">
             {isAuthenticated ? (
               <>
-                <Link
-                  href="update-profile"
-                  className={`py-2 px-3 hover:text-gray-600 ${
-                    pathname === "/profile" ? "text-blue-600" : "text-black-600"
-                  }`}
-                >
-                 Update Map Listing
+                <Link href="/update-profile">
+                  <button className="py-2 px-4 bg-[#FFBF23] text-black-600 rounded-md font-semibold uppercase text-xs transition hover:bg-yellow-500">
+                    Update Profile / Map Listing
+                  </button>
                 </Link>
                 <div className="flex space-x-2">
                   <div className="relative w-7 h-7">
@@ -65,15 +61,11 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
                 </div>
               </>
             ) : (
-              <div
-                className="flex items-center gap-x-3 text-black-600 hover:text-gray-600 cursor-pointer"
-                onClick={() =>
-                  router.replace("https://www.blacksustainability.org/")
-                }
-              >
-                <span>{icons.DashboardProfile()}</span>
-                <span>Login</span>
-              </div>
+              <Link href="https://www.blacksustainability.org/">
+                <button className="py-2 px-4 bg-[#FFBF23] text-black-600 rounded-md font-semibold uppercase text-xs transition hover:bg-yellow-500">
+                  Login
+                </button>
+              </Link>
             )}
 
             <Link
@@ -109,11 +101,10 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
                 <div className="flex flex-col items-start space-y-8 uppercase font-semibold text-xs">
                   {isAuthenticated ? (
                     <>
-                      <Link
-                        href="/update-profile"
-                        className="py-1.5 px-2 text-black-600 hover:text-gray-600"
-                      >
-                       Update Map Listing
+                      <Link href="/update-profile">
+                        <button className="py-1.5 px-4 bg-[#FFBF23] text-black-600 rounded-md font-semibold uppercase text-xs transition hover:bg-yellow-500">
+                          Update Profile / Map Listing
+                        </button>
                       </Link>
                       <div className="flex space-x-2">
                         <div className="relative w-4 h-4">
@@ -127,16 +118,15 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
                       </div>
                     </>
                   ) : (
-                    <div
+                    <button
                       onClick={() => {
                         toggleMobileNav();
                         router.replace("https://www.blacksustainability.org/");
                       }}
-                      className="flex items-center gap-x-3 py-1.5 text-black-600 hover:text-gray-600"
+                      className="py-1.5 px-4 bg-[#FFBF23] text-black-600 rounded-md font-semibold uppercase text-xs transition hover:bg-yellow-500"
                     >
-                      <icons.userProfile />
                       Login
-                    </div>
+                    </button>
                   )}
 
                   <Link
