@@ -78,6 +78,38 @@ console.log(filteredData, 'filtered data')
     };
   }, []);
 
+  // ─── 0. Bootstrap & re-write cross-site bsn_user cookie into first-party ──
+  useEffect(() => {
+    function getCookie(name: string): string {
+      const match = document.cookie.match(
+        new RegExp("(^| )" + name + "=([^;]+)")
+      );
+      return match ? decodeURIComponent(match[2]) : "";
+    }
+
+    const raw = getCookie("bsn_user");
+    if (!raw) return;
+
+    // Re-set it here as a first-party cookie on this subdomain:
+    const encoded = encodeURIComponent(raw);
+    document.cookie = [
+      `bsn_user=${encoded}`,
+      `Path=/`,
+      `Secure`,
+      `SameSite=Lax`,
+    ].join("; ");
+
+    // Seed your React state:
+    try {
+      const userObj = JSON.parse(raw);
+      setAuthenticatedUser(userObj);
+      setIsAuthenticated(true);
+    } catch (err) {
+      console.error("Failed to parse bsn_user cookie:", err);
+    }
+  }, []);
+
+
   const scrollToTop = () => {
     if (sidebarRef.current) {
       sidebarRef.current.scrollTo({ top: 0, behavior: "smooth" });
@@ -355,45 +387,45 @@ console.log(filteredData, 'filtered data')
 // };
 
 
-useEffect(() => {
-  async function bootstrapAuth() {
-    // 0. Simple Safari detection:
-    const ua = navigator.userAgent;
-    const isSafari = ua.includes('Safari') && !ua.includes('Chrome');
+// useEffect(() => {
+//   async function bootstrapAuth() {
+//     // 0. Simple Safari detection:
+//     const ua = navigator.userAgent;
+//     const isSafari = ua.includes('Safari') && !ua.includes('Chrome');
 
-    // 1) Only ask for storage access in Safari:
-    if (isSafari && document.hasStorageAccess) {
-      try {
-        const has = await document.hasStorageAccess();
-        if (!has) {
-          await document.requestStorageAccess();
-        }
-      } catch (e) {
-        console.warn('Safari storage access denied; cookie stays hidden');
-      }
-    }
+//     // 1) Only ask for storage access in Safari:
+//     if (isSafari && document.hasStorageAccess) {
+//       try {
+//         const has = await document.hasStorageAccess();
+//         if (!has) {
+//           await document.requestStorageAccess();
+//         }
+//       } catch (e) {
+//         console.warn('Safari storage access denied; cookie stays hidden');
+//       }
+//     }
 
-    // 2) Read the cookie normally in all browsers:
-    function getCookie(name: string): string {
-      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-      return match ? decodeURIComponent(match[2]) : '';
-    }
+//     // 2) Read the cookie normally in all browsers:
+//     function getCookie(name: string): string {
+//       const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+//       return match ? decodeURIComponent(match[2]) : '';
+//     }
 
-    const raw = getCookie('bsn_user');
-    if (!raw) return; // still no cookie
+//     const raw = getCookie('bsn_user');
+//     if (!raw) return; // still no cookie
 
-    try {
-      const userObj = JSON.parse(raw);
-      setAuthenticatedUser(userObj);
-      setIsAuthenticated(true);
-      console.log(userObj, 'authenticated user data');
-    } catch (err) {
-      console.error('Failed to parse bsn_user cookie:', err);
-    }
-  }
+//     try {
+//       const userObj = JSON.parse(raw);
+//       setAuthenticatedUser(userObj);
+//       setIsAuthenticated(true);
+//       console.log(userObj, 'authenticated user data');
+//     } catch (err) {
+//       console.error('Failed to parse bsn_user cookie:', err);
+//     }
+//   }
 
-  bootstrapAuth();
-}, []);
+//   bootstrapAuth();
+// }, []);
 
 useEffect(() => {
   // only non-logged-in users should ever see it
