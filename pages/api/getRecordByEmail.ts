@@ -11,7 +11,9 @@ export default async function handler(
   res: NextApiResponse<Data>
 ) {
   if (req.method !== "GET") {
-    return res.status(405).json({ success: false, message: "Method not allowed" });
+    return res
+      .status(405)
+      .json({ success: false, message: "Method not allowed" });
   }
 
   // 1) Parse cookies
@@ -42,11 +44,11 @@ export default async function handler(
   }
 
   try {
-    // 3) Lookup in Mongo
+    // 3) Lookup in Mongo by "EMAIL ADDRESS" field
     const { db } = await connectToDatabase();
     const record = await db
       .collection("airtableRecords")
-      .findOne({ "fields.Created By.email": email });
+      .findOne({ "fields.EMAIL ADDRESS": email });
 
     if (!record) {
       return res
@@ -55,13 +57,15 @@ export default async function handler(
     }
 
     // 4) Pull off first PHOTO and first LOGO URLs
-    const flds = record.fields as any;
-    record.fields.photoUrl = Array.isArray(flds.PHOTO) && flds.PHOTO.length
-      ? flds.PHOTO[0].url
-      : "";
-    record.fields.logoUrl = Array.isArray(flds.LOGO) && flds.LOGO.length
-      ? flds.LOGO[0].url
-      : "";
+    const flds = record.fields as Record<string, any>;
+    record.fields.photoUrl =
+      Array.isArray(flds.PHOTO) && flds.PHOTO.length
+        ? flds.PHOTO[0].url
+        : "";
+    record.fields.logoUrl =
+      Array.isArray(flds.LOGO) && flds.LOGO.length
+        ? flds.LOGO[0].url
+        : "";
 
     return res.status(200).json({ success: true, data: record });
   } catch (error: any) {
