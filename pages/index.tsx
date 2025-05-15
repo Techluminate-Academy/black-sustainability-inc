@@ -81,6 +81,7 @@ console.log(filteredData, 'filtered data')
   // ─── 0. Bootstrap & re-write cross-site bsn_user_data cookie into first-party ──
   useEffect(() => {
     function getCookie(name: string): string | null {
+      console.log(document.cookie, 'all cookies')
       const match = document.cookie.match(
         new RegExp("(^| )" + name + "=([^;]+)")
       );
