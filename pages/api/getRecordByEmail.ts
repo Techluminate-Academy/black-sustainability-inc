@@ -16,14 +16,30 @@ export default async function handler(
       .json({ success: false, message: "Method not allowed" });
   }
 
+  // 1) Parse cookies
+  const cookies = cookie.parse(req.headers.cookie || "");
+  const raw = cookies.bsn_user;
+  if (!raw) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Missing bsn_user cookie" });
+  }
 
-
-
+  // 2) decode & parse the user object
+  let userObj: any;
+  try {
+    userObj = JSON.parse(decodeURIComponent(raw));
+  } catch (err) {
+    console.error("Failed to parse cookie JSON:", err);
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid bsn_user cookie" });
+  }
   
 
-  const email = 'jerry@techluminateacademy.com'
-  const firstName = ''
-  const lastName  = ''
+  const email = userObj.loginEmail;
+  const firstName = userObj.contactDetails?.firstName;
+  const lastName  = userObj.contactDetails?.lastName;
 
   if (!email && !(firstName && lastName)) {
     return res.status(400).json({
