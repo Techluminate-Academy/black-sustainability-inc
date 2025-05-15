@@ -86,6 +86,7 @@ console.log(filteredData, 'filtered data')
       );
       return match ? decodeURIComponent(match[2]) : "";
     }
+    
 
     const raw = getCookie("bsn_user");
     if (!raw) return;
