@@ -18,11 +18,11 @@ export default async function handler(
 
   // 1) Parse cookies
   const cookies = cookie.parse(req.headers.cookie || "");
-  const raw = cookies.bsn_user;
+  const raw = cookies.bsn_user_data;
   if (!raw) {
     return res
       .status(400)
-      .json({ success: false, message: "Missing bsn_user cookie" });
+      .json({ success: false, message: "Missing bsn_user_data cookie" });
   }
 
   // 2) decode & parse the user object
@@ -33,7 +33,7 @@ export default async function handler(
     console.error("Failed to parse cookie JSON:", err);
     return res
       .status(400)
-      .json({ success: false, message: "Invalid bsn_user cookie" });
+      .json({ success: false, message: "Invalid bsn_user_data cookie" });
   }
   
 

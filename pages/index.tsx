@@ -78,7 +78,7 @@ console.log(filteredData, 'filtered data')
     };
   }, []);
 
-  // ─── 0. Bootstrap & re-write cross-site bsn_user cookie into first-party ──
+  // ─── 0. Bootstrap & re-write cross-site bsn_user_data cookie into first-party ──
   useEffect(() => {
     function getCookie(name: string): string {
       const match = document.cookie.match(
@@ -88,13 +88,13 @@ console.log(filteredData, 'filtered data')
     }
     
 
-    const raw = getCookie("bsn_user");
+    const raw = getCookie("bsn_user_data");
     if (!raw) return;
 
     // Re-set it here as a first-party cookie on this subdomain:
     const encoded = encodeURIComponent(raw);
     document.cookie = [
-      `bsn_user=${encoded}`,
+      `bsn_user_data=${encoded}`,
       `Path=/`,
       `Secure`,
       `SameSite=Lax`,
@@ -106,7 +106,7 @@ console.log(filteredData, 'filtered data')
       setAuthenticatedUser(userObj);
       setIsAuthenticated(true);
     } catch (err) {
-      console.error("Failed to parse bsn_user cookie:", err);
+      console.error("Failed to parse bsn_user_data cookie:", err);
     }
   }, []);
 
@@ -329,7 +329,7 @@ console.log(filteredData, 'filtered data')
   //     return match ? decodeURIComponent(match[2]) : "";
   //   }
   
-  //   const raw = getCookie("bsn_user");
+  //   const raw = getCookie("bsn_user_data");
   //   if (!raw) {
   //     return; // no cookie → stay unauthenticated
   //   }
@@ -340,7 +340,7 @@ console.log(filteredData, 'filtered data')
   //     setIsAuthenticated(true);
   //     console.log(userObj, "authenticated user data");
   //   } catch (err) {
-  //     console.error("Failed to parse bsn_user cookie:", err);
+  //     console.error("Failed to parse bsn_user_data cookie:", err);
   //   }
   // }, []);
   
@@ -412,7 +412,7 @@ console.log(filteredData, 'filtered data')
 //       return match ? decodeURIComponent(match[2]) : '';
 //     }
 
-//     const raw = getCookie('bsn_user');
+//     const raw = getCookie('bsn_user_data');
 //     if (!raw) return; // still no cookie
 
 //     try {
@@ -421,7 +421,7 @@ console.log(filteredData, 'filtered data')
 //       setIsAuthenticated(true);
 //       console.log(userObj, 'authenticated user data');
 //     } catch (err) {
-//       console.error('Failed to parse bsn_user cookie:', err);
+//       console.error('Failed to parse bsn_user_data cookie:', err);
 //     }
 //   }
 

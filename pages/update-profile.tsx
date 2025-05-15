@@ -22,7 +22,7 @@ export default function UpdateProfilePage() {
 
   useEffect(() => {
     // 1) Read & parse the user cookie
-    const rawCookie = getCookie("bsn_user");
+    const rawCookie = getCookie("bsn_user_data");
     if (!rawCookie) {
       router.replace("/");
       return;
