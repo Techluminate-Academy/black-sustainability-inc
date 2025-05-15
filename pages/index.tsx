@@ -80,18 +80,32 @@ console.log(filteredData, 'filtered data')
 
   // ─── 0. Bootstrap & re-write cross-site bsn_user_data cookie into first-party ──
   useEffect(() => {
-    function getCookie(name: string): string {
+    function getCookie(name: string): string | null {
       const match = document.cookie.match(
         new RegExp("(^| )" + name + "=([^;]+)")
       );
-      return match ? decodeURIComponent(match[2]) : "";
+      return match ? decodeURIComponent(match[2]) : null;
     }
-    
+  
+    const session = getCookie("smSession");
 
+    console.log(session, 'sessions123')
+    if (!session) {
+      console.warn("Missing smSession cookie. Unauthenticated user.");
+      setIsAuthenticated(false);
+      setAuthenticatedUser(null);
+      return;
+    }
+  
     const raw = getCookie("bsn_user_data");
-    if (!raw) return;
-
-    // Re-set it here as a first-party cookie on this subdomain:
+    if (!raw) {
+      console.warn("Missing bsn_user_data cookie. Cannot set user.");
+      setIsAuthenticated(false);
+      setAuthenticatedUser(null);
+      return;
+    }
+  
+    // Re-set bsn_user_data as first-party cookie on this subdomain
     const encoded = encodeURIComponent(raw);
     document.cookie = [
       `bsn_user_data=${encoded}`,
@@ -99,16 +113,18 @@ console.log(filteredData, 'filtered data')
       `Secure`,
       `SameSite=Lax`,
     ].join("; ");
-
-    // Seed your React state:
+  
     try {
       const userObj = JSON.parse(raw);
       setAuthenticatedUser(userObj);
       setIsAuthenticated(true);
     } catch (err) {
       console.error("Failed to parse bsn_user_data cookie:", err);
+      setIsAuthenticated(false);
+      setAuthenticatedUser(null);
     }
   }, []);
+  
 
 
   const scrollToTop = () => {
