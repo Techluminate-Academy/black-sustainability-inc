@@ -78,37 +78,32 @@ console.log(filteredData, 'filtered data')
     };
   }, []);
 
-  // ─── 0. Bootstrap & re-write cross-site bsn_user cookie into first-party ──
+  // ─── 0. Bootstrap & re-write cross-site bsn_user_data cookie into first-party ──
   useEffect(() => {
-    function getCookie(name: string): string {
-      const match = document.cookie.match(
-        new RegExp("(^| )" + name + "=([^;]+)")
-      );
-      return match ? decodeURIComponent(match[2]) : "";
+    function getCookie(name: string): string | null {
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+      return match ? decodeURIComponent(match[2]) : null;
     }
-
-    const raw = getCookie("bsn_user");
-    if (!raw) return;
-
-    // Re-set it here as a first-party cookie on this subdomain:
-    const encoded = encodeURIComponent(raw);
-    document.cookie = [
-      `bsn_user=${encoded}`,
-      `Path=/`,
-      `Secure`,
-      `SameSite=Lax`,
-    ].join("; ");
-
-    // Seed your React state:
+  
+    const raw = getCookie('bsn_user_data');
+    if (!raw) {
+      // no cookie, handle unauthenticated state if needed
+      setIsAuthenticated(false);
+      setAuthenticatedUser(null);
+      return;
+    }
+  
     try {
       const userObj = JSON.parse(raw);
       setAuthenticatedUser(userObj);
       setIsAuthenticated(true);
     } catch (err) {
-      console.error("Failed to parse bsn_user cookie:", err);
+      console.error('Failed to parse bsn_user_data cookie:', err);
+      setIsAuthenticated(false);
+      setAuthenticatedUser(null);
     }
   }, []);
-
+  
 
   const scrollToTop = () => {
     if (sidebarRef.current) {
@@ -328,7 +323,7 @@ console.log(filteredData, 'filtered data')
   //     return match ? decodeURIComponent(match[2]) : "";
   //   }
   
-  //   const raw = getCookie("bsn_user");
+  //   const raw = getCookie("bsn_user_data");
   //   if (!raw) {
   //     return; // no cookie → stay unauthenticated
   //   }
@@ -339,7 +334,7 @@ console.log(filteredData, 'filtered data')
   //     setIsAuthenticated(true);
   //     console.log(userObj, "authenticated user data");
   //   } catch (err) {
-  //     console.error("Failed to parse bsn_user cookie:", err);
+  //     console.error("Failed to parse bsn_user_data cookie:", err);
   //   }
   // }, []);
   
@@ -411,7 +406,7 @@ console.log(filteredData, 'filtered data')
 //       return match ? decodeURIComponent(match[2]) : '';
 //     }
 
-//     const raw = getCookie('bsn_user');
+//     const raw = getCookie('bsn_user_data');
 //     if (!raw) return; // still no cookie
 
 //     try {
@@ -420,7 +415,7 @@ console.log(filteredData, 'filtered data')
 //       setIsAuthenticated(true);
 //       console.log(userObj, 'authenticated user data');
 //     } catch (err) {
-//       console.error('Failed to parse bsn_user cookie:', err);
+//       console.error('Failed to parse bsn_user_data cookie:', err);
 //     }
 //   }
 

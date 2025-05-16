@@ -1,13 +1,18 @@
-// pages/api/updateMember.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from "@/lib/mongodb";
 import AirtableUtils from "./submitForm";
+import redis from "../../lib/redis";
+import { promisify } from "util";
+import zlib from "zlib";
 
 type Data = {
   success: boolean;
   airtable?: any;
   message?: string;
 };
+
+const inflate = promisify(zlib.inflate);
+const deflate = promisify(zlib.deflate);
 
 export default async function handler(
   req: NextApiRequest,
@@ -23,15 +28,13 @@ export default async function handler(
   }
 
   try {
-    // 1) Push your update up to Airtable
+    // 1) Update in Airtable
     const airtableResult = await AirtableUtils.updateRecord(airtableId, fields);
-    console.log("→ Airtable returned fields:", JSON.stringify(airtableResult.fields, null, 2));
-    // 2) Grab the *actual* fields Airtable saved (including attachments)
     const saved = airtableResult.fields;
 
-    // 3) Mirror that into Mongo, nesting it under `fields`
+    // 2) Update in MongoDB
     const { db } = await connectToDatabase();
-  const result=   await db.collection("airtableRecords").updateOne(
+    await db.collection("airtableRecords").updateOne(
       { airtableId },
       {
         $set: {
@@ -42,10 +45,17 @@ export default async function handler(
       },
       { upsert: true }
     );
-    console.log("→ Mongo updateOne:", JSON.stringify(result, null, 2));
+
+    // 3) Delete all search:* cache keys from Redis
+    const searchKeys = await redis.keys("search:*");
+    for (const key of searchKeys) {
+      await redis.del(key);
+    }
+    // 4) Respond with updated data
     return res.status(200).json({ success: true, airtable: airtableResult });
+
   } catch (error: any) {
-    console.error("updateMember error:", error);
+    console.error("❌ updateMember error:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 }

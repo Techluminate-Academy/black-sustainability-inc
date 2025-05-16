@@ -18,7 +18,7 @@ export default async function handler(
 
   // 1) Parse cookies
   const cookies = cookie.parse(req.headers.cookie || "");
-  const raw = cookies.bsn_user;
+  const raw = cookies.bsn_user_data;
   if (!raw) {
     return res
       .status(400)
