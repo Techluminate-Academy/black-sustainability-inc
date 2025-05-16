@@ -9,6 +9,8 @@ import InfoCard from "../InfoCard";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { LatLngBounds } from "leaflet";
 import { FeatureCollection, Point } from 'geojson';
+import { createRoot } from "react-dom/client";
+
 import { BsiUserObjectArray } from "@/typings";
 
 interface IProps {
@@ -184,69 +186,138 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
             });
 
 
+            // fetchedLocations.forEach((data: any) => {
+            //   const markerEl = createMarkerElement(data, isAuthenticated);
+            //   const popupHtml = ReactDOMServer.renderToStaticMarkup(
+            //     <div className="popup-wrapper">
+            //       <button
+            //         className="close-popup-btn"
+            //         style={{
+            //           position: 'absolute',
+            //           right:'-160px',
+            //           top:'10px',
+            //           border: 'none',
+            //           fontSize: '13px',
+            //           outline: 'none',
+            //           cursor: 'pointer',
+            //         }}
+            //       >
+            //         X
+            //       </button>
+            //       <InfoCard
+            //         imgUrl={ data?.fields?.PHOTO && data?.fields?.PHOTO.length > 0
+            //           ? data?.fields?.PHOTO[0].url || data?.fields?.PHOTO
+            //           : "/png/default.png"}
+            //         LAST_NAME={data.fields["LAST NAME"]}
+            //         FIRST_NAME={data.fields["FIRST NAME"]}
+            //         BIO={data.fields?.BIO}
+            //         EMAIL_ADDRESS={data.fields["EMAIL ADDRESS"]}
+            //         ORGANIZATION_NAME={data.fields["ORGANIZATION NAME"]}
+            //         Nearest_City={`${data.fields["Location (Nearest City)"] ?? ""}`}
+            //         WEBSITE={data.fields.WEBSITE}
+            //         MEMBER_LEVEL={data.fields["MEMBER LEVEL"]}
+            //         isAuthenticated={isAuthenticated}
+         
+            //       />
+            //     </div>
+            //   );
+
+            //   const popup = new mapboxgl.Popup({
+            //     offset: 25,
+            //     closeButton: false,
+            //     className: "custom-popup",
+            //   }).setHTML(popupHtml);
+
+            //   const marker = new mapboxgl.Marker({ element: markerEl })
+            //     .setLngLat({
+            //       lng: parseFloat(data?.location?.coordinates[0]) || mapCenter[0],
+            //       lat: parseFloat(data?.location?.coordinates[1]) || mapCenter[1],
+            //     })
+            //     .setPopup(popup)
+            //     .addTo(mapRef.current!);
+
+            //   markersRef.current.push({ marker, recordId: data.id });
+            //   // ⬇️ Attach close button listener after popup is added
+            //   popup.on('open', () => {
+            //     const closeBtn = document.querySelector('.close-popup-btn');
+            //     if (closeBtn) {
+            //       closeBtn.addEventListener('click', () => {
+            //         popup.remove();
+            //       });
+            //     }
+            //   });
+            // });
+
+
+
+
             fetchedLocations.forEach((data: any) => {
+              // 1️⃣ Create the custom marker element
               const markerEl = createMarkerElement(data, isAuthenticated);
-              const popupHtml = ReactDOMServer.renderToStaticMarkup(
+            
+              // 2️⃣ Prepare the Mapbox popup
+              const popup = new mapboxgl.Popup({
+                offset: 25,
+                closeButton: false,
+                className: "custom-popup",
+              });
+            
+              // 3️⃣ Create a real DOM container and mount InfoCard into it
+              const popupContainer = document.createElement("div");
+              createRoot(popupContainer).render(
                 <div className="popup-wrapper">
                   <button
                     className="close-popup-btn"
                     style={{
-                      position: 'absolute',
-                      right:'-160px',
-                      top:'10px',
-                      border: 'none',
-                      fontSize: '13px',
-                      outline: 'none',
-                      cursor: 'pointer',
+                      position: "absolute",
+                      right: "-160px",
+                      top: "10px",
+                      border: "none",
+                      fontSize: "13px",
+                      outline: "none",
+                      cursor: "pointer",
                     }}
+                    onClick={() => popup.remove()}
                   >
                     X
                   </button>
                   <InfoCard
-                    imgUrl={ data?.fields?.PHOTO && data?.fields?.PHOTO.length > 0
-                      ? data?.fields?.PHOTO[0].url || data?.fields?.PHOTO
-                      : "/png/default.png"}
-                    LAST_NAME={data.fields["LAST NAME"]}
+                    imgUrl={
+                      data.fields.PHOTO?.[0]?.url ||
+                      "/png/default.png"
+                    }
                     FIRST_NAME={data.fields["FIRST NAME"]}
-                    BIO={data.fields?.BIO}
+                    LAST_NAME={data.fields["LAST NAME"]}
+                    BIO={data.fields.BIO}
                     EMAIL_ADDRESS={data.fields["EMAIL ADDRESS"]}
                     ORGANIZATION_NAME={data.fields["ORGANIZATION NAME"]}
                     Nearest_City={`${data.fields["Location (Nearest City)"] ?? ""}`}
                     WEBSITE={data.fields.WEBSITE}
                     MEMBER_LEVEL={data.fields["MEMBER LEVEL"]}
                     isAuthenticated={isAuthenticated}
-         
                   />
                 </div>
               );
-
-              const popup = new mapboxgl.Popup({
-                offset: 25,
-                closeButton: false,
-                className: "custom-popup",
-              }).setHTML(popupHtml);
-
+            
+              // 4️⃣ Tell Mapbox to use that live React tree
+              popup.setDOMContent(popupContainer);
+            
+              // 5️⃣ Create the marker and attach the popup
               const marker = new mapboxgl.Marker({ element: markerEl })
                 .setLngLat({
-                  lng: parseFloat(data?.location?.coordinates[0]) || mapCenter[0],
-                  lat: parseFloat(data?.location?.coordinates[1]) || mapCenter[1],
+                  lng:
+                    parseFloat(data.location.coordinates[0]) ||
+                    mapCenter[0],
+                  lat:
+                    parseFloat(data.location.coordinates[1]) ||
+                    mapCenter[1],
                 })
                 .setPopup(popup)
                 .addTo(mapRef.current!);
-
+            
               markersRef.current.push({ marker, recordId: data.id });
-              // ⬇️ Attach close button listener after popup is added
-              popup.on('open', () => {
-                const closeBtn = document.querySelector('.close-popup-btn');
-                if (closeBtn) {
-                  closeBtn.addEventListener('click', () => {
-                    popup.remove();
-                  });
-                }
-              });
             });
-
-
+            
 
             const hideClusteredMarkers = () => {
               if (!mapRef.current) return;
