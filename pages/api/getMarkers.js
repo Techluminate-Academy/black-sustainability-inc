@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   try {
 
     // 🔹 Build cache key dynamically
-    const cacheKey = `map-locations1`;
+    const cacheKey = `map-locations`;
 
     // 🔹 Check Redis cache first
     const cacheStart = Date.now();
