@@ -4,7 +4,6 @@ import ReactDOM from "react-dom";
 // import mapboxgl, { Map as MapboxMap } from "mapbox-gl";
 import ReactDOMServer from "react-dom/server";
 import mapboxgl from "mapbox-gl";  
-import { createRoot } from "react-dom/client";
 import CustomIconContent from "./CustomIconContent";
 import InfoCard from "../InfoCard";
 import "mapbox-gl/dist/mapbox-gl.css";
