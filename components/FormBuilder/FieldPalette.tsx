@@ -15,7 +15,7 @@ const PALETTE: { type: FieldType; label: string }[] = [
 
 export default function FieldPalette() {
   return (
-    <div className="w-1/4 p-4 bg-gray-50 rounded shadow">
+    <div className="w-full p-4 bg-gray-50 rounded shadow ">
       <h3 className="font-semibold mb-2">Field Types</h3>
       {PALETTE.map(({ type, label }) => (
         <PaletteItem key={type} type={type} label={label} />
@@ -39,7 +39,8 @@ function PaletteItem({
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className="p-2 mb-2 bg-white rounded border cursor-grab hover:bg-gray-100"
+
+      className="p-2 mb-2 bg-white rounded border cursor-grab hover:bg-gray-100 w-full"
     >
       {label}
     </div>

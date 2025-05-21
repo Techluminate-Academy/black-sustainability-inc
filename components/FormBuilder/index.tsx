@@ -1,12 +1,12 @@
 // src/components/FormBuilder/index.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   DndContext,
-  DragEndEvent,
   DragStartEvent,
-  DragOverlay,
+  DragOverEvent,
+  DragEndEvent,
   closestCenter,
   PointerSensor,
   useSensor,
@@ -19,13 +19,14 @@ import {
   verticalListSortingStrategy
 } from "@dnd-kit/sortable";
 import { nanoid } from "nanoid";
+
 import { FieldDefinition } from "@/models/fieldDefinition";
 import { FieldType } from "@/models/field";
 import { FormData } from "@/models/formData";
+
 import FieldPalette from "./FieldPalette";
 import DragDropCanvas from "./DragDropCanvas";
 
-// Human‐readable labels for each FieldType
 const FIELD_LABELS: Record<FieldType, string> = {
   text: "Text Input",
   email: "Email Input",
@@ -40,37 +41,37 @@ const FIELD_LABELS: Record<FieldType, string> = {
 
 interface FormBuilderProps {
   initialFields?: FieldDefinition[];
-  onChange?: (fields: FieldDefinition[]) => void;
 }
 
 export default function FormBuilder({
-  initialFields = [],
-  onChange
+  initialFields = []
 }: FormBuilderProps) {
   const [fields, setFields] = useState<FieldDefinition[]>(initialFields);
-  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  useEffect(() => {
+    setFields(initialFields);
+  }, [initialFields]);
+
+  const [overId, setOverId] = useState<UniqueIdentifier | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
-  function handleDragStart(event: DragStartEvent) {
-    setActiveId(event.active.id);
+  function handleDragStart(_: DragStartEvent) {
+    // no-op
+  }
+
+  function handleDragOver(event: DragOverEvent) {
+    setOverId(event.over?.id ?? null);
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    const activeId = active.id;
-    const overId = over?.id;
-    // Build a quick lookup of existing field IDs
-    const existingIds = fields.map((f) => f.id);
+    const activeId = event.active.id as string;
+    const overId = event.over?.id as string | undefined;
+    const existingIds = fields.map(f => f.id);
 
-    // 1) New palette item dropped on canvas?
-    if (
-      overId === "canvas" &&
-      // ensure it's not already on canvas
-      !existingIds.includes(activeId as string)
-    ) {
+    // 1) palette → canvas
+    if (overId === "canvas" && !existingIds.includes(activeId)) {
       const newField: FieldDefinition = {
         id: nanoid(),
         name: `field_${nanoid()}` as keyof FormData,
@@ -82,76 +83,28 @@ export default function FormBuilder({
             ? [{ label: "Option 1", value: "option1" }]
             : undefined
       };
-      setFields((prev) => {
-        const next = [...prev, newField];
-        onChange?.(next);
-        return next;
-      });
+      setFields(prev => [...prev, newField]);
     }
-    // 2) Reorder existing fields?
+    // 2) reorder existing
     else if (
-      existingIds.includes(activeId as string) &&
-      existingIds.includes(overId as string) &&
+      existingIds.includes(activeId) &&
+      existingIds.includes(overId!) &&
       activeId !== overId
     ) {
-      setFields((items) => {
-        const oldIndex = items.findIndex((f) => f.id === activeId);
-        const newIndex = items.findIndex((f) => f.id === overId);
-        const next = arrayMove(items, oldIndex, newIndex);
-        onChange?.(next);
-        return next;
-      });
+      setFields(prev =>
+        arrayMove(
+          prev,
+          prev.findIndex(f => f.id === activeId),
+          prev.findIndex(f => f.id === overId)
+        )
+      );
     }
-    // else: palette item dropped outside canvas OR existing field dropped on canvas
-    // do nothing
 
-    setActiveId(null);
+    setOverId(null);
   }
 
   function handleDragCancel() {
-    setActiveId(null);
-  }
-
-  function renderDragPreview() {
-    if (!activeId) return null;
-
-    // Palette preview
-    if (typeof activeId === "string" && FIELD_LABELS[activeId as FieldType]) {
-      const type = activeId as FieldType;
-      return (
-        <div className="p-2 shadow-lg">
-          <input
-            type={
-              type === "textarea"
-                ? undefined
-                : type === "dropdown"
-                ? "text"
-                : type
-            }
-            placeholder={FIELD_LABELS[type]}
-            disabled
-            className="w-full border rounded p-2 bg-white"
-          />
-        </div>
-      );
-    }
-
-    // Existing field preview
-    const existing = fields.find((f) => f.id === activeId);
-    if (existing) {
-      return (
-        <div className="p-2 shadow-lg">
-          <input
-            type={existing.type === "textarea" ? undefined : existing.type}
-            placeholder={existing.label}
-            disabled
-            className="w-full border rounded p-2 bg-gray-100"
-          />
-        </div>
-      );
-    }
-
-    return null;
+    setOverId(null);
   }
 
   return (
@@ -159,23 +112,30 @@ export default function FormBuilder({
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="flex gap-4">
-        <FieldPalette />
+      <div className="flex gap-6 max-w-screen-lg mx-auto px-4">
+        {/* Canvas (2/3 width) */}
+        <div className="flex-[2]">
+          <SortableContext
+            items={fields.map(f => f.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <DragDropCanvas
+              fields={fields}
+              setFields={setFields}
+              isOverCanvas={overId === "canvas"}
+            />
+          </SortableContext>
+        </div>
 
-        <SortableContext
-          items={fields.map((f) => f.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          <DragDropCanvas fields={fields} setFields={setFields} />
-        </SortableContext>
+        {/* Palette (full width of its column) */}
+        <div className="flex-1 w-full">
+          <FieldPalette />
+        </div>
       </div>
-
-      <DragOverlay dropAnimation={{ duration: 0, easing: "ease" }}>
-        {renderDragPreview()}
-      </DragOverlay>
     </DndContext>
   );
 }
