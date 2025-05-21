@@ -21,6 +21,7 @@ interface IProps {
   PRIMARY_INDUSTRY_HOUSE?: any;
   isAuthenticated: boolean;
   ConnectLink?: string;
+  AFFILIATION?: string;
 }
 
 const UserCard: React.FC<IProps> = ({
@@ -33,6 +34,7 @@ const UserCard: React.FC<IProps> = ({
   imgUrl,
   isAuthenticated,
   ConnectLink,
+  AFFILIATION,
   // State_Province,
   // NameFromLocation,
 }) => {
@@ -50,7 +52,14 @@ const UserCard: React.FC<IProps> = ({
             />
           </div>
         ) : (
-          <BlurImage imageUrl={imgUrl} blurAmount={16} />
+          <img
+              src={imgUrl}
+              className={`${
+                isAuthenticated ? "blur-none" : "blur-md"
+              } w-full object-cover object-center h-full rounded-md`}
+              alt={` profile image`}
+              loading="lazy"
+            />
         )}
       </div>
 
@@ -124,9 +133,16 @@ const UserCard: React.FC<IProps> = ({
                 blurAmount={1}
               />
             )}
-          </div>
+    
         </div>
-
+            {/* Conditionally render yellow star and affiliation */}
+            {AFFILIATION && AFFILIATION.trim() !== "" && (
+            <div className="flex items-center gap-1 mt-2">
+              <span className="text-yellow-500 text-xl">⭐</span>
+              <span className="text-sm">Affiliation - {AFFILIATION}</span>
+            </div>
+          )}
+          </div>
         <IndustryHouseIcons iconTag={PRIMARY_INDUSTRY_HOUSE} />
       </div>
 

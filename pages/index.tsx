@@ -2,66 +2,177 @@
 import Nav from "@/components/layouts/Nav";
 import Footer from "@/components/layouts/Footer";
 import Sidebar from "@/components/layouts/Sidebar";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { customStyles } from "@/components/common/CustomSelect";
 import Select from "react-select";
-import {Head } from "next/document";
+import { Head } from "next/document";
 import { IndustryHouses } from "@/utils/IndustryDetails";
 import dynamic from "next/dynamic";
 import icons from "@/icons";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { BsiUserObjectArray } from "@/typings";
+import { getAllRecordsFromAirtable } from "@/utils/airtable";
 import Loader from "@/components/common/loader";
+import { LatLngBounds } from "leaflet";
+
 
 export default function Home() {
-  const BsiMap = dynamic(() => import("@/components/common/LeafletMap"), {
+  // const BsiMap = dynamic(() => import("@/components/common/LeafletMap"), {
+  //   ssr: false,
+  // });
+  const BsiMap = dynamic(() => import("@/components/common/Mapbox/MapboxMap"), {
     ssr: false,
-  });
+  })
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [filteredData, setFilteredData] = useState<BsiUserObjectArray>();
-  const [OriginalData, setOriginalData] = useState<BsiUserObjectArray>();
-  const [authenticatedUser, setAuthenticatedUser] = useState("");
+  const [filteredData, setFilteredData] = useState<BsiUserObjectArray>([]);
+  const [OriginalData, setOriginalData] = useState<BsiUserObjectArray>([]);
+  const [authenticatedUser, setAuthenticatedUser] = useState<any>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isPopUpActive, setIsPopUpActive] = useState(false);
   const [preloaderMap, setPreloaderMap] = useState(true);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [lazyLoaded, setLazyLoaded] = useState(false);
+  const [mapLocations, setMapLocations] = useState([]);
+
+
+
   const [preloaderSidebar, setPreloaderSidebar] = useState(true);
   const [loadedData, setLoadedData] = useState<any>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [chunkIndex, setChunkIndex] = useState(0);
+  const [selectedIndustry, setSelectedIndustry] = useState("");
+  const [fullTotalCount, setFullTotalCount] = useState(0);
+
   const [hideCounter, setHideCounter] = useState(false);
-  // const chunkSizes = [50, 50, 200, 200, 300, 300, 500, 500, 800];
   const [chunkSizes, setChunkSizes] = useState([
     50, 50, 200, 200, 300, 300, 500, 500, 800,
   ]); // Default value
 
+  // New state for sidebar infinite scroll
+  const [sidebarPage, setSidebarPage] = useState(1);
+  // Modification: totalCount now initialized as null instead of 0.
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+console.log(filteredData, 'filtered data')
   const route = useRouter();
+  const [showBackToTop, setShowBackToTop] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  // --- NEW: Monitor scroll position to show/hide the back-to-top button ---
+  useEffect(() => {
+    const sidebar = sidebarRef.current;
+    if (!sidebar) return;
 
+    const handleScroll = () => {
+      if (sidebar.scrollTop > 200) {
+        setShowBackToTop(true);
+      } else {
+        setShowBackToTop(false);
+      }
+    };
+
+    sidebar.addEventListener("scroll", handleScroll);
+    return () => {
+      sidebar.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
+  // ─── 0. Bootstrap & re-write cross-site bsn_user_data cookie into first-party ──
+  useEffect(() => {
+    function getCookie(name: string): string | null {
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+      return match ? decodeURIComponent(match[2]) : null;
+    }
+  
+    const raw = getCookie('bsn_user_data');
+    if (!raw) {
+      // no cookie, handle unauthenticated state if needed
+      setIsAuthenticated(false);
+      setAuthenticatedUser(null);
+      return;
+    }
+  
+    try {
+      const userObj = JSON.parse(raw);
+      setAuthenticatedUser(userObj);
+      setIsAuthenticated(true);
+    } catch (err) {
+      console.error('Failed to parse bsn_user_data cookie:', err);
+      setIsAuthenticated(false);
+      setAuthenticatedUser(null);
+    }
+  }, []);
+  
+
+  const scrollToTop = () => {
+    if (sidebarRef.current) {
+      sidebarRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+  // useEffect(() => {
+  //   // ... user cookie code (omitted)
+  // }, []);
+
+
+  useEffect(() => {
+    const getMapLocations = async() =>{
+      const response = await fetch("api/getMarkers");
+      if (!response.ok) throw new Error("Failed to fetch locations data.");
+      const json = await response.json();  // <--- this was missing
+      setMapLocations(json.data)
+    }
+    getMapLocations()
+  }, [])
+  
+  // --------------------------------------------------------------------
+  // 1. Initial Data Fetch for Map & Sidebar
+  // --------------------------------------------------------------------
   useLayoutEffect(() => {
     const fetchData = async () => {
-          // Mark the start of the fetch process
-    performance.mark("mapFetchStart");
+      performance.mark("mapFetchStart");
       setLoading(true);
-      fetch("/api_data.json")
-        .then((response: any) => response.json())
-        .then(async (data) => {
-          const filteredNullData = data.filter((data: any) => data !== null);
-          // Dynamically calculate chunk sizes
-       
-          const totalRecords = filteredNullData.length;
-          const chunkSize = Math.ceil(totalRecords / 3);
-          setChunkSizes([chunkSize, chunkSize, totalRecords - 2 * chunkSize]);
-          setOriginalData(filteredNullData);
-          setFilteredData(filteredNullData);
+      // setPreloaderSidebar(true);
+      fetch("/api/getData?page=1&limit=100")
+        .then((response) => response.json())
+        .then(async (result) => {
+          if (result.success && Array.isArray(result.data)) {
+            const filteredNullData = result.data.filter((item: any) => item !== null);
+            console.log("Filtered data count:", filteredNullData);
+            // Save the full total count
+            setFullTotalCount(result.totalCount);
+            setTotalCount(result.totalCount);
+            // Set data for sidebar and for map progressive loading
+            setOriginalData(filteredNullData);
+            setFilteredData(filteredNullData);
+            const totalRecords = filteredNullData.length;
+            const chunkSize = Math.ceil(totalRecords / 3);
+            setChunkSizes([chunkSize, chunkSize, totalRecords - 2 * chunkSize]);
+            setLoadedData(filteredNullData.slice(0, chunkSize));
+            setCurrentIndex(chunkSize);
+            setChunkIndex(1);
+            setSidebarPage(1);
+          } else {
+            console.error("API did not return a valid data array", result);
+          }
+        })
+        .catch((error) => {
+          console.error("Error fetching data:", error);
+        })
+        .finally(() => {
+          setLoading(false);
+          setPreloaderSidebar(false);
         });
     };
 
     fetchData();
   }, []);
 
+  // --------------------------------------------------------------------
+  // 2. Progressive Chunk Loading for Map
+  // --------------------------------------------------------------------
   useEffect(() => {
+    if (lazyLoaded) return; 
     const loadNextChunk = () => {
       if (filteredData) {
         if (
@@ -73,7 +184,6 @@ export default function Home() {
             currentIndex,
             currentIndex + nextChunkSize
           );
-
           setLoadedData((prevData: any) => [...prevData, ...nextChunk]);
           setCurrentIndex(currentIndex + nextChunkSize);
           setChunkIndex(chunkIndex + 1);
@@ -85,120 +195,250 @@ export default function Home() {
       loadNextChunk();
     } else {
       const timer = setTimeout(loadNextChunk, 1000);
-
       return () => clearTimeout(timer);
     }
-  }, [currentIndex, filteredData]);
+  }, [currentIndex, filteredData, chunkIndex, chunkSizes]);
 
-  // INTRO POP UP
-  
+  // --------------------------------------------------------------------
+  // 3. Map Loader: Hide when all chunks loaded
+  // --------------------------------------------------------------------
   useEffect(() => {
-    if (isAuthenticated === false) {
-      setTimeout(() => {
-        if (loadedData?.length === filteredData?.length) {
-          setIsPopUpActive(true);
-        }
-      }, 6000);
-    }
-  }, [loadedData]);
-
-  useEffect(() => {
-    if (loadedData.length === filteredData?.length) {
-          // Mark when all chunks have loaded (and hence the map is ready)
-    performance.mark("mapLoadEnd");
-
-    // Measure the duration from the start of the fetch to the map being ready
-    performance.measure("mapLoadTime", "mapFetchStart", "mapLoadEnd");
-    const measures = performance.getEntriesByName("mapLoadTime");
-    console.log("Map load time:", measures[0].duration, "ms");
+    if (loadedData.length === filteredData.length && filteredData.length > 0) {
+      performance.mark("mapLoadEnd");
+      performance.measure("mapLoadTime", "mapFetchStart", "mapLoadEnd");
+      const measures = performance.getEntriesByName("mapLoadTime");
+      console.log("Map load time:", measures[0].duration, "ms");
       setPreloaderMap(false);
     }
   }, [loadedData, filteredData]);
 
-  useEffect(() => {
-    if (filteredData) {
-      if (loadedData.length <= 800) {
-        setPreloaderSidebar(true);
+  // --------------------------------------------------------------------
+  // 5. Infinite Scrolling for Sidebar via "Load More" Button
+  // --------------------------------------------------------------------
+  const handleLoadMore = async () => {
+    const nextPage = sidebarPage + 1;
+    try {
+      const res = await fetch(`/api/getData?page=${nextPage}&limit=100`);
+      const result = await res.json();
+      if (result.success && Array.isArray(result.data)) {
+        const newRecords = result.data.filter((item: any) => item !== null);
+        console.log(`Fetched page ${nextPage}: ${newRecords.length} records`);
+        setFilteredData((prev: any) => [...prev, ...newRecords]);
+        setOriginalData((prev: any) => [...prev, ...newRecords]);
+        setSidebarPage(nextPage);
       } else {
-        setPreloaderSidebar(false);
+        console.error("Infinite scroll: API did not return valid data", result);
       }
+    } catch (error) {
+      console.error("Error fetching more sidebar data:", error);
     }
-  }, [loadedData, filteredData]);
-  // SEARCH
-  useEffect(() => {
-    const filtered = filteredData?.filter((profile: any) => {
-      const {
-        "Time zone": TimeZone,
-        "State/Province": StateProvince,
-        "Name (from Location)": NameFromLocation,
-        State,
-        "Location (Nearest City)": NearestCity,
-        "FIRST NAME": Fname,
-        "LAST NAME": Lname,
-        "FULL NAME": Fullname,
-        Country: Country,
-      } = profile.fields;
-
-      const lowerSearchTerm = searchQuery.toLowerCase();
-
-      return (
-        (TimeZone && TimeZone.toLowerCase().includes(lowerSearchTerm)) ||
-        (StateProvince &&
-          StateProvince.toLowerCase().includes(lowerSearchTerm)) ||
-        (NameFromLocation &&
-          NameFromLocation.toLowerCase().includes(lowerSearchTerm)) ||
-        (State && State.toLowerCase().includes(lowerSearchTerm)) ||
-        (NearestCity && NearestCity.toLowerCase().includes(lowerSearchTerm)) ||
-        (Fname && Fname.toLowerCase().includes(lowerSearchTerm)) ||
-        (Lname && Lname.toLowerCase().includes(lowerSearchTerm))
-        // (Fullname && Fullname.toLowerCase().includes(lowerSearchTerm)) ||
-        // (Country && Country.toLowerCase().includes(lowerSearchTerm))
-      );
-    });
-    setFilteredData(filtered);
-  }, [searchQuery]);
-
-  // Dropdown filter
-  const filterByIndustryHouse = (selectedOption: any) => {
-    const selectedValue = selectedOption.value;
-
-    let filtered;
-    if (selectedValue === "") {
-      filtered = OriginalData;
-    } else {
-      filtered = OriginalData?.filter(
-        (item: any) => item.fields["PRIMARY INDUSTRY HOUSE"] === selectedValue
-      );
-    }
-    setFilteredData(filtered);
   };
 
+  // useEffect(() => {
+  //   if (isAuthenticated === false) {
+  //     setTimeout(() => {
+  //       if (loadedData?.length === filteredData?.length) {
+  //         setIsPopUpActive(true);
+  //       }
+  //     }, 6000);
+  //   }
+  // }, []);
+  // --------------------------------------------------------------------
+  // 6. Search Filtering: Call the search API when searchQuery changes
+  // --------------------------------------------------------------------
+
+  const DEBOUNCE_DELAY = 500; // Adjust debounce delay as needed
+  
   useEffect(() => {
-    function getCookie(cname: string) {
-      let name = cname + "=";
-      let decodedCookie = decodeURIComponent(document.cookie);
-      let ca = decodedCookie.split(";");
-      for (let i = 0; i < ca.length; i++) {
-        let c = ca[i];
-        while (c.charAt(0) == " ") {
-          c = c.substring(1);
-        }
-        if (c.indexOf(name) == 0) {
-          return c.substring(name.length, c.length);
-        }
+    const handler = setTimeout(() => {
+      if (searchQuery.trim() !== "") {
+        setLoading(true);
+        setPreloaderSidebar(true);
+  
+        fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}`)
+          .then((response) => response.json())
+          .then((result) => {
+            if (result.success && Array.isArray(result.data)) {
+              // console.log("Search API returned:", result.data.length, "records");
+              setFilteredData(result.data);
+           
+            } else {
+              console.error("Search API did not return valid data", result);
+              setFilteredData([]); // Ensure we clear data on error
+            }
+          })
+          .catch((error) => {
+            console.error("Error fetching search data:", error);
+            setFilteredData([]);
+          })
+          .finally(() => {
+            setLoading(false);
+            setPreloaderSidebar(false);
+          });
+      } else {
+        // If search query is empty, reset to original data
+        setFilteredData(OriginalData);
       }
-      return "";
-    }
+    }, DEBOUNCE_DELAY);
+  
+    return () => clearTimeout(handler); // Cleanup previous timeout
+  }, [searchQuery, OriginalData]);
+  
 
-    const user = getCookie("bsn_user");
-    if (user.length > 0) {
-      setAuthenticatedUser(user);
-      setIsAuthenticated(true);
+  // --------------------------------------------------------------------
+  // 7. Dropdown Filter (unchanged)
+  // --------------------------------------------------------------------
+  const filterByIndustryHouse = async (selectedOption: any) => {
+    const selectedValue = selectedOption.value;
+    console.log(selectedValue);
+    setSelectedIndustry(selectedValue);
+    if (selectedValue === "") {
+      setFilteredData(OriginalData);
+      setTotalCount(fullTotalCount); // Reset total count to full count
 
-      console.log(user, " authenticated user data");
-      console.log(isAuthenticated, " is user authenticated");
+      return;
     }
-  }, []);
+    try {
+      setPreloaderSidebar(true);
+      const res = await fetch(`/api/filterData?page=1&limit=100&industryHouse=${encodeURIComponent(selectedValue)}`);
+      const result = await res.json();
+      if (result.success && Array.isArray(result.data)) {
+        setFilteredData(result.data);
+        setTotalCount(filteredData.length);
+        setPreloaderSidebar(false);
+      } else {
+        console.error("Filter API did not return valid data", result);
+      }
+    } catch (error) {
+      console.error("Error fetching filtered data:", error);
+    }
+  };
+
+  // useEffect(() => {
+  //   // helper to read a cookie by name
+  //   function getCookie(name: string): string {
+  //     const match = document.cookie.match(
+  //       new RegExp("(^| )" + name + "=([^;]+)")
+  //     );
+  //     return match ? decodeURIComponent(match[2]) : "";
+  //   }
+  
+  //   const raw = getCookie("bsn_user_data");
+  //   if (!raw) {
+  //     return; // no cookie → stay unauthenticated
+  //   }
+  
+  //   try {
+  //     const userObj = JSON.parse(raw);
+  //     setAuthenticatedUser(userObj);
+  //     setIsAuthenticated(true);
+  //     console.log(userObj, "authenticated user data");
+  //   } catch (err) {
+  //     console.error("Failed to parse bsn_user_data cookie:", err);
+  //   }
+  // }, []);
+  
+
+
+
+  // --------------------------------------------------------------------
+  // 8. Render Component
+  // --------------------------------------------------------------------
+
+
+   // 8. Viewport-Based Lazy Loading for Map Markers
+  // --------------------------------------------------------------------
+  // This function gets called when the map's viewport changes.
+// This function gets called when the map's viewport changes.
+// This function gets called when the map's viewport changes.
+// const handleBoundsChange = async (bounds: LatLngBounds) => {
+//   const northEast = bounds.getNorthEast();
+//   const southWest = bounds.getSouthWest();
+//   try {
+//     const res = await fetch(
+//       `/api/getMarkers?northEastLat=${northEast.lat}&northEastLng=${northEast.lng}&southWestLat=${southWest.lat}&southWestLng=${southWest.lng}`
+//     );
+//     const result = await res.json();
+//     if (result.success) {
+//       console.log("Fetched markers based on bounds:", result.data);
+      
+//       // Mark that lazy load has occurred
+//       setLazyLoaded(true);
+      
+//       // Update all state variables with the full dataset
+//       setFilteredData(result.data);
+//       setOriginalData(result.data);
+//       setLoadedData(result.data); // Display all markers immediately
+//       setCurrentIndex(result.data.length);
+//       setChunkIndex(1);
+//       setChunkSizes([result.data.length]); // Disable further chunking
+//       setTotalCount(result.data.length);
+//     } else {
+//       console.error("Failed to fetch markers based on bounds", result);
+//     }
+//   } catch (error) {
+//     console.error("Error fetching markers by bounds:", error);
+//   }
+// };
+
+
+// useEffect(() => {
+//   async function bootstrapAuth() {
+//     // 0. Simple Safari detection:
+//     const ua = navigator.userAgent;
+//     const isSafari = ua.includes('Safari') && !ua.includes('Chrome');
+
+//     // 1) Only ask for storage access in Safari:
+//     if (isSafari && document.hasStorageAccess) {
+//       try {
+//         const has = await document.hasStorageAccess();
+//         if (!has) {
+//           await document.requestStorageAccess();
+//         }
+//       } catch (e) {
+//         console.warn('Safari storage access denied; cookie stays hidden');
+//       }
+//     }
+
+//     // 2) Read the cookie normally in all browsers:
+//     function getCookie(name: string): string {
+//       const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+//       return match ? decodeURIComponent(match[2]) : '';
+//     }
+
+//     const raw = getCookie('bsn_user_data');
+//     if (!raw) return; // still no cookie
+
+//     try {
+//       const userObj = JSON.parse(raw);
+//       setAuthenticatedUser(userObj);
+//       setIsAuthenticated(true);
+//       console.log(userObj, 'authenticated user data');
+//     } catch (err) {
+//       console.error('Failed to parse bsn_user_data cookie:', err);
+//     }
+//   }
+
+//   bootstrapAuth();
+// }, []);
+
+useEffect(() => {
+  // only non-logged-in users should ever see it
+  if (!isAuthenticated) {
+    // once all chunks are loaded...
+    if (
+      loadedData.length > 0 &&
+      loadedData.length === filteredData.length
+    ) {
+      const timer = setTimeout(() => {
+        setIsPopUpActive(true);
+      }, 6000);
+
+      // cleanup if auth or data changes before 6s
+      return () => clearTimeout(timer);
+    }
+  }
+}, [isAuthenticated, loadedData.length, filteredData.length]);
 
   return (
     <div className="relative h-screen w-full">
@@ -206,10 +446,9 @@ export default function Home() {
         isAuthenticated={isAuthenticated}
         authenticatedUser={authenticatedUser}
       />
-            
 
       <div className="mt-[110px]">
-        <div className="flex sm:flex-row flex-col bg-[#FFF8E5] ">
+        <div className="flex sm:flex-row flex-col bg-[#FFF8E5]">
           <div className="sm:w-3/5 w-full sm:p-0 p-3 h-screen">
             {preloaderMap ? (
               <div className="relative w-full h-screen">
@@ -227,11 +466,11 @@ export default function Home() {
                       <p className="text-sm lg:text-xl font-semibold mt-3">
                         Looking for other members...
                       </p>
-                      <p className="text-sm lg:text-sm font-medium leading-tight ">
+                      <p className="text-sm lg:text-sm font-medium leading-tight">
                         Sit back while we search around the globe.
                       </p>
-                      <p className="text-sm lg:text-base ">
-                        We've found {loadedData.length} so far!
+                      <p className="text-sm lg:text-base">
+                        We've loaded all {totalCount} records!
                       </p>
                     </div>
                   </div>
@@ -240,13 +479,17 @@ export default function Home() {
             ) : (
               <BsiMap
                 isAuthenticated={isAuthenticated}
-                filteredData={filteredData}
                 loadedData={loadedData}
                 hideCounter={hideCounter}
+                onMarkerHover={()=>{}}
+                filteredData={searchQuery === "" && selectedIndustry === "" ? mapLocations : filteredData}
+
               />
             )}
           </div>
-          <div className="sm:w-2/5 w-full pb-4 flex flex-col justify-start items-center h-screen overflow-scroll ">
+          <div 
+            ref={sidebarRef}
+          className="sm:w-2/5 w-full pb-4 flex flex-col justify-start items-center h-screen overflow-scroll">
             <div className="bg-[#FFF8E5] py-2 sticky left-0 top-0 w-full flex flex-col items-center justify-center z-10">
               <div className="w-[95%]">
                 <Select
@@ -259,40 +502,60 @@ export default function Home() {
                 />
               </div>
               <div className="w-[95%] relative">
-                <input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-white border outline-none w-full px-5 py-2 rounded-full text-sm placeholder:capitalize placeholder:text-xs"
-                  placeholder="Search by City, State, Country and Country Abbreviation"
-                />
+              <input
+  value={searchQuery}
+  onChange={(e) => setSearchQuery(e.target.value)}
+  className="bg-white border outline-none w-full px-5 py-2 rounded-full text-sm placeholder:capitalize placeholder:text-xs"
+  placeholder="Search by Name, Country, City, State, Zip Code, Organization, Bio Keywords, Industry, House, Affiliated"
+/>
+
                 <span className="absolute right-4 top-3">
                   <icons.search />
                 </span>
               </div>
             </div>
 
-            {preloaderSidebar ? (
+            {preloaderSidebar || totalCount === null ? (
               <div className="flex items-center justify-center h-[80vh]">
                 <img
                   src="/gif/loading.gif"
                   className="max-w-xs"
-                  alt="loading gif"
+                  alt="sidebar loading"
                 />
               </div>
             ) : (
-              <Sidebar
-                filteredData={filteredData}
-                isAuthenticated={isAuthenticated}
-                totalNumber={filteredData?.length}
-                loading={loading}
-              />
+              <>
+                <Sidebar
+                  filteredData={filteredData}
+                  isAuthenticated={isAuthenticated}
+                  totalNumber={
+                    searchQuery.trim() === "" && selectedIndustry === ""
+                      ? totalCount!
+                      : filteredData.length
+                  }
+                  loading={loading}
+                  hasSearched={hasSearched}
+                />
+                {filteredData.length > 0 &&
+                  totalCount !== null &&
+                  filteredData.length < totalCount && (
+                    <div className="py-4">
+                      <button
+                        onClick={handleLoadMore}
+                        className="px-6 py-3 bg-[#FFBF23] text-black font-semibold rounded-full shadow-md hover:bg-yellow-500 transition duration-200 ease-in-out"
+                      >
+                        Load More
+                      </button>
+                    </div>
+                  )}
+              </>
             )}
           </div>
         </div>
       </div>
 
       {isPopUpActive && (
-        <div className="fixed w-full h-screen bg-filter left-0 -top-0 z-[9999]  ">
+        <div className="fixed w-full h-screen bg-filter left-0 -top-0 z-[9999]">
           <div className="h-full flex justify-center items-center">
             <div className="bg-white rounded-xl md:px-10 px-2 py-7 mx-4 relative">
               <div
@@ -309,13 +572,11 @@ export default function Home() {
                     width={286}
                     height={92}
                   />
-                  <p className="md:max-w-md w-full sm:text-base text-xs text-center text-black  sm:leading-[20px] leading-3">
+                  <p className="md:max-w-md w-full sm:text-base text-xs text-center text-black sm:leading-[20px] leading-3">
                     Are you encountering issues viewing profile pictures?
                   </p>
-
                   <p className="md:max-w-md w-full sm:text-base text-xs text-center text-black sm:leading-[20px] leading-3">
-                    Consider becoming a member to view our members' profile
-                    pictures.
+                    Consider becoming a member to view our members' profile pictures.
                   </p>
                   <div className="mt-2 flex gap-x-2 justify-center items-center">
                     <button

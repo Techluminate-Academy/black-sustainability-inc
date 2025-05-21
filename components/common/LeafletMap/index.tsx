@@ -8,6 +8,24 @@ import ReactDOMServer from "react-dom/server";
 import Image from "next/image";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { BsiUserObjectArray } from "@/typings";
+import { useMapEvents } from "react-leaflet";
+import { LatLngBounds } from "leaflet";
+
+
+interface MapEventHandlerProps {
+  onBoundsChange: (bounds: LatLngBounds) => void;
+}
+function MapEventHandler({ onBoundsChange }: MapEventHandlerProps) {
+  const map = useMapEvents({
+    moveend: () => {
+      const bounds = map.getBounds();
+      onBoundsChange(bounds);
+    },
+  });
+  return null;
+}
+
+
 
 // Custom Icon
 const CustomIconContent: React.FC<IProps> = (
@@ -71,6 +89,9 @@ const CustomIconContent: React.FC<IProps> = (
 
   const photoUrl = record.fields?.userphoto;
 
+
+
+  
   return (
     <>
       {isAuthenticated ? (
@@ -131,6 +152,7 @@ interface IProps {
   filteredData: BsiUserObjectArray | undefined;
   loadedData: any;
   hideCounter: boolean;
+  onBoundsChange: (bounds: LatLngBounds) => void;
 }
 // Map
 const LeafletMap: React.FC<IProps> = ({
@@ -138,8 +160,30 @@ const LeafletMap: React.FC<IProps> = ({
   isAuthenticated,
   loadedData,
   hideCounter,
+  onBoundsChange,
 }) => {
   const mapCenter: LatLngExpression = [33.7488, -84.3877];
+
+    // Function to fetch markers using the new endpoint based on the map bounds
+    const fetchMarkersByBounds = async (bounds: LatLngBounds) => {
+      const northEast = bounds.getNorthEast();
+      const southWest = bounds.getSouthWest();
+      try {
+        const res = await fetch(
+          `/api/getMarkers?northEastLat=${northEast.lat}&northEastLng=${northEast.lng}&southWestLat=${southWest.lat}&southWestLng=${southWest.lng}`
+        );
+        const result = await res.json();
+        if (result.success) {
+          // Update state with new markers here; for demo, we log the data.
+          console.log("Fetched markers:", result.data);
+          // e.g., setFilteredData(result.data);
+        } else {
+          console.error("Failed to fetch markers:", result);
+        }
+      } catch (error) {
+        console.error("Error fetching markers:", error);
+      }
+    }
 
   const customIcon = (props: any) =>
     L.divIcon({
@@ -153,11 +197,15 @@ const LeafletMap: React.FC<IProps> = ({
       zoom={5}
       style={{ height: "100vh", width: "100%", zIndex: "-1 !important" }}
     >
+
+      
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
 
+   {/* Use the MapEventHandler to fetch markers on viewport change */}
+   <MapEventHandler onBoundsChange={fetchMarkersByBounds} />
       <MarkerClusterGroup chunkedLoading>
         {filteredData?.map((data: any) => {
           return (
@@ -176,7 +224,11 @@ const LeafletMap: React.FC<IProps> = ({
                 }}
               >
                 <InfoCard
-                  imgUrl={data.fields?.userphoto || "/png/default.png"}
+                       imgUrl={
+                        data.fields?.PHOTO && data.fields.PHOTO.length > 0
+                          ? data.fields.PHOTO[0].url
+                          : "/png/default.png"
+                      }
                   LAST_NAME={data.fields["LAST NAME"]}
                   FIRST_NAME={data.fields["FIRST NAME"]}
                   BIO={data.fields?.BIO}
@@ -196,4 +248,4 @@ const LeafletMap: React.FC<IProps> = ({
   );
 };
 
-export default LeafletMap;
+export default React.memo( LeafletMap);
