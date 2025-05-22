@@ -34,7 +34,7 @@ export default function FormVersionsPage() {
               </span>
             </div>
             {/* ← change here: use the dynamic segment, not a query string */}
-            <Link href={`/form-builder/${v.version}`}>Load</Link>
+            <Link href={`/schema-editor/${v.version}`}>Load</Link>
 
           </li>
         ))}
