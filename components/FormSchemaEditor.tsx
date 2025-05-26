@@ -1,4 +1,3 @@
-// components/FormSchemaEditor.tsx
 "use client";
 
 import React, { useState, useMemo, ChangeEvent } from "react";
@@ -18,78 +17,96 @@ type Step = {
 
 interface Props {
   initialFields: FieldDef[];
-  onSave: (fullSchema: JSONSchema7) => void;
 }
 
-export default function FormSchemaEditor({
-  initialFields,
-  onSave,
-}: Props) {
+export default function FormSchemaEditor({ initialFields }: Props) {
   // ── State Hooks ─────────────────────────────────────────────────────
   const [fields, setFields] = useState<FieldDef[]>(initialFields);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [activeStep, setActiveStep] = useState(0);
+  const [saving, setSaving] = useState(false);
 
-  // Split into 3 equal steps
+  // ── Split into 3 equal steps ────────────────────────────────────────
   const steps: Step[] = useMemo(() => {
     const per = Math.ceil(fields.length / 3);
     return [
-      { title: "Step 1", fieldKeys: fields.slice(0, per).map(f => f.key) },
-      { title: "Step 2", fieldKeys: fields.slice(per, per * 2).map(f => f.key) },
-      { title: "Step 3", fieldKeys: fields.slice(per * 2).map(f => f.key) },
+      { title: "Step 1", fieldKeys: fields.slice(0, per).map((f) => f.key) },
+      { title: "Step 2", fieldKeys: fields.slice(per, per * 2).map((f) => f.key) },
+      { title: "Step 3", fieldKeys: fields.slice(per * 2).map((f) => f.key) },
     ];
   }, [fields]);
 
-  // Collapse / expand
+  // ── Collapse / Expand ───────────────────────────────────────────────
   const [openAll, setOpenAll] = useState(true);
-  const [openSteps, setOpenSteps] = useState<boolean[]>(() => steps.map(() => true));
-
+  const [openSteps, setOpenSteps] = useState<boolean[]>(() =>
+    steps.map(() => true)
+  );
   const toggleOpenAll = () => {
     const nxt = !openAll;
     setOpenAll(nxt);
     setOpenSteps(steps.map(() => nxt));
   };
-  const toggleStep = (si: number) => {
-    setOpenSteps(prev => prev.map((v,i) => i === si ? !v : v));
-  };
+  const toggleStep = (si: number) =>
+    setOpenSteps((prev) => prev.map((v, i) => (i === si ? !v : v)));
 
   // ── Build JSON Schemas ───────────────────────────────────────────────
-  const fullSchema = useMemo<JSONSchema7>(() => ({
-    type: "object",
-    required: fields.filter(f => f.required).map(f => f.key),
-    properties: fields.reduce((acc, f) => {
-      const p: any = { title: f.label };
-      switch (f.type) {
-        case "string": p.type = "string"; break;
-        case "textarea": p.type = "string"; p.widget = "textarea"; break;
-        case "number": p.type = "number"; break;
-        case "boolean": p.type = "boolean"; break;
-        case "select": p.type = "string"; p.enum = f.options.map(o => o.value); break;
-        case "file": p.type = "string"; p.format = "data-url"; break;
-      }
-      acc[f.key] = p;
-      return acc;
-    }, {} as Record<string, any>)
-  }), [fields]);
+  const fullSchema = useMemo<JSONSchema7>(
+    () => ({
+      type: "object",
+      required: fields.filter((f) => f.required).map((f) => f.key),
+      properties: fields.reduce((acc, f) => {
+        const p: any = { title: f.label };
+        switch (f.type) {
+          case "string":
+            p.type = "string";
+            break;
+          case "textarea":
+            p.type = "string";
+            p.widget = "textarea";
+            break;
+          case "number":
+            p.type = "number";
+            break;
+          case "boolean":
+            p.type = "boolean";
+            break;
+          case "select":
+            p.type = "string";
+            p.enum = f.options.map((o) => o.value);
+            break;
+          case "file":
+            p.type = "string";
+            p.format = "data-url";
+            break;
+        }
+        acc[f.key] = p;
+        return acc;
+      }, {} as Record<string, any>),
+    }),
+    [fields]
+  );
 
-  const fullUiSchema = useMemo(() =>
-    fields.reduce((u, f) => {
-      if (f.type === "textarea") u[f.key] = { "ui:widget": "textarea" };
-      return u;
-    }, {} as Record<string, any>)
-  , [fields]);
+  const fullUiSchema = useMemo(
+    () =>
+      fields.reduce((u, f) => {
+        if (f.type === "textarea") u[f.key] = { "ui:widget": "textarea" };
+        return u;
+      }, {} as Record<string, any>),
+    [fields]
+  );
 
+  // ── Per‐step schema/uiSchema ────────────────────────────────────────
   const stepSchema = useMemo<JSONSchema7>(() => {
     const chosen = steps[activeStep].fieldKeys
-      .map(k => fields.find(f => f.key === k))
+      .map((k) => fields.find((f) => f.key === k))
       .filter(Boolean) as FieldDef[];
     return {
       type: "object",
-      required: chosen.filter(f => f.required).map(f => f.key),
+      required: chosen.filter((f) => f.required).map((f) => f.key),
       properties: chosen.reduce((acc, f) => {
         acc[f.key] = fullSchema.properties![f.key];
         return acc;
-      }, {} as Record<string, any>)
+      }, {} as Record<string, any>),
     };
   }, [activeStep, steps, fields, fullSchema.properties]);
 
@@ -107,21 +124,24 @@ export default function FormSchemaEditor({
     copy.splice(to, 0, m);
     return copy;
   };
-  const addField = () => setFields(fs => [...fs, {
-    key: `field${fs.length+1}`,
-    label: "New Field",
-    type: "string",
-    required: false,
-    options: [],
-  }]);
+  const addField = () =>
+    setFields((fs) => [
+      ...fs,
+      {
+        key: `field${fs.length + 1}`,
+        label: "New Field",
+        type: "string",
+        required: false,
+        options: [],
+      },
+    ]);
   const updateField = (i: number, upd: Partial<FieldDef>) =>
-    setFields(fs => fs.map((f,j) => j===i ? {...f,...upd} : f));
-  const removeField = (i: number) =>
-    setFields(fs => fs.filter((_,j) => j!==i));
-  const moveField = (i: number, dir: -1|1) =>
-    setFields(fs => arrayMove(fs, i, i+dir));
+    setFields((fs) => fs.map((f, j) => (j === i ? { ...f, ...upd } : f)));
+  const removeField = (i: number) => setFields((fs) => fs.filter((_, j) => j !== i));
+  const moveField = (i: number, dir: -1 | 1) =>
+    setFields((fs) => arrayMove(fs, i, i + dir));
 
-  // ── Field Input Handlers ──────────────────────────────────────────
+  // ── Field Handlers ─────────────────────────────────────────────────
   const onLabelChange = (i: number, e: ChangeEvent<HTMLInputElement>) =>
     updateField(i, { label: e.target.value });
   const onKeyChange = (i: number, e: ChangeEvent<HTMLInputElement>) =>
@@ -129,7 +149,7 @@ export default function FormSchemaEditor({
   const onTypeChange = (i: number, e: ChangeEvent<HTMLSelectElement>) =>
     updateField(i, {
       type: e.target.value as FieldDef["type"],
-      options: e.target.value==="select" ? [{label:"",value:""}] : []
+      options: e.target.value === "select" ? [{ label: "", value: "" }] : [],
     });
   const onRequiredChange = (i: number, e: ChangeEvent<HTMLInputElement>) =>
     updateField(i, { required: e.target.checked });
@@ -137,13 +157,32 @@ export default function FormSchemaEditor({
     updateField(i, {
       options: e.target.value
         .split(",")
-        .map(s => s.trim())
+        .map((s) => s.trim())
         .filter(Boolean)
-        .map(pair => {
-          const [label, value] = pair.split("|").map(x => x.trim());
-          return { label, value: value||label };
-        })
+        .map((pair) => {
+          const [label, value] = pair.split("|").map((x) => x.trim());
+          return { label, value: value || label };
+        }),
     });
+
+  // ── Save Version (draft only) ───────────────────────────────────────
+  async function saveDraft() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/form-versions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields, status: "draft" }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Save failed");
+      alert(`✅ Saved version ${json.version} as draft`);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
@@ -162,9 +201,13 @@ export default function FormSchemaEditor({
                   {openAll ? "Collapse All" : "Expand All"}
                 </button>
                 <button
-                  className="btn btn-sm btn-primary"
-                  onClick={addField}
+                  className="btn btn-sm btn-success me-2"
+                  disabled={saving}
+                  onClick={saveDraft}
                 >
+                  {saving ? "Saving…" : "Save Draft"}
+                </button>
+                <button className="btn btn-sm btn-primary" onClick={addField}>
                   ➕ Add Field
                 </button>
               </div>
@@ -182,8 +225,8 @@ export default function FormSchemaEditor({
                   </div>
                   {openSteps[si] && (
                     <div className="p-3">
-                      {step.fieldKeys.map(key => {
-                        const idx = fields.findIndex(f => f.key === key);
+                      {step.fieldKeys.map((key) => {
+                        const idx = fields.findIndex((f) => f.key === key);
                         const f = fields[idx];
                         return (
                           <div key={key} className="border-bottom mb-3 pb-3">
@@ -193,7 +236,7 @@ export default function FormSchemaEditor({
                               <input
                                 className="form-control form-control-sm"
                                 value={f.label}
-                                onChange={e => onLabelChange(idx, e)}
+                                onChange={(e) => onLabelChange(idx, e)}
                               />
                             </div>
                             {/* Key */}
@@ -202,7 +245,7 @@ export default function FormSchemaEditor({
                               <input
                                 className="form-control form-control-sm"
                                 value={f.key}
-                                onChange={e => onKeyChange(idx, e)}
+                                onChange={(e) => onKeyChange(idx, e)}
                               />
                             </div>
                             {/* Type */}
@@ -211,10 +254,20 @@ export default function FormSchemaEditor({
                               <select
                                 className="form-select form-select-sm"
                                 value={f.type}
-                                onChange={e => onTypeChange(idx, e)}
+                                onChange={(e) => onTypeChange(idx, e)}
                               >
-                                {["string","textarea","number","boolean","select","file"]
-                                  .map(t => <option key={t} value={t}>{t}</option>)}
+                                {[
+                                  "string",
+                                  "textarea",
+                                  "number",
+                                  "boolean",
+                                  "select",
+                                  "file",
+                                ].map((t) => (
+                                  <option key={t} value={t}>
+                                    {t}
+                                  </option>
+                                ))}
                               </select>
                             </div>
                             {/* Required */}
@@ -223,30 +276,51 @@ export default function FormSchemaEditor({
                                 className="form-check-input"
                                 type="checkbox"
                                 checked={f.required}
-                                onChange={e => onRequiredChange(idx, e)}
+                                onChange={(e) => onRequiredChange(idx, e)}
                               />
                               <label className="form-check-label small">
                                 Required
                               </label>
                             </div>
                             {/* Options */}
-                            {f.type==="select" && (
+                            {f.type === "select" && (
                               <div className="mb-2">
                                 <label className="form-label small">
                                   Options <small>(label|value,…)</small>
                                 </label>
                                 <input
                                   className="form-control form-control-sm"
-                                  value={f.options.map(o => `${o.label}|${o.value}`).join(", ")}
-                                  onChange={e => onOptionsChange(idx, e)}
+                                  value={f.options
+                                    .map((o) => `${o.label}|${o.value}`)
+                                    .join(", ")}
+                                  onChange={(e) => onOptionsChange(idx, e)}
                                 />
                               </div>
                             )}
                             {/* Actions */}
                             <div className="d-flex justify-content-end gap-2 mt-3">
-                              <button className="btn btn-sm btn-danger" onClick={() => removeField(idx)}>🗑️</button>
-                              {idx>0 && <button className="btn btn-sm btn-secondary" onClick={() => moveField(idx, -1)}>⬆️</button>}
-                              {idx<fields.length-1 && <button className="btn btn-sm btn-secondary" onClick={() => moveField(idx, +1)}>⬇️</button>}
+                              <button
+                                className="btn btn-sm btn-danger"
+                                onClick={() => removeField(idx)}
+                              >
+                                🗑️
+                              </button>
+                              {idx > 0 && (
+                                <button
+                                  className="btn btn-sm btn-secondary"
+                                  onClick={() => moveField(idx, -1)}
+                                >
+                                  ⬆️
+                                </button>
+                              )}
+                              {idx < fields.length - 1 && (
+                                <button
+                                  className="btn btn-sm btn-secondary"
+                                  onClick={() => moveField(idx, +1)}
+                                >
+                                  ⬇️
+                                </button>
+                              )}
                             </div>
                           </div>
                         );
@@ -265,7 +339,9 @@ export default function FormSchemaEditor({
             {steps.map((st, i) => (
               <button
                 key={i}
-                className={`btn btn-sm ${i===activeStep ? "btn-primary" : "btn-outline-primary"}`}
+                className={`btn btn-sm ${
+                  i === activeStep ? "btn-primary" : "btn-outline-primary"
+                }`}
                 onClick={() => setActiveStep(i)}
               >
                 {st.title}
@@ -275,7 +351,7 @@ export default function FormSchemaEditor({
           <div className="card mb-3" style={{ maxHeight: "65vh", overflowY: "auto" }}>
             <div className="card-header">
               <h5 className="mb-0">
-                {steps[activeStep].title} ({activeStep+1}/{steps.length})
+                {steps[activeStep].title} ({activeStep + 1}/{steps.length})
               </h5>
             </div>
             <div className="card-body rjsf-preview">
@@ -292,18 +368,22 @@ export default function FormSchemaEditor({
             <div className="card-footer d-flex justify-content-between">
               <button
                 className="btn btn-outline-secondary"
-                disabled={activeStep===0}
-                onClick={() => setActiveStep(s => s-1)}
+                disabled={activeStep === 0}
+                onClick={() => setActiveStep((s) => s - 1)}
               >
                 ← Previous
               </button>
-              {activeStep<steps.length-1 ? (
-                <button className="btn btn-primary" onClick={() => setActiveStep(s => s+1)}>
+              {activeStep < steps.length - 1 ? (
+                <button className="btn btn-primary" onClick={() => setActiveStep((s) => s + 1)}>
                   Next →
                 </button>
               ) : (
-                <button className="btn btn-success" onClick={() => onSave(fullSchema)}>
-                  Save All
+                <button
+                  className="btn btn-success"
+                  disabled={saving}
+                  onClick={saveDraft}
+                >
+                  {saving ? "Saving…" : "Save Version"}
                 </button>
               )}
             </div>
@@ -312,7 +392,9 @@ export default function FormSchemaEditor({
       </div>
 
       <style jsx>{`
-        :global(.rjsf-preview .form-group) { margin-bottom:1.5rem; }
+        :global(.rjsf-preview .form-group) {
+          margin-bottom: 1.5rem;
+        }
       `}</style>
     </div>
   );

@@ -1,5 +1,3 @@
-// pages/api/form-versions.ts
-
 import type { NextApiRequest, NextApiResponse } from "next";
 import redis from "@/lib/redis";
 import { connectToDatabase } from "@/lib/mongodb";
@@ -18,7 +16,6 @@ export default async function handler(
 
     // ─── GET ────────────────────────────────────────────────────────────────
     if (method === "GET") {
-      // 1) Fetch a single version if ?version= is present
       if (version) {
         const vNum = parseInt(version as string, 10);
         if (isNaN(vNum)) {
@@ -32,8 +29,7 @@ export default async function handler(
         }
 
         const { db } = await connectToDatabase();
-        const coll = db
-          .collection("formVersions") as Collection<FormVersion>;
+        const coll = db.collection("formVersions") as Collection<FormVersion>;
         const doc = await coll.findOne({ version: vNum });
         if (!doc) {
           return res.status(404).json({ error: "Version not found" });
@@ -43,33 +39,39 @@ export default async function handler(
         return res.status(200).json(doc);
       }
 
-      // 2) Otherwise return the list of all versions
       const listKey = `${cachePrefix}:all`;
       const listCached = await redis.get(listKey);
       if (listCached) {
         return res.status(200).json(JSON.parse(listCached));
       }
 
-      {
-        const { db } = await connectToDatabase();
-        const coll = db
-          .collection("formVersions") as Collection<FormVersion>;
-        const all = await coll.find({}).sort({ version: -1 }).toArray();
-        await redis.setEx(listKey, CACHE_EXPIRY, JSON.stringify(all));
-        return res.status(200).json(all);
-      }
+      const { db } = await connectToDatabase();
+      const coll = db.collection("formVersions") as Collection<FormVersion>;
+      const all = await coll.find({}).sort({ version: -1 }).toArray();
+      await redis.setEx(listKey, CACHE_EXPIRY, JSON.stringify(all));
+      return res.status(200).json(all);
     }
 
     // ─── POST ───────────────────────────────────────────────────────────────
     if (method === "POST") {
-      const { fields } = body as { fields: FormVersion["fields"] };
+      // Log incoming payload
+      console.log("📥 [form-versions] POST body:", JSON.stringify(body));
+
+      const { fields, status } = body as {
+        fields: FormVersion["fields"];
+        status?: FormVersion["status"];
+      };
+
       if (!Array.isArray(fields)) {
         return res.status(400).json({ error: "fields array is required" });
       }
 
+      // default to draft unless client explicitly asks for "published"
+      const theStatus: FormVersion["status"] =
+        status === "published" ? "published" : "draft";
+
       const { db } = await connectToDatabase();
-      const coll = db
-        .collection("formVersions") as Collection<FormVersion>;
+      const coll = db.collection("formVersions") as Collection<FormVersion>;
 
       // figure out next version #
       const latestArr = await coll
@@ -79,12 +81,18 @@ export default async function handler(
         .toArray();
       const nextVersion = latestArr.length ? latestArr[0].version + 1 : 1;
 
+      // now include `status` in the document
       const newDoc: FormVersion = {
         version: nextVersion,
         updatedAt: new Date().toISOString(),
         fields,
+        status: theStatus,
       };
+      console.dir(newDoc, { depth: null })
       await coll.insertOne(newDoc);
+
+      // Log what we just stored
+      console.log("✅ [form-versions] Inserted:", newDoc);
 
       // invalidate caches
       await redis.del(`${cachePrefix}:all`);
