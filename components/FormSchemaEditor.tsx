@@ -165,18 +165,18 @@ export default function FormSchemaEditor({ initialFields }: Props) {
         }),
     });
 
-  // ── Save Version (draft only) ───────────────────────────────────────
+  // ── Save Draft Only ─────────────────────────────────────────────────
   async function saveDraft() {
     setSaving(true);
     try {
-      const res = await fetch("/api/form-versions", {
+      const res = await fetch("/api/form-versions/version", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fields, status: "draft" }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Save failed");
-      alert(`✅ Saved version ${json.version} as draft`);
+      alert(`✅ Saved draft version ${json.version}`);
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -383,7 +383,7 @@ export default function FormSchemaEditor({ initialFields }: Props) {
                   disabled={saving}
                   onClick={saveDraft}
                 >
-                  {saving ? "Saving…" : "Save Version"}
+                  {saving ? "Saving…" : "Save Draft"}
                 </button>
               )}
             </div>

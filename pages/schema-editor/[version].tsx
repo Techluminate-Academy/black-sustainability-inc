@@ -38,19 +38,30 @@ export const getServerSideProps: GetServerSideProps<Props> = async ({ params }) 
   if (!doc) return { notFound: true };
 
   // Normalize our FieldDef shape
-  const initialFields: FieldDef[] = (doc.fields||[]).map(f => ({
-    key: f.name,
-    label: f.label,
-    required: Boolean(f.required),
-    // force everything into the editor’s own 6‐type union:
-    type:
-      f.type === "dropdown" ? "select" :
-      f.type === "file"     ? "file"   :
-      f.type === "checkbox" ? "boolean":
-      f.type === "number"   ? "number" :
-      "string",
-    options: Array.isArray(f.options) ? f.options.map(o => ({label:o.label,value:o.value})) : []
-  }));
+ // pages/schema-editor/[version].tsx
+
+// …
+
+  // Normalize our FieldDef shape
+  const initialFields: FieldDef[] = (doc.fields || []).map((f) => {
+    // pick the right key from either "key" or the old "name" field
+    const fieldKey = typeof f.key === "string" ? f.key : f.name;
+    return {
+      key: fieldKey,
+      label: f.label,
+      required: Boolean(f.required),
+      type:
+        f.type === "dropdown" ? "select" :
+        f.type === "file"     ? "file"   :
+        f.type === "checkbox" ? "boolean":
+        f.type === "number"   ? "number" :
+        "string",
+      options: Array.isArray(f.options)
+        ? f.options.map((o) => ({ label: o.label, value: o.value }))
+        : [],
+    };
+  });
+
   
 
   return { props: { version, initialFields } };
