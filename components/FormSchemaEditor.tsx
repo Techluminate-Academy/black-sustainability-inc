@@ -1,3 +1,4 @@
+// components/FormSchemaEditor.tsx
 "use client";
 
 import React, { useState, useMemo, ChangeEvent } from "react";
@@ -20,36 +21,38 @@ interface Props {
 }
 
 export default function FormSchemaEditor({ initialFields }: Props) {
-  // ── State Hooks ─────────────────────────────────────────────────────
   const [fields, setFields] = useState<FieldDef[]>(initialFields);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [activeStep, setActiveStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
-  // ── Split into 3 equal steps ────────────────────────────────────────
+  // group by `step` property (1-3)
   const steps: Step[] = useMemo(() => {
-    const per = Math.ceil(fields.length / 3);
-    return [
-      { title: "Step 1", fieldKeys: fields.slice(0, per).map((f) => f.key) },
-      { title: "Step 2", fieldKeys: fields.slice(per, per * 2).map((f) => f.key) },
-      { title: "Step 3", fieldKeys: fields.slice(per * 2).map((f) => f.key) },
-    ];
+    const byStep: Record<number, string[]> = {};
+    fields.forEach((f) => {
+      const s = f.step ?? 1;
+      if (!byStep[s]) byStep[s] = [];
+      byStep[s].push(f.key);
+    });
+    return [1, 2, 3].map((n) => ({
+      title: `Step ${n}`,
+      fieldKeys: byStep[n] || [],
+    }));
   }, [fields]);
 
-  // ── Collapse / Expand ───────────────────────────────────────────────
+  // collapse state
   const [openAll, setOpenAll] = useState(true);
-  const [openSteps, setOpenSteps] = useState<boolean[]>(() =>
-    steps.map(() => true)
-  );
+  const [openSteps, setOpenSteps] = useState(() => steps.map(() => true));
   const toggleOpenAll = () => {
-    const nxt = !openAll;
-    setOpenAll(nxt);
-    setOpenSteps(steps.map(() => nxt));
+    const next = !openAll;
+    setOpenAll(next);
+    setOpenSteps(steps.map(() => next));
   };
-  const toggleStep = (si: number) =>
-    setOpenSteps((prev) => prev.map((v, i) => (i === si ? !v : v)));
+  const toggleStep = (i: number) =>
+    setOpenSteps((prev) => prev.map((v, idx) => (idx === i ? !v : v)));
 
-  // ── Build JSON Schemas ───────────────────────────────────────────────
+  // full JSON Schema for preview
   const fullSchema = useMemo<JSONSchema7>(
     () => ({
       type: "object",
@@ -88,14 +91,14 @@ export default function FormSchemaEditor({ initialFields }: Props) {
 
   const fullUiSchema = useMemo(
     () =>
-      fields.reduce((u, f) => {
-        if (f.type === "textarea") u[f.key] = { "ui:widget": "textarea" };
-        return u;
+      fields.reduce((ui, f) => {
+        if (f.type === "textarea") ui[f.key] = { "ui:widget": "textarea" };
+        return ui;
       }, {} as Record<string, any>),
     [fields]
   );
 
-  // ── Per‐step schema/uiSchema ────────────────────────────────────────
+  // per-step schema/ui
   const stepSchema = useMemo<JSONSchema7>(() => {
     const chosen = steps[activeStep].fieldKeys
       .map((k) => fields.find((f) => f.key === k))
@@ -111,14 +114,14 @@ export default function FormSchemaEditor({ initialFields }: Props) {
   }, [activeStep, steps, fields, fullSchema.properties]);
 
   const stepUiSchema = useMemo(() => {
-    return steps[activeStep].fieldKeys.reduce((u, key) => {
-      if (fullUiSchema[key]) u[key] = fullUiSchema[key];
-      return u;
+    return steps[activeStep].fieldKeys.reduce((ui, key) => {
+      if (fullUiSchema[key]) ui[key] = fullUiSchema[key];
+      return ui;
     }, {} as Record<string, any>);
   }, [activeStep, steps, fullUiSchema]);
 
-  // ── CRUD Helpers ──────────────────────────────────────────────────
-  const arrayMove = <T,>(arr: T[], from: number, to: number): T[] => {
+  // helpers
+  const arrayMove = <T,>(arr: T[], from: number, to: number) => {
     const copy = [...arr];
     const [m] = copy.splice(from, 1);
     copy.splice(to, 0, m);
@@ -127,21 +130,15 @@ export default function FormSchemaEditor({ initialFields }: Props) {
   const addField = () =>
     setFields((fs) => [
       ...fs,
-      {
-        key: `field${fs.length + 1}`,
-        label: "New Field",
-        type: "string",
-        required: false,
-        options: [],
-      },
+      { key: `field${fs.length + 1}`, label: "New Field", type: "string", required: false, options: [], step: 1 },
     ]);
   const updateField = (i: number, upd: Partial<FieldDef>) =>
-    setFields((fs) => fs.map((f, j) => (j === i ? { ...f, ...upd } : f)));
-  const removeField = (i: number) => setFields((fs) => fs.filter((_, j) => j !== i));
+    setFields((fs) => fs.map((f, idx) => (idx === i ? { ...f, ...upd } : f)));
+  const removeField = (i: number) => setFields((fs) => fs.filter((_, idx) => idx !== i));
   const moveField = (i: number, dir: -1 | 1) =>
     setFields((fs) => arrayMove(fs, i, i + dir));
 
-  // ── Field Handlers ─────────────────────────────────────────────────
+  // field handlers
   const onLabelChange = (i: number, e: ChangeEvent<HTMLInputElement>) =>
     updateField(i, { label: e.target.value });
   const onKeyChange = (i: number, e: ChangeEvent<HTMLInputElement>) =>
@@ -165,7 +162,7 @@ export default function FormSchemaEditor({ initialFields }: Props) {
         }),
     });
 
-  // ── Save Draft Only ─────────────────────────────────────────────────
+  // save draft
   async function saveDraft() {
     setSaving(true);
     try {
@@ -184,31 +181,46 @@ export default function FormSchemaEditor({ initialFields }: Props) {
     }
   }
 
-  // ── Render ─────────────────────────────────────────────────────────
+  // publish live
+  async function publish() {
+    if (!confirm("Are you sure you want to publish this schema?")) return;
+    setPublishing(true);
+    try {
+      const res = await fetch("/api/form-versions/version", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields, status: "published" }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Publish failed");
+      alert(`🚀 Published version ${json.version}`);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   return (
     <div className="container-fluid py-4">
       <div className="row gx-4">
-        {/* ── LEFT: Schema Editor ── */}
+        {/* LEFT: Editor */}
         <div className="col-md-6">
           <div className="card mb-4">
-            <div className="card-header d-flex justify-content-between align-items-center">
+            <div className="card-header d-flex justify-content-between">
               <h5 className="mb-0">Edit Schema</h5>
               <div>
-                <button
-                  className="btn btn-sm btn-outline-secondary me-2"
-                  onClick={toggleOpenAll}
-                >
+                <button className="btn btn-sm btn-outline-secondary me-2" onClick={toggleOpenAll}>
                   {openAll ? "Collapse All" : "Expand All"}
                 </button>
-                <button
-                  className="btn btn-sm btn-success me-2"
-                  disabled={saving}
-                  onClick={saveDraft}
-                >
+                <button className="btn btn-sm btn-success me-2" disabled={saving || publishing} onClick={saveDraft}>
                   {saving ? "Saving…" : "Save Draft"}
                 </button>
-                <button className="btn btn-sm btn-primary" onClick={addField}>
-                  ➕ Add Field
+                <button className="btn btn-sm btn-primary me-2" disabled={saving || publishing} onClick={publish}>
+                  {publishing ? "Publishing…" : "Publish"}
+                </button>
+                <button className="btn btn-sm btn-outline-primary" onClick={addField}>
+                  Add Field
                 </button>
               </div>
             </div>
@@ -216,7 +228,7 @@ export default function FormSchemaEditor({ initialFields }: Props) {
               {steps.map((step, si) => (
                 <div key={si} className="border rounded mb-3">
                   <div
-                    className="p-2 bg-light d-flex justify-content-between align-items-center"
+                    className="p-2 bg-light d-flex justify-content-between"
                     style={{ cursor: "pointer" }}
                     onClick={() => toggleStep(si)}
                   >
@@ -233,94 +245,46 @@ export default function FormSchemaEditor({ initialFields }: Props) {
                             {/* Label */}
                             <div className="mb-2">
                               <label className="form-label small">Label</label>
-                              <input
-                                className="form-control form-control-sm"
-                                value={f.label}
-                                onChange={(e) => onLabelChange(idx, e)}
-                              />
+                              <input className="form-control form-control-sm" value={f.label} onChange={(e) => onLabelChange(idx, e)} />
                             </div>
                             {/* Key */}
                             <div className="mb-2">
                               <label className="form-label small">Key</label>
-                              <input
-                                className="form-control form-control-sm"
-                                value={f.key}
-                                onChange={(e) => onKeyChange(idx, e)}
-                              />
+                              <input className="form-control form-control-sm" value={f.key} onChange={(e) => onKeyChange(idx, e)} />
                             </div>
                             {/* Type */}
                             <div className="mb-2">
                               <label className="form-label small">Type</label>
-                              <select
-                                className="form-select form-select-sm"
-                                value={f.type}
-                                onChange={(e) => onTypeChange(idx, e)}
-                              >
-                                {[
-                                  "string",
-                                  "textarea",
-                                  "number",
-                                  "boolean",
-                                  "select",
-                                  "file",
-                                ].map((t) => (
-                                  <option key={t} value={t}>
-                                    {t}
-                                  </option>
+                              <select className="form-select form-select-sm" value={f.type} onChange={(e) => onTypeChange(idx, e)}>
+                                {["string", "textarea", "number", "boolean", "select", "file"].map((t) => (
+                                  <option key={t} value={t}>{t}</option>
                                 ))}
                               </select>
                             </div>
                             {/* Required */}
                             <div className="form-check form-switch mb-2">
-                              <input
-                                className="form-check-input"
-                                type="checkbox"
-                                checked={f.required}
-                                onChange={(e) => onRequiredChange(idx, e)}
-                              />
-                              <label className="form-check-label small">
-                                Required
-                              </label>
+                              <input className="form-check-input" type="checkbox" checked={f.required} onChange={(e) => onRequiredChange(idx, e)} />
+                              <label className="form-check-label small">Required</label>
                             </div>
                             {/* Options */}
                             {f.type === "select" && (
                               <div className="mb-2">
-                                <label className="form-label small">
-                                  Options <small>(label|value,…)</small>
-                                </label>
-                                <input
-                                  className="form-control form-control-sm"
-                                  value={f.options
-                                    .map((o) => `${o.label}|${o.value}`)
-                                    .join(", ")}
-                                  onChange={(e) => onOptionsChange(idx, e)}
-                                />
+                                <label className="form-label small">Options <small>(label|value,…)</small></label>
+                                <input className="form-control form-control-sm" value={f.options.map(o => `${o.label}|${o.value}`).join(", ")} onChange={(e) => onOptionsChange(idx, e)} />
                               </div>
                             )}
+                            {/* Step selector */}
+                            <div className="mb-2">
+                              <label className="form-label small">Step</label>
+                              <select className="form-select form-select-sm" value={f.step} onChange={(e) => updateField(idx, { step: Number(e.target.value) })}>
+                                {[1,2,3].map(n => <option key={n} value={n}>Step {n}</option>)}
+                              </select>
+                            </div>
                             {/* Actions */}
                             <div className="d-flex justify-content-end gap-2 mt-3">
-                              <button
-                                className="btn btn-sm btn-danger"
-                                onClick={() => removeField(idx)}
-                              >
-                                🗑️
-                              </button>
-                              {idx > 0 && (
-                                <button
-                                  className="btn btn-sm btn-secondary"
-                                  onClick={() => moveField(idx, -1)}
-                                >
-                                  ⬆️
-                                </button>
-                              )}
-                              {idx < fields.length - 1 && (
-                                <button
-                                  className="btn btn-sm btn-secondary"
-                                  onClick={() => moveField(idx, +1)}
-                                >
-                                  ⬇️
-                                </button>
-                              )}
+                              <button className="btn btn-sm btn-danger" onClick={() => removeField(idx)}>🗑️</button>
+                              {idx > 0 && <button className="btn btn-sm btn-secondary" onClick={() => moveField(idx, -1)}>⬆️</button>}
+                              {idx < fields.length - 1 && <button className="btn btn-sm btn-secondary" onClick={() => moveField(idx, 1)}>⬇️</button>}
                             </div>
                           </div>
                         );
@@ -333,58 +297,32 @@ export default function FormSchemaEditor({ initialFields }: Props) {
           </div>
         </div>
 
-        {/* ── RIGHT: Step Nav & Live Preview ── */}
+        {/* RIGHT: Preview */}
         <div className="col-md-6">
           <div className="mb-3 d-flex gap-2">
             {steps.map((st, i) => (
-              <button
-                key={i}
-                className={`btn btn-sm ${
-                  i === activeStep ? "btn-primary" : "btn-outline-primary"
-                }`}
-                onClick={() => setActiveStep(i)}
-              >
+              <button key={i} className={`btn btn-sm ${i === activeStep ? "btn-primary" : "btn-outline-primary"}`} onClick={() => setActiveStep(i)}>
                 {st.title}
               </button>
             ))}
           </div>
           <div className="card mb-3" style={{ maxHeight: "65vh", overflowY: "auto" }}>
-            <div className="card-header">
-              <h5 className="mb-0">
-                {steps[activeStep].title} ({activeStep + 1}/{steps.length})
-              </h5>
-            </div>
+            <div className="card-header"><h5 className="mb-0">{steps[activeStep].title} ({activeStep+1}/{steps.length})</h5></div>
             <div className="card-body rjsf-preview">
               <Form
                 schema={stepSchema}
                 uiSchema={stepUiSchema}
                 formData={formData}
                 validator={Validator}
-                onChange={(e: IChangeEvent<Record<string, any>>) =>
-                  setFormData(e.formData ?? {})
-                }
+                onChange={(e: IChangeEvent<Record<string, any>>) => setFormData(e.formData || {})}
               />
             </div>
             <div className="card-footer d-flex justify-content-between">
-              <button
-                className="btn btn-outline-secondary"
-                disabled={activeStep === 0}
-                onClick={() => setActiveStep((s) => s - 1)}
-              >
-                ← Previous
-              </button>
-              {activeStep < steps.length - 1 ? (
-                <button className="btn btn-primary" onClick={() => setActiveStep((s) => s + 1)}>
-                  Next →
-                </button>
+              <button className="btn btn-outline-secondary" disabled={activeStep===0} onClick={() => setActiveStep(s => s-1)}>← Previous</button>
+              {activeStep < steps.length-1 ? (
+                <button className="btn btn-primary" onClick={() => setActiveStep(s => s+1)}>Next →</button>
               ) : (
-                <button
-                  className="btn btn-success"
-                  disabled={saving}
-                  onClick={saveDraft}
-                >
-                  {saving ? "Saving…" : "Save Draft"}
-                </button>
+                <button className="btn btn-success" disabled={saving} onClick={saveDraft}>{saving ? "Saving…" : "Save Draft"}</button>
               )}
             </div>
           </div>

@@ -29,6 +29,6 @@
     "icons/index.js",
     ".next/types/**/*.ts",
     "components/common/LeafletMap/index.tsx"
-, "lib/updateMember.js"  ],
+, "lib/updateMember.js", "pages/api/submitForm.js"  ],
   "exclude": ["node_modules"]
 }

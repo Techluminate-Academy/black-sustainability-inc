@@ -1,0 +1,105 @@
+[
+    {
+      "_id": { "$oid": "67dc42a9e09ac794d5dd4c0d" },
+      "airtableId": "recwjb6n7qyZBo0Lx",
+      "createdTime": "2025-03-20T16:29:25.000Z",
+      "fields": {
+        "EMAIL ADDRESS": "jerry@techluminateacademy.com",
+        "BIO": "i love software",
+        "PHOTO": [
+          {
+            "id": "atty6wqcEXywkIBFC",
+            "width": 2063,
+            "height": 2750,
+            "url": "https://v5.airtableusercontent.com/v3/u/41/41/1748368800000/CqqvyWnkH3ro5Vi7UJRqLw/RFpfKYELOu3DNMq6JVh447yRG3ii0SBcBgWOXjAqMm6cnD4uO6LLNbz3u-jeTmhVei0bDzCwueF8jdViale0GCDovBEPJQPI8RS8F6heWXHRw7tPbeEGyPx65c6cF4BFW46jq97JpxqiezPDYOQlww/RPSS6EeskcnLhjk51cWVGo6BEPQ8C970w4gqigBRcoE",
+            "filename": "8a5a1f75",
+            "size": 659693,
+            "type": "image/jpeg",
+            "thumbnails": {
+              "small": {
+                "url": "https://v5.airtableusercontent.com/v3/u/41/41/1748368800000/_dpXDTwxw0z0XrHcuvXJMw/6XVYKj8RUhUJ-Do50azwbbwe_ajkN1m6RDGt7h2R_ohhqFtp7ZSudiLK_B7a84p2kiPXNmA5XHwZ1nCHtK-XNncWaWdqeCNyrOQSsLMaD5hTHKG1A7_Ha_h6gFhVDhjsEL4nQDEjkmDxcgM1ujvFLA/NdrZC_npcI5jgK5x3FyJEZNKXPQecM5BikqlVyHm0R4",
+                "width": 27,
+                "height": 36
+              },
+              "large": {
+                "url": "https://v5.airtableusercontent.com/v3/u/41/41/1748368800000/GGKvtMVoZiBGooUJ4lrwaw/k71wFjLiSm8ofhY77RpyP3h349NzllrgFLFYV4TeEM1U2iU2BHirLBUbuAbtyZ76hDd0ZyMattHjbnspSCbfVngCMG_Hvl88ZJk9Hut-QCI8BfBaG_JZX5cFeQSvxdaiq8_zTP9ELNOMXbDOiPu41w/zgPVoZEb1lwGY9A2_fGO_zXMcWjJjpZG5wpeduz1yEk",
+                "width": 512,
+                "height": 682
+              },
+              "full": {
+                "url": "https://v5.airtableusercontent.com/v3/u/41/41/1748368800000/SuWDTd2iJo42uwco6lAt0w/rdO6XXEr0G0jayajZ14XEZW_MRBqdV-gnVu-E1t0XWHr0KlEF2LOV34lSKOctM0j8TDj_B9oLiYlaqfeWBW4YXfYsyneFSIeV8i0Q20Y0MJk5SSw6In2fIgKK4b0RrZR4gTy-m-rB4ECkZCwcsCv2g/FERig0AuU17xyOB1RIhdp0CFLp26awSjg8bvXDJINRY",
+                "width": 2063,
+                "height": 2750
+              }
+            }
+          }
+        ],
+        "LOGO": [
+          {
+            "id": "attg63gIZbNYvzKz9",
+            "width": 1024,
+            "height": 1024,
+            "url": "https://v5.airtableusercontent.com/v3/u/41/41/1748368800000/_Vmf6sXz8KK-_qi8pYIgAw/ZjL4n4V9UmyPXAebn1I85wyx3wysiOPmsbo9CoMaXD1zC_1LKpjY1mnu-XY14bvxr2AAX35J98532hrNpL1tS3g0LDho12A8MAInmj2z4zMTjZQQtUqeGuVMsap5oAmgP7nZEwrV79pQuH5X-E0D7A/Yn9eJbKyVQuuZoJ-Z3YqwGN4SBXvybakrYyUzDMh5Ik",
+            "filename": "9c1b0750",
+            "size": 1140170,
+            "type": "image/png",
+            "thumbnails": {
+              "small": {
+                "url": "https://v5.airtableusercontent.com/v3/u/41/41/1748368800000/YgkPdcYmf5FCZ8NTPJNHkw/Qy9H9h2XS6RCnry_-HKXTV30cdLNI6EPbyyKQwemBdQ_PJ07o21vSkWsnj3tXRDQOKX9XSEdeNJEfgiH1s_tX9nLksAf3CppZS61ZBbigS9MEdVOVx6xgCzVspHuSrQL4p6LUOctBqDtptUXf3MZpA/3Xp92KbX-a3AawQdADStAeOMJ6qaZOsxCis60jkQyNQ",
+                "width": 36,
+                "height": 36
+              },
+              "large": {
+                "url": "https://v5.airtableusercontent.com/v3/u/41/41/1748368800000/6xEdlIJL7T4efnBZtZwqdw/DLJIcvvJmmqHVszJHJYQpDR8S-QbufTCYb8W_ZIFoxS1L0sk7vrMi5j9zHiLU4AcZT5ftSMDbQ68ngvcsjIfCQ8XHH6LhrmUrsrLNJkaUdofWI2KLLpiZIuzp5BKJrEAKP3P2hAn2dSVU-7RlSIj8g/4PehgzzIC15V2myWIDpDvd8khXssC_APw7y1Id0kOxU",
+                "width": 512,
+                "height": 512
+              },
+              "full": {
+                "url": "https://v5.airtableusercontent.com/v3/u/41/41/1748368800000/OPGRae2Bs1x8bttxj0CSFw/GUjgOZswWXsWt9-03nFf9WjuRiRU0ZnE5JN7xOHNtrWxMqny3b9j2lwInaibcrQVFystwucS70PRxNXT1Ts1dSVU-7RlSIj8g/4PehgzzIC15V2myWIDpDvd8khXssC_APw7y1Id0kOxU",
+                "width": 1024,
+                "height": 1024
+              }
+            }
+          }
+        ],
+        "PHONE US/CAN ONLY": "+13125811589",
+        "IDENTIFICATION": "African/Afrikan",
+        "FIRST NAME": "Jerry",
+        "LAST NAME": "Bony ",
+        "Attachments (from MEMBER LEVEL)": [],
+        "PRIMARY INDUSTRY HOUSE": "☀️ Alternative Energy",
+        "WEBSITE": "https://jerrybony.me/",
+        "Created": "2025-03-20T16:29:25.000Z",
+        "Created By": {
+          "id": "usrPFuwNQgBUsGMUl",
+          "email": "jerry@techluminateacademy.com",
+          "name": "Jerry Bony"
+        },
+        "GENDER": "Male",
+        "FULL NAME": "Jerry Bony ",
+        "YOUTUBE": "https://www.youtube.com/watch?v=Ha-_SEwO3Rk&list=RDMM&index=30",
+        "Location (Nearest City)": "Chicago",
+        "Name (from Location)": "United States",
+        "FUNDING GOAL": "I want an app for my hello",
+        "ORGANIZATION NAME": "The host is here now for sure",
+        "ADDITIONAL FOCUS AREAS": [
+          "🌾 Agriculture/Sustainable Food Production / Land Management"
+        ],
+        "Similar Categories": [
+          "☀️ Alternative Energy"
+        ],
+        "MEMBER LEVEL": [
+          "recgWTcJQnfOQW0Dm"
+        ],
+        "Annual Profile Update Automation": "2026-03-20T16:29:25.000Z",
+        "Featured": true,
+        "Latitude": "41.7168436",
+        "Longitude": "-87.6404017",
+        "Zip/Postal Code": 60628,
+        "Address": "9733 South Union Avenue, Chicago, IL, USA",
+        "AFFILIATED ENTITY": "GREEN HOUSE"
+      },
+      "id": "recyBLdfpSIMTFV8J"
+    }
+  ]
+  

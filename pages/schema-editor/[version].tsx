@@ -19,6 +19,8 @@ export type FieldDef = {
     type: "string"|"number"|"boolean"|"textarea"|"select"|"file";
     required: boolean;
     options: { label:string; value:string }[];
+    step: number;
+    
   };
   
 
@@ -59,6 +61,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async ({ params }) 
       options: Array.isArray(f.options)
         ? f.options.map((o) => ({ label: o.label, value: o.value }))
         : [],
+        step: typeof f.step === "number" ? f.step : 1
     };
   });
 

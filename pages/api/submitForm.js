@@ -1,9 +1,25 @@
 
 import axios from "axios";
-const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
-const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
-const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
-const VIEW_ID_NOT_SORTED = process.env.NEXT_PUBLIC__DEV_AIRTABLE_VIEW_ID_NOT_SORTED;
+// const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
+// const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
+// const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
+const isDev = process.env.NODE_ENV === 'development';
+const AIRTABLE_API_KEY = isDev
+  ? process.env.NEXT_PUBLIC_DEV_AIRTABLE_ACCESS_TOKEN
+  : process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
+
+const BASE_ID = isDev
+  ? process.env.NEXT_PUBLIC_DEV_AIRTABLE_BASE_ID
+  : process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
+
+const TABLE_NAME = isDev
+  ? process.env.NEXT_PUBLIC_DEV_AIRTABLE_TABLE_NAME
+  : process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
+console.log(isDev,BASE_ID, TABLE_NAME )
+// const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_;
+// const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
+// const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
+// const VIEW_ID_NOT_SORTED = process.env.NEXT_PUBLIC__DEV_AIRTABLE_VIEW_ID_NOT_SORTED;
 /**
  * Submits data to Airtable
  * @param fields - Object containing the fields to be submitted
