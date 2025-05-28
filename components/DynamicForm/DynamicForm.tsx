@@ -1,24 +1,18 @@
+// components/DynamicForm/DynamicForm.tsx
 "use client";
 
-import React, {
-  useState,
-  useEffect,
-  ChangeEvent,
-  FormEvent,
-  useMemo,
-  useRef,
-} from "react";
+import React, { useState, useEffect, ChangeEvent, FormEvent, useMemo } from "react";
 import axios from "axios";
 import jerryData from "@/data/jerry.json";
 import AirtableUtils from "@/pages/api/submitForm";
-import CountryCodeDropdown from "../CountryCodeDropdown/CountryCodeDropdown";
-import { allCountries } from "country-telephone-data";
 
 interface AirtableFieldMeta {
   fieldName: string;
   fieldType: string;
   options: Array<{ id: string; name: string; icon: string | null }>;
 }
+
+export interface Option { label: string; value: string; }
 
 export interface FieldConfig {
   id: string;
@@ -35,7 +29,7 @@ export interface FieldConfig {
     | "address";
   label: string;
   required: boolean;
-  options?: { label: string; value: string }[];
+  options?: Option[];
   step: number;
 }
 
@@ -50,6 +44,7 @@ export default function DynamicForm() {
   const [config, setConfig] = useState<FormConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [files, setFiles] = useState<Record<string, File | null>>({});
   const [filePreviews, setFilePreviews] = useState<Record<string, string[]>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [currentStep, setCurrentStep] = useState(0);
@@ -60,19 +55,7 @@ export default function DynamicForm() {
     Record<string, { id: string; name: string }[]>
   >({});
 
-  const internationalOptions = useMemo(
-    () =>
-      allCountries.map((c) => ({
-        code: `+${c.dialCode}`,
-        country: c.name,
-        iso2: c.iso2,
-      })),
-    []
-  );
-
-  const phoneRef = useRef<HTMLInputElement>(null);
-
-  // ─── LOAD SCHEMA ────────────────────────────────────────────────────────────
+  // 1) Load the *published* form schema
   useEffect(() => {
     async function load() {
       try {
@@ -91,7 +74,7 @@ export default function DynamicForm() {
     load();
   }, []);
 
-  // ─── FETCH AIRTABLE METADATA ───────────────────────────────────────────────
+  // 2) Once schema is in, fetch Airtable metadata
   useEffect(() => {
     if (!config) return;
     (async () => {
@@ -107,8 +90,7 @@ export default function DynamicForm() {
         if (!cfg) return;
         fn[cfg.name] = m.fieldName;
         ft[cfg.name] = m.fieldType;
-        if (m.options?.length)
-          fo[cfg.name] = m.options.map((o) => ({ id: o.id, name: o.name }));
+        if (m.options?.length) fo[cfg.name] = m.options.map(o => ({ id: o.id, name: o.name }));
       });
 
       setNameToFieldName(fn);
@@ -117,70 +99,51 @@ export default function DynamicForm() {
     })();
   }, [config]);
 
-  // ─── INIT FORM DATA FROM JERRY.JSON ────────────────────────────────────────
-// ─── INIT FORM DATA FROM JERRY.JSON ────────────────────────────────────────
-useEffect(() => {
-  if (!config) return;
-  // don’t run until we’ve fetched the Airtable metadata
-  if (Object.keys(nameToFieldName).length === 0) return;
+  // 3) Init formData, files & previews from jerry.json
+  useEffect(() => {
+    if (!config) return;
+    const record = (jerryData as any[])[0]?.fields as Record<string, any>;
+    const fd: Record<string, any> = {};
+    const fl: Record<string, File | null> = {};
+    const previews: Record<string, string[]> = {};
 
-  // 👉 What Airtable actually sent us
-  const record = (jerryData as any[])[0]?.fields as Record<string, any>;
-  console.log("RAW Airtable record:", record);
+    config.fields.forEach((f) => {
+      const raw = record[f.label.toUpperCase()] ?? record[f.label];
+      if (f.type === "file") {
+        // show existing attachments
+        if (Array.isArray(raw)) {
+          previews[f.name] = raw.map((a: any) => a.url).filter(Boolean);
+        }
+        fl[f.name] = null;
+        fd[f.name] = ""; // will hold the URL after upload
+      } else if (f.type === "dropdown") {
+        if (Array.isArray(raw)) {
+          fd[f.name] = raw;
+        } else if (raw != null) {
+          fd[f.name] = [raw];
+        } else {
+          fd[f.name] = [];
+        }
+      } else if (f.type === "checkbox") {
+        fd[f.name] = Boolean(raw);
+      } else {
+        fd[f.name] = raw ?? "";
+      }
+    });
 
-  const fd: Record<string, any> = {};
-  const pv: Record<string, string[]> = {};
+    setFormData(fd);
+    setFiles(fl);
+    setFilePreviews(previews);
+  }, [config]);
 
-  config.fields.forEach((f) => {
-    // look up the real Airtable field name for this config field
-    const airtableKey = nameToFieldName[f.name];
-
-    // fall back to:
-    // 1) label uppercased
-    // 2) label as‐is
-    // 3) f.name uppercased
-    // 4) f.name as‐is
-    const raw = airtableKey
-      ? record[airtableKey]
-      : record[f.label.toUpperCase()]
-          ?? record[f.label]
-          ?? record[f.name.toUpperCase()]
-          ?? record[f.name];
-
-    // 👉 See each field’s incoming value
-    console.log(`field=${f.name}  airtableKey=${airtableKey}  raw=`, raw);
-
-    if (f.type === "file") {
-      // your existing file logic (populating pv[f.name], etc.)
-      fd[f.name] = "";
-    } else if (f.type === "dropdown") {
-      // your existing dropdown logic
-      if (Array.isArray(raw)) fd[f.name] = raw;
-      else if (raw != null) fd[f.name] = [raw];
-      else fd[f.name] = [];
-    } else if (f.type === "checkbox") {
-      fd[f.name] = Boolean(raw);
-    } else {
-      // covers text, email, url, phone **and** textarea
-      fd[f.name] = raw ?? "";
-    }
-  });
-
-  // 👉 Final object you’ll push into formData
-  console.log("Computed initial formData:", fd);
-  console.log("→ specifically bio:", fd["bio"]);
-
-  setFormData(fd);
-  setFilePreviews(pv);
-}, [config, nameToFieldName]);
-
-
-  // ─── GROUP FIELDS INTO STEPS ───────────────────────────────────────────────
+  // group into steps by `step`
   const steps = useMemo(() => {
     if (!config) return [];
     const map = new Map<number, FieldConfig[]>();
     config.fields.forEach((f) => {
-      map.set(f.step, (map.get(f.step) || []).concat(f));
+      const s = f.step;
+      if (!map.has(s)) map.set(s, []);
+      map.get(s)!.push(f);
     });
     return Array.from(map.entries())
       .sort(([a], [b]) => a - b)
@@ -210,12 +173,8 @@ useEffect(() => {
     const errs: Record<string, string> = {};
     steps[idx].fields.forEach((f) => {
       if (!f.required) return;
-      const val = formData[f.name];
-      if (
-        val === "" ||
-        val == null ||
-        (Array.isArray(val) && val.length === 0)
-      ) {
+      const val = f.type === "file" ? formData[f.name] : formData[f.name];
+      if (val === "" || val == null || (Array.isArray(val) && val.length === 0)) {
         errs[f.name] = "Required";
       }
     });
@@ -225,7 +184,6 @@ useEffect(() => {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-
     // multi-step validation
     for (let i = 0; i < totalSteps; i++) {
       if (!validateStep(i)) {
@@ -234,6 +192,7 @@ useEffect(() => {
       }
     }
 
+    // already‐uploaded or newly‐selected files are already in formData as URLs
     // build Airtable payload
     const payload: Record<string, any> = {};
     config.fields.forEach((f) => {
@@ -241,7 +200,7 @@ useEffect(() => {
       const airtableType = nameToFieldType[f.name];
       if (!airtableKey) return;
 
-      // ─── FILES ───────────────────────────────────────────────────────────
+      // file → attachments
       if (f.type === "file") {
         const url = formData[f.name];
         if (url) {
@@ -251,25 +210,14 @@ useEffect(() => {
         return;
       }
 
-      // ─── DROPDOWNS ───────────────────────────────────────────────────────
+      // dropdown
       if (f.type === "dropdown") {
-        // Special: ADDITIONAL FOCUS AREAS
-        if (airtableKey === "ADDITIONAL FOCUS AREAS") {
-          const raw = formData[f.name] as string[];
-          if (airtableType === "multipleSelects") {
-            payload[airtableKey] = raw;
-          } else {
-            payload[airtableKey] = Array.isArray(raw) ? raw.join(", ") : raw || "";
-          }
-          return;
-        }
-
         const raw = formData[f.name];
         const opts = nameToFieldOptions[f.name] || [];
         if (airtableType === "singleSelect") {
           const sel = Array.isArray(raw) ? raw[0] : raw;
-          payload[airtableKey] =
-            opts.find((o) => o.id === sel)?.name ?? null;
+          const found = opts.find((o) => o.id === sel);
+          payload[airtableKey] = found?.name ?? null;
         } else {
           payload[airtableKey] = Array.isArray(raw)
             ? raw
@@ -280,22 +228,14 @@ useEffect(() => {
         return;
       }
 
-      // ─── PHONE ───────────────────────────────────────────────────────────
-      if (f.type === "phone") {
-        const [dialCode] = (formData.phoneCountryCode || "").split("-");
-        payload[airtableKey] = dialCode + (formData[f.name] || "");
-        return;
-      }
-
-      // ─── NUMBERS ─────────────────────────────────────────────────────────
+      // number?
       if (airtableType === "number") {
         const raw = formData[f.name];
-        payload[airtableKey] =
-          raw === "" || raw == null ? null : Number(raw);
+        payload[airtableKey] = raw === "" || raw == null ? null : Number(raw);
         return;
       }
 
-      // ─── FALLBACK ────────────────────────────────────────────────────────
+      // everything else
       payload[airtableKey] = formData[f.name];
     });
 
@@ -327,15 +267,22 @@ useEffect(() => {
             {f.required && " *"}
           </label>
 
-          {f.name === "phoneCountryCode" ? (
-            <CountryCodeDropdown
-              value={formData.phoneCountryCode}
-              options={internationalOptions}
-              onChange={(val) =>
-                setFormData((p) => ({ ...p, phoneCountryCode: val }))
-              }
-            />
-          ) : f.type === "file" ? (
+          {/* preview existing attachments */}
+          {f.type === "file" && filePreviews[f.name]?.length > 0 && (
+            <div className="flex space-x-2 mb-2">
+              {filePreviews[f.name].map((url) => (
+                <img
+                  key={url}
+                  src={url}
+                  className="h-16 w-16 object-cover rounded"
+                  alt="preview"
+                />
+              ))}
+            </div>
+          )}
+
+          {f.type === "file" ? (
+            // immediate upload → store URL in formData[f.name]
             <input
               type="file"
               name={f.name}
@@ -347,10 +294,7 @@ useEffect(() => {
                 const res = await axios.post("/api/upload", data, {
                   headers: { "Content-Type": "multipart/form-data" },
                 });
-                setFormData((p) => ({
-                  ...p,
-                  [f.name]: res.data.url,
-                }));
+                setFormData((p) => ({ ...p, [f.name]: res.data.url }));
                 setFilePreviews((p) => ({ ...p, [f.name]: [] }));
               }}
               className="block"
@@ -365,11 +309,7 @@ useEffect(() => {
           ) : f.type === "dropdown" && nameToFieldType[f.name] === "singleSelect" ? (
             <select
               name={f.name}
-              value={
-                Array.isArray(formData[f.name])
-                  ? formData[f.name][0]
-                  : formData[f.name] || ""
-              }
+              value={Array.isArray(formData[f.name]) ? formData[f.name][0] : formData[f.name] || ""}
               onChange={handleChange}
               className="w-full border rounded p-2"
             >
@@ -401,16 +341,6 @@ useEffect(() => {
               checked={formData[f.name] || false}
               onChange={handleChange}
             />
-          ) : f.type === "phone" ? (
-            <input
-              ref={phoneRef}
-              type="tel"
-              name={f.name}
-              value={formData[f.name] || ""}
-              onChange={handleChange}
-              placeholder="Enter number"
-              className="w-full border rounded p-2"
-            />
           ) : (
             <input
               type={
@@ -418,6 +348,8 @@ useEffect(() => {
                   ? "email"
                   : f.type === "url"
                   ? "url"
+                  : f.type === "phone"
+                  ? "tel"
                   : "text"
               }
               name={f.name}
@@ -427,9 +359,7 @@ useEffect(() => {
             />
           )}
 
-          {errors[f.name] && (
-            <p className="text-red-500 text-sm mt-1">{errors[f.name]}</p>
-          )}
+          {errors[f.name] && <p className="text-red-500 text-sm mt-1">{errors[f.name]}</p>}
         </div>
       ))}
 
@@ -454,10 +384,7 @@ useEffect(() => {
             Next →
           </button>
         ) : (
-          <button
-            type="submit"
-            className="px-4 py-2 bg-green-600 text-white rounded"
-          >
+          <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded">
             Submit
           </button>
         )}
