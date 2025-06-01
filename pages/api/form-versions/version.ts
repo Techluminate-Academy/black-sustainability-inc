@@ -11,24 +11,29 @@ export default async function handler(
   res: NextApiResponse
 ) {
   const cachePrefix = "formVersions";
-  const { version, all } = req.query;
+  const { version: queryVersion, all } = req.query;
 
   try {
     const { db } = await connectToDatabase();
     const coll = db.collection("formVersions") as Collection<FormVersion>;
 
-    // ── CREATE NEW VERSION (draft or publish) ─────────────────────────
+    // ── CREATE OR PUBLISH VERSION ───────────────────────────────────────
     if (req.method === "POST") {
-      const { fields, status } = req.body as {
+      const {
+        fields,
+        status,
+        version: bodyVersion,
+      } = req.body as {
         fields: FormVersion["fields"];
         status: "draft" | "published";
+        version?: number;
       };
 
       if (!Array.isArray(fields) || (status !== "draft" && status !== "published")) {
         return res.status(400).json({ error: "Missing or invalid fields/status" });
       }
 
-      // On publish: demote any existing published version to draft
+      // If publishing, demote current published to draft
       if (status === "published") {
         const existing = await coll.findOne({ status: "published" });
         if (existing) {
@@ -36,17 +41,39 @@ export default async function handler(
             { version: existing.version },
             { $set: { status: "draft", updatedAt: new Date().toISOString() } }
           );
-          // clear cache for old published version and its published key
           await redis.del(`${cachePrefix}:${existing.version}`);
           await redis.del(`${cachePrefix}:published`);
         }
       }
 
-      // figure out next version number
+      const now = new Date().toISOString();
+
+      // If promoting an existing draft version, update it in place
+      if (status === "published" && typeof bodyVersion === "number") {
+        const result = await coll.updateOne(
+          { version: bodyVersion },
+          { $set: { status: "published", fields, updatedAt: now } }
+        );
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ error: "Version not found" });
+        }
+        // Refresh cache
+        const updated = await coll.findOne({ version: bodyVersion });
+        await redis.set(
+          `${cachePrefix}:published`,
+          JSON.stringify(updated),
+          "EX",
+          CACHE_EXPIRY
+        );
+        await redis.del(`${cachePrefix}:${bodyVersion}`);
+        return res
+          .status(200)
+          .json({ version: bodyVersion, status: "published", updatedAt: now });
+      }
+
+      // Otherwise create a brand-new version (draft or publish without specifying version)
       const last = await coll.find().sort({ version: -1 }).limit(1).next();
       const nextVersion = last ? last.version + 1 : 1;
-
-      const now = new Date().toISOString();
       const newDoc: FormVersion = {
         version: nextVersion,
         status,
@@ -54,16 +81,14 @@ export default async function handler(
         updatedAt: now,
       };
 
-      // insert the new version
       await coll.insertOne(newDoc);
-
-      // clear list/all cache so GET /?all=true will refresh
       await redis.del(`${cachePrefix}:all`);
-      // cache the exact version we just created
-      const keyForThis = `${cachePrefix}:${nextVersion}`;
-      await redis.set(keyForThis, JSON.stringify(newDoc), "EX", CACHE_EXPIRY);
-
-      // if it's published, also set the publishedKey
+      await redis.set(
+        `${cachePrefix}:${nextVersion}`,
+        JSON.stringify(newDoc),
+        "EX",
+        CACHE_EXPIRY
+      );
       if (status === "published") {
         await redis.set(
           `${cachePrefix}:published`,
@@ -73,7 +98,9 @@ export default async function handler(
         );
       }
 
-      return res.status(201).json({ version: nextVersion, status, updatedAt: now });
+      return res
+        .status(201)
+        .json({ version: nextVersion, status, updatedAt: now });
     }
 
     // ── GET ALL VERSIONS ─────────────────────────────────────────────
@@ -89,8 +116,8 @@ export default async function handler(
     }
 
     // ── GET SPECIFIC VERSION ────────────────────────────────────────
-    if (req.method === "GET" && version) {
-      const vNum = parseInt(version as string, 10);
+    if (req.method === "GET" && queryVersion) {
+      const vNum = parseInt(queryVersion as string, 10);
       if (isNaN(vNum)) {
         return res.status(400).json({ error: "Invalid version" });
       }
@@ -111,7 +138,7 @@ export default async function handler(
     }
 
     // ── GET PUBLISHED VERSION ───────────────────────────────────────
-    if (req.method === "GET" && !version) {
+    if (req.method === "GET" && !queryVersion) {
       const publishedKey = `${cachePrefix}:published`;
       const pubCached = await redis.get(publishedKey);
       if (pubCached) {

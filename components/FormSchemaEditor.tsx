@@ -1,7 +1,7 @@
 // components/FormSchemaEditor.tsx
 "use client";
 
-import React, { useState, useMemo, ChangeEvent } from "react";
+import React, { useState, useMemo, ChangeEvent, useEffect } from "react";
 import { withTheme, IChangeEvent } from "@rjsf/core";
 import type { JSONSchema7 } from "json-schema";
 import Validator from "@rjsf/validator-ajv8";
@@ -11,6 +11,16 @@ import type { FieldDef } from "../pages/schema-editor/[version]";
 
 const Form = withTheme(Bootstrap4Theme as any);
 
+// user-friendly labels for field types
+const TYPE_OPTIONS: Array<{ value: FieldDef["type"]; label: string }> = [
+  { value: "string",   label: "Text"        },
+  { value: "textarea", label: "Textarea"    },
+  { value: "number",   label: "Number"      },
+  { value: "boolean",  label: "Checkbox"    },
+  { value: "select",   label: "Dropdown"    },
+  { value: "file",     label: "File Upload" },
+];
+
 type Step = {
   title: string;
   fieldKeys: string[];
@@ -18,9 +28,10 @@ type Step = {
 
 interface Props {
   initialFields: FieldDef[];
+  version: number;
 }
 
-export default function FormSchemaEditor({ initialFields }: Props) {
+export default function FormSchemaEditor({ initialFields, version }: Props) {
   const [fields, setFields] = useState<FieldDef[]>(initialFields);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [activeStep, setActiveStep] = useState(0);
@@ -43,7 +54,14 @@ export default function FormSchemaEditor({ initialFields }: Props) {
 
   // collapse state
   const [openAll, setOpenAll] = useState(true);
+  // —— fixed: only one `=` here
   const [openSteps, setOpenSteps] = useState(() => steps.map(() => true));
+
+  // keep openSteps in sync if `steps` length changes
+  useEffect(() => {
+    setOpenSteps(steps.map(() => openAll));
+  }, [steps, openAll]);
+
   const toggleOpenAll = () => {
     const next = !openAll;
     setOpenAll(next);
@@ -169,7 +187,7 @@ export default function FormSchemaEditor({ initialFields }: Props) {
       const res = await fetch("/api/form-versions/version", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fields, status: "draft" }),
+        body: JSON.stringify({ fields, status: "draft", version }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Save failed");
@@ -189,7 +207,7 @@ export default function FormSchemaEditor({ initialFields }: Props) {
       const res = await fetch("/api/form-versions/version", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fields, status: "published" }),
+        body: JSON.stringify({ fields, status: "published", version }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Publish failed");
@@ -245,46 +263,89 @@ export default function FormSchemaEditor({ initialFields }: Props) {
                             {/* Label */}
                             <div className="mb-2">
                               <label className="form-label small">Label</label>
-                              <input className="form-control form-control-sm" value={f.label} onChange={(e) => onLabelChange(idx, e)} />
+                              <input
+                                className="form-control form-control-sm"
+                                value={f.label}
+                                onChange={(e) => onLabelChange(idx, e)}
+                              />
                             </div>
                             {/* Key */}
                             <div className="mb-2">
                               <label className="form-label small">Key</label>
-                              <input className="form-control form-control-sm" value={f.key} onChange={(e) => onKeyChange(idx, e)} />
+                              <input
+                                className="form-control form-control-sm"
+                                value={f.key}
+                                onChange={(e) => onKeyChange(idx, e)}
+                              />
                             </div>
                             {/* Type */}
                             <div className="mb-2">
                               <label className="form-label small">Type</label>
-                              <select className="form-select form-select-sm" value={f.type} onChange={(e) => onTypeChange(idx, e)}>
-                                {["string", "textarea", "number", "boolean", "select", "file"].map((t) => (
-                                  <option key={t} value={t}>{t}</option>
+                              <select
+                                className="form-select form-select-sm"
+                                value={f.type}
+                                onChange={(e) => onTypeChange(idx, e)}
+                              >
+                                {TYPE_OPTIONS.map(({ value, label }) => (
+                                  <option key={value} value={value}>
+                                    {label}
+                                  </option>
                                 ))}
                               </select>
                             </div>
                             {/* Required */}
                             <div className="form-check form-switch mb-2">
-                              <input className="form-check-input" type="checkbox" checked={f.required} onChange={(e) => onRequiredChange(idx, e)} />
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                checked={f.required}
+                                onChange={(e) => onRequiredChange(idx, e)}
+                              />
                               <label className="form-check-label small">Required</label>
                             </div>
-                            {/* Options */}
+                            {/* Options for dropdowns */}
                             {f.type === "select" && (
                               <div className="mb-2">
-                                <label className="form-label small">Options <small>(label|value,…)</small></label>
-                                <input className="form-control form-control-sm" value={f.options.map(o => `${o.label}|${o.value}`).join(", ")} onChange={(e) => onOptionsChange(idx, e)} />
+                                <label className="form-label small">
+                                  Options <small>(label|value,…)</small>
+                                </label>
+                                <input
+                                  className="form-control form-control-sm"
+                                  value={f.options.map((o) => `${o.label}|${o.value}`).join(", ")}
+                                  onChange={(e) => onOptionsChange(idx, e)}
+                                />
                               </div>
                             )}
                             {/* Step selector */}
                             <div className="mb-2">
                               <label className="form-label small">Step</label>
-                              <select className="form-select form-select-sm" value={f.step} onChange={(e) => updateField(idx, { step: Number(e.target.value) })}>
-                                {[1,2,3].map(n => <option key={n} value={n}>Step {n}</option>)}
+                              <select
+                                className="form-select form-select-sm"
+                                value={f.step}
+                                onChange={(e) => updateField(idx, { step: Number(e.target.value) })}
+                              >
+                                {[1, 2, 3].map((n) => (
+                                  <option key={n} value={n}>
+                                    Step {n}
+                                  </option>
+                                ))}
                               </select>
                             </div>
                             {/* Actions */}
                             <div className="d-flex justify-content-end gap-2 mt-3">
-                              <button className="btn btn-sm btn-danger" onClick={() => removeField(idx)}>🗑️</button>
-                              {idx > 0 && <button className="btn btn-sm btn-secondary" onClick={() => moveField(idx, -1)}>⬆️</button>}
-                              {idx < fields.length - 1 && <button className="btn btn-sm btn-secondary" onClick={() => moveField(idx, 1)}>⬇️</button>}
+                              <button className="btn btn-sm btn-danger" onClick={() => removeField(idx)}>
+                                🗑️
+                              </button>
+                              {idx > 0 && (
+                                <button className="btn btn-sm btn-secondary" onClick={() => moveField(idx, -1)}>
+                                  ⬆️
+                                </button>
+                              )}
+                              {idx < fields.length - 1 && (
+                                <button className="btn btn-sm btn-secondary" onClick={() => moveField(idx, 1)}>
+                                  ⬇️
+                                </button>
+                              )}
                             </div>
                           </div>
                         );
@@ -301,13 +362,21 @@ export default function FormSchemaEditor({ initialFields }: Props) {
         <div className="col-md-6">
           <div className="mb-3 d-flex gap-2">
             {steps.map((st, i) => (
-              <button key={i} className={`btn btn-sm ${i === activeStep ? "btn-primary" : "btn-outline-primary"}`} onClick={() => setActiveStep(i)}>
+              <button
+                key={i}
+                className={`btn btn-sm ${i === activeStep ? "btn-primary" : "btn-outline-primary"}`}
+                onClick={() => setActiveStep(i)}
+              >
                 {st.title}
               </button>
             ))}
           </div>
           <div className="card mb-3" style={{ maxHeight: "65vh", overflowY: "auto" }}>
-            <div className="card-header"><h5 className="mb-0">{steps[activeStep].title} ({activeStep+1}/{steps.length})</h5></div>
+            <div className="card-header">
+              <h5 className="mb-0">
+                {steps[activeStep].title} ({activeStep + 1}/{steps.length})
+              </h5>
+            </div>
             <div className="card-body rjsf-preview">
               <Form
                 schema={stepSchema}
@@ -318,11 +387,21 @@ export default function FormSchemaEditor({ initialFields }: Props) {
               />
             </div>
             <div className="card-footer d-flex justify-content-between">
-              <button className="btn btn-outline-secondary" disabled={activeStep===0} onClick={() => setActiveStep(s => s-1)}>← Previous</button>
-              {activeStep < steps.length-1 ? (
-                <button className="btn btn-primary" onClick={() => setActiveStep(s => s+1)}>Next →</button>
+              <button
+                className="btn btn-outline-secondary"
+                disabled={activeStep === 0}
+                onClick={() => setActiveStep((s) => s - 1)}
+              >
+                ← Previous
+              </button>
+              {activeStep < steps.length - 1 ? (
+                <button className="btn btn-primary" onClick={() => setActiveStep((s) => s + 1)}>
+                  Next →
+                </button>
               ) : (
-                <button className="btn btn-success" disabled={saving} onClick={saveDraft}>{saving ? "Saving…" : "Save Draft"}</button>
+                <button className="btn btn-success" disabled={saving} onClick={saveDraft}>
+                  {saving ? "Saving…" : "Save Draft"}
+                </button>
               )}
             </div>
           </div>
