@@ -1,4 +1,3 @@
-// features/freeSignup/FreeSignupForm.tsx
 "use client";
 
 import React from "react";
@@ -31,7 +30,7 @@ const FreeSignupForm: React.FC<FreeSignupFormProps> = ({
 }) => {
   const router = useRouter();
 
-  // If form has been submitted, show a centered thank-you card and a "Go to Home" button
+  // If form has been submitted, show a thank-you screen
   if (isSubmitted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -51,7 +50,6 @@ const FreeSignupForm: React.FC<FreeSignupFormProps> = ({
     );
   }
 
-  // Otherwise, show the form
   return (
     <div className="w-full px-4 py-8 sm:px-6 lg:px-8 bg-gray-100">
       <div className="max-w-md sm:max-w-lg md:max-w-xl mx-auto bg-white p-6 rounded-lg shadow-lg">
@@ -137,33 +135,71 @@ const FreeSignupForm: React.FC<FreeSignupFormProps> = ({
             )}
           </div>
 
-          {/* Address */}
+          {/* Address (GooglePlacesAutocomplete styled as a plain input) */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Address *
             </label>
             <GooglePlacesAutocomplete
               apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}
+              autocompletionRequest={{ types: ["address"] }}
               selectProps={{
                 value: formData.address
                   ? { label: formData.address, value: formData.address }
                   : null,
                 onChange: onAddressSelect,
                 placeholder: "Start typing your address...",
-                className: `mt-1 w-full rounded-lg ${
-                  errors.address
-                    ? "border-red-500 border"
-                    : "border-gray-300 border"
-                }`,
+                // ↓ Override default react-select styles to hide the arrow and separator ↓
+                styles: {
+                  control: (provided) => ({
+                    ...provided,
+                    borderColor: errors.address ? "#f87171" : "#d1d5db",
+                    boxShadow: "none",
+                    "&:hover": {
+                      borderColor: errors.address ? "#f87171" : "#9ca3af",
+                    },
+                  }),
+                  dropdownIndicator: () => ({
+                    display: "none",
+                  }),
+                  indicatorSeparator: () => ({
+                    display: "none",
+                  }),
+                  singleValue: (provided) => ({
+                    ...provided,
+                    color: "#374151", // Tailwind's gray-700 for the selected value
+                  }),
+                  input: (provided) => ({
+                    ...provided,
+                    color: "#374151", // text color inside the input
+                  }),
+                  menu: (provided) => ({
+                    ...provided,
+                    zIndex: 1000, // ensure the dropdown suggestions appear above other elements
+                  }),
+                },
+                // Remove any built-in padding on the wrapper so it lines up like our other inputs
+                className: "mt-1",
+                classNamePrefix: "",
+                // Make the placeholder/text appear like our regular inputs
+                theme: (theme) => ({
+                  ...theme,
+                  borderRadius: 0,
+                  colors: {
+                    ...theme.colors,
+                    neutral0: "white", // background of the control
+                    neutral20: "transparent", // border color override handled above
+                    neutral30: "transparent",
+                  },
+                }),
               }}
-              autocompletionRequest={{ types: ["address"] }}
             />
             {errors.address && (
               <p className="text-red-500 text-sm mt-1">{errors.address}</p>
             )}
           </div>
 
-          {/* Primary Industry House */}
+          {/* Primary Industry House (select unchanged) */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Primary Industry House *

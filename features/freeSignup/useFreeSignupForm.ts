@@ -5,7 +5,7 @@ import {
   FreeSubmissionPayload,
   sendToAirtable,
 } from "./freeSignupService";
-import AirtableUtils from "@/pages/api/submitForm";
+import AirtableUtils from "@/features/freeSignup/airtableUtils";
 import { geocodeByPlaceId, getLatLng } from "react-google-places-autocomplete";
 
 export interface FreeFormData {
