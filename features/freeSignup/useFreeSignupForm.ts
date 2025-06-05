@@ -2,47 +2,40 @@
 
 import { useState, useEffect } from "react";
 import {
-  FreeSubmissionPayload,
-  sendToAirtable,
-} from "./freeSignupService";
+  FreeFormData,
+  FormState,
+  FormError,
+  GooglePlacesOption,
+  IndustryOption,
+  AirtableSubmissionPayload
+} from "./types";
 import AirtableUtils from "@/features/freeSignup/airtableUtils";
 import { geocodeByPlaceId, getLatLng } from "react-google-places-autocomplete";
 
-export interface FreeFormData {
-  firstName: string;
-  lastName: string;
-  email: string;
-  address: string;
-  latitude: number | null;
-  longitude: number | null;
-  primaryIndustry: string;
-  organizationName: string;
-  bio: string;
-}
-
-export type FreeFormErrors = Partial<Record<keyof FreeFormData, string>>;
-
 export function useFreeSignupForm() {
-  const [formData, setFormData] = useState<FreeFormData>({
-    firstName: "",
-    lastName: "",
-    email: "",
-    address: "",
-    latitude: null,
-    longitude: null,
-    primaryIndustry: "",
-    organizationName: "",
-    bio: "",
+  const [formState, setFormState] = useState<FormState>({
+    data: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      address: "",
+      latitude: null,
+      longitude: null,
+      primaryIndustry: "",
+      organizationName: "",
+      bio: "",
+      form: "",
+    },
+    errors: [],
+    isDirty: false,
+    isSubmitting: false,
+    isSubmitted: false,
+    touched: []
   });
 
-  const [errors, setErrors] = useState<FreeFormErrors>({});
-  const [industryOptions, setIndustryOptions] = useState<
-    { id: string; name: string }[]
-  >([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [industryOptions, setIndustryOptions] = useState<IndustryOption[]>([]);
 
-  // Load “Primary Industry House” options once
+  // Load "Primary Industry House" options once
   useEffect(() => {
     (async () => {
       try {
@@ -64,99 +57,191 @@ export function useFreeSignupForm() {
         }
       } catch (err) {
         console.error("Error loading industry options:", err);
+        setFormState(prev => ({
+          ...prev,
+          errors: [...prev.errors, {
+            field: "primaryIndustry",
+            message: "Failed to load industry options"
+          }]
+        }));
       }
     })();
   }, []);
 
-  const validate = (): boolean => {
-    const newErrors: FreeFormErrors = {};
-
-    if (!formData.firstName.trim()) newErrors.firstName = "First name is required.";
-    if (!formData.lastName.trim()) newErrors.lastName = "Last name is required.";
-
-    if (!formData.email.trim()) newErrors.email = "Email is required.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
-      newErrors.email = "Enter a valid email.";
-
-    if (!formData.address.trim()) newErrors.address = "Address is required.";
-    if (formData.latitude === null || formData.longitude === null)
-      newErrors.address = "Select a valid address from suggestions.";
-
-    if (!formData.primaryIndustry)
-      newErrors.primaryIndustry = "Primary industry is required.";
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const validateField = (field: keyof FreeFormData, value: any): string | null => {
+    const stringValue = typeof value === 'number' ? value.toString() : value || "";
+    
+    switch (field) {
+      case "email":
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(stringValue)) return "Enter a valid email.";
+        if (!stringValue.trim()) return "Email is required.";
+        return null;
+      case "firstName":
+        if (!stringValue.trim()) return "First name is required.";
+        return null;
+      case "lastName":
+        if (!stringValue.trim()) return "Last name is required.";
+        return null;
+      case "address":
+        if (!stringValue.trim()) return "Address is required.";
+        if (formState.data.latitude === null || formState.data.longitude === null) {
+          return "Select a valid address from suggestions.";
+        }
+        return null;
+      case "primaryIndustry":
+        if (!stringValue) return "Primary industry is required.";
+        return null;
+      default:
+        return null;
+    }
   };
 
-  const handleAddressSelect = async (val: any) => {
+  const validate = (fieldsToValidate?: Array<keyof FreeFormData>): boolean => {
+    const newErrors: FormError[] = [];
+    const requiredFields: (keyof FreeFormData)[] = fieldsToValidate || [
+      "firstName",
+      "lastName",
+      "email",
+      "address",
+      "primaryIndustry"
+    ];
+
+    requiredFields.forEach(field => {
+      const error = validateField(field, formState.data[field] || "");
+      if (error) {
+        newErrors.push({ field, message: error });
+      }
+    });
+
+    setFormState(prev => ({
+      ...prev,
+      errors: newErrors
+    }));
+
+    return newErrors.length === 0;
+  };
+
+  const handleAddressSelect = async (val: GooglePlacesOption | null): Promise<void> => {
     if (!val) {
-      setFormData((prev) => ({
+      setFormState(prev => ({
         ...prev,
-        address: "",
-        latitude: null,
-        longitude: null,
+        data: {
+          ...prev.data,
+          address: "",
+          latitude: null,
+          longitude: null
+        },
+        touched: [...prev.touched, "address"]
       }));
       return;
     }
-    setFormData((prev) => ({ ...prev, address: val.label }));
+
+    setFormState(prev => ({
+      ...prev,
+      data: {
+        ...prev.data,
+        address: val.label
+      },
+      touched: [...prev.touched, "address"]
+    }));
+
     try {
       const results = await geocodeByPlaceId(val.value.place_id);
       const { lat, lng } = await getLatLng(results[0]);
-      setFormData((prev) => ({ ...prev, latitude: lat, longitude: lng }));
-    } catch (geoErr) {
-      console.error("Geocoding error:", geoErr);
-      setFormData((prev) => ({ ...prev, latitude: null, longitude: null }));
+      setFormState(prev => ({
+        ...prev,
+        data: {
+          ...prev.data,
+          latitude: lat,
+          longitude: lng
+        }
+      }));
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      setFormState(prev => ({
+        ...prev,
+        data: {
+          ...prev.data,
+          latitude: null,
+          longitude: null
+        },
+        errors: [...prev.errors, {
+          field: "address",
+          message: "Failed to get location coordinates"
+        }]
+      }));
     }
   };
 
-  const handleFieldChange = (field: keyof FreeFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors((prev) => {
-        const copy = { ...prev };
-        delete copy[field];
-        return copy;
-      });
-    }
+  const handleFieldChange = (field: keyof FreeFormData, value: string): void => {
+    // Validate the field immediately
+    const error = validateField(field, value);
+
+    setFormState(prev => {
+      // Remove any previous error for this field
+      const filteredErrors = prev.errors.filter(e => e.field !== field);
+      // Add new error if present
+      const newErrors = error
+        ? [...filteredErrors, { field, message: error }]
+        : filteredErrors;
+
+      return {
+        ...prev,
+        data: { ...prev.data, [field]: value },
+        touched: Array.from(new Set([...prev.touched, field])),
+        isDirty: true,
+        errors: newErrors,
+      };
+    });
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
     if (!validate()) return;
-    setIsSubmitting(true);
 
-    const payload: FreeSubmissionPayload = {
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      email: formData.email,
-      address: formData.address,
-      latitude: formData.latitude!,
-      longitude: formData.longitude!,
-      primaryIndustry: formData.primaryIndustry,
-      ...(formData.organizationName ? { organizationName: formData.organizationName } : {}),
-      ...(formData.bio ? { bio: formData.bio } : {}),
+    setFormState(prev => ({ ...prev, isSubmitting: true }));
+
+    const payload: AirtableSubmissionPayload = {
+      "FIRST NAME": formState.data.firstName,
+      "LAST NAME": formState.data.lastName,
+      "EMAIL ADDRESS": formState.data.email,
+      "PRIMARY INDUSTRY HOUSE": formState.data.primaryIndustry,
+      "Address": formState.data.address,
+      "Latitude": formState.data.latitude!,
+      "Longitude": formState.data.longitude!,
+      "Featured": "checked",
+      ...(formState.data.organizationName ? { "ORGANIZATION NAME": formState.data.organizationName } : {}),
+      ...(formState.data.bio ? { "BIO": formState.data.bio } : {})
     };
 
     try {
-      await sendToAirtable(payload);
-      // await sendToMongo(payload); // currently omitted
-      setIsSubmitted(true);
-    } catch (err) {
-      console.error("Error during submission:", err);
-      // Optionally set a global “submit failure” error here
+      await AirtableUtils.submitToAirtable(payload);
+      setFormState(prev => ({ ...prev, isSubmitted: true }));
+    } catch (error) {
+      console.error("Error during submission:", error);
+      setFormState(prev => ({
+        ...prev,
+        errors: [...prev.errors, {
+          field: "form",
+          message: "Failed to submit form. Please try again."
+        }]
+      }));
     } finally {
-      setIsSubmitting(false);
+      setFormState(prev => ({ ...prev, isSubmitting: false }));
     }
   };
 
   return {
-    formData,
-    errors,
+    formData: formState.data,
+    errors: Object.fromEntries(
+      formState.errors.map(error => [error.field, error.message])
+    ) as Partial<Record<keyof FreeFormData, string>>,
     industryOptions,
-    isSubmitting,
-    isSubmitted,
+    isSubmitting: formState.isSubmitting,
+    isSubmitted: formState.isSubmitted,
     handleFieldChange,
     handleAddressSelect,
     handleSubmit,
+    touched: formState.touched,
+    validate,
   };
 }

@@ -5,7 +5,7 @@ import FreeSignupForm from "./FreeSignupForm";
 import { useFreeSignupForm } from "./useFreeSignupForm";
 
 /**
- * Container component that “glues” the hook + presentational form together.
+ * Container component that "glues" the hook + presentational form together.
  * It passes all data, errors, and handlers as props into FreeSignupForm.
  */
 const FreeSignupFormContainer: React.FC = () => {
@@ -18,6 +18,7 @@ const FreeSignupFormContainer: React.FC = () => {
     handleFieldChange,
     handleAddressSelect,
     handleSubmit,
+    touched,
   } = useFreeSignupForm();
 
   return (
@@ -30,6 +31,7 @@ const FreeSignupFormContainer: React.FC = () => {
       onFieldChange={handleFieldChange}
       onAddressSelect={handleAddressSelect}
       onSubmit={handleSubmit}
+      touched={touched}
     />
   );
 };
