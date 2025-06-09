@@ -21,6 +21,10 @@ export interface FreeFormData {
   primaryIndustry: string;
   organizationName: string;
   bio: string;
+  photo: File | null;
+  photoUrl?: string;
+  logo: File | null;
+  logoUrl?: string;
   form?: string;
 }
 
@@ -50,6 +54,8 @@ export interface AirtableSubmissionPayload {
   "Featured": "checked";
   "ORGANIZATION NAME"?: string;
   "BIO"?: string;
+  "PHOTO"?: { url: string }[];
+  "LOGO"?: { url: string }[];
 }
 
 // Form State Types

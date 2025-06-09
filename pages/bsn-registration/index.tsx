@@ -62,15 +62,44 @@ interface FormData {
   phoneCountryCodeTouched: boolean,
 }
 
+interface AirtableFields {
+  "EMAIL ADDRESS": string;
+  "FIRST NAME": string;
+  "LAST NAME": string;
+  "MEMBER LEVEL": string[];
+  "BIO": string;
+  "ORGANIZATION NAME": string;
+  "IDENTIFICATION": string;
+  "GENDER": string;
+  "WEBSITE": string;
+  "PHONE US/CAN ONLY": string;
+  "PRIMARY INDUSTRY HOUSE": string;
+  "ADDITIONAL FOCUS AREAS": string[];
+  "AFFILIATED ENTITY": string;
+  "Zip/Postal Code": number;
+  "YOUTUBE": string;
+  "Location (Nearest City)": string;
+  "Name (from Location)": string;
+  "FUNDING GOAL": string;
+  "Similar Categories": string[];
+  "NAICS Code": string;
+  "Featured": boolean;
+  "Latitude": string;
+  "Longitude": string;
+  "Address": string;
+  "PHOTO"?: { url: string; filename: string }[];
+  "LOGO"?: { url: string; filename: string }[];
+}
+
 
 
 // 3. Map formData -> Airtable fields
-const mapFormDataToAirtableFields = (formData: FormData) => {
+const mapFormDataToAirtableFields = (formData: FormData): AirtableFields => {
   // Extract the dial code from the stored value (e.g., from "+1-us" get "+1")
   const dialCode = formData.phoneCountryCode.split("-")[0];
   const fullPhone = dialCode + formData.phone;
 
-  return {
+  const airtableFields: AirtableFields = {
     "EMAIL ADDRESS": formData.email,
     "FIRST NAME": formData.firstName,
     "LAST NAME": formData.lastName,
@@ -84,9 +113,8 @@ const mapFormDataToAirtableFields = (formData: FormData) => {
     "PRIMARY INDUSTRY HOUSE": formData.primaryIndustry,
     "ADDITIONAL FOCUS AREAS": formData.additionalFocus,
     "AFFILIATED ENTITY": formData.affiliatedEntity,
-    // Country: formData.locationCountry,
     "Zip/Postal Code": formData.zipCode,
-    YOUTUBE: formData.youtube,
+    "YOUTUBE": formData.youtube,
     "Location (Nearest City)": formData.nearestCity,
     "Name (from Location)": formData.nameFromLocation,
     "FUNDING GOAL": formData.fundingGoal,
@@ -94,13 +122,29 @@ const mapFormDataToAirtableFields = (formData: FormData) => {
       (cat) => cat && cat.trim() !== ""
     ),
     "NAICS Code": formData.naicsCode,
-    Featured: formData.includeOnMap,
-    Latitude: formData.latitude !== null ? formData.latitude.toString() : "",
-    Longitude: formData.longitude !== null ? formData.longitude.toString() : "",
+    "Featured": formData.includeOnMap,
+    "Latitude": formData.latitude !== null ? formData.latitude.toString() : "",
+    "Longitude": formData.longitude !== null ? formData.longitude.toString() : "",
     "Address": formData.address,
-    ...(formData.photoUrl ? { "PHOTO": [{ url: formData.photoUrl }] } : {}),
-    ...(formData.logoUrl ? { "LOGO": [{ url: formData.logoUrl }] } : {}),
   };
+
+  // Add photo if available
+  if (formData.photoUrl) {
+    airtableFields["PHOTO"] = [{
+      url: formData.photoUrl,
+      filename: formData.photo?.name || "profile-photo.jpg"
+    }];
+  }
+
+  // Add logo if available
+  if (formData.logoUrl) {
+    airtableFields["LOGO"] = [{
+      url: formData.logoUrl,
+      filename: formData.logo?.name || "organization-logo.jpg"
+    }];
+  }
+
+  return airtableFields;
 };
 
 
@@ -147,13 +191,11 @@ const Step1: React.FC<{
   handleInputChange: (field: keyof FormData, value: any) => void;
   errors: Partial<Record<keyof FormData, string>>;
   handleFileChange: (field: keyof FormData, file: File | null) => void;
-  phoneInputRef: React.RefObject<HTMLInputElement>; // 👈 Add this
+  phoneInputRef: React.RefObject<HTMLInputElement>;
 }> = ({ formData, handleInputChange, errors, handleFileChange, phoneInputRef }) => (
   <>
     <div>
-      <label className="block text-sm font-medium text-gray-700">
-        Email Address *
-      </label>
+      <label className="block text-sm font-medium text-gray-700">Email Address *</label>
       <input
         type="email"
         value={formData.email}
@@ -163,9 +205,7 @@ const Step1: React.FC<{
       {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
     </div>
     <div>
-      <label className="block text-sm font-medium text-gray-700">
-        First Name *
-      </label>
+      <label className="block text-sm font-medium text-gray-700">First Name *</label>
       <input
         type="text"
         value={formData.firstName}
@@ -175,9 +215,7 @@ const Step1: React.FC<{
       {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
     </div>
     <div>
-      <label className="block text-sm font-medium text-gray-700">
-        Last Name *
-      </label>
+      <label className="block text-sm font-medium text-gray-700">Last Name *</label>
       <input
         type="text"
         value={formData.lastName}
@@ -186,26 +224,53 @@ const Step1: React.FC<{
       />
       {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
     </div>
-    <div>
+
+    {/* Photo Upload Section */}
+    <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-700">Photo *</label>
+      <p className="text-xs text-gray-500">Upload a clear photo of yourself</p>
+      {formData.photoUrl && (
+        <div className="mt-2 mb-4">
+          <Image
+            src={formData.photoUrl}
+            alt="Profile photo preview"
+            width={120}
+            height={120}
+            className="rounded-lg object-cover"
+          />
+        </div>
+      )}
       <input
         type="file"
-        onChange={(e) =>
-          handleFileChange("photo", e.target.files ? e.target.files[0] : null)
-        }
+        accept="image/*"
+        onChange={(e) => handleFileChange("photo", e.target.files ? e.target.files[0] : null)}
         className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
       />
       {errors.photo && <p className="text-red-500 text-sm mt-1">{errors.photo}</p>}
     </div>
+
+    {/* Logo Upload Section */}
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">Logo</label>
+      <label className="block text-sm font-medium text-gray-700">Organization Logo</label>
+      <p className="text-xs text-gray-500">Optional: Upload your organization's logo if applicable</p>
+      {formData.logoUrl && (
+        <div className="mt-2 mb-4">
+          <Image
+            src={formData.logoUrl}
+            alt="Logo preview"
+            width={120}
+            height={120}
+            className="rounded-lg object-contain"
+          />
+        </div>
+      )}
       <input
         type="file"
-        onChange={(e) =>
-          handleFileChange("logo", e.target.files ? e.target.files[0] : null)
-        }
-        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        accept="image/*"
+        onChange={(e) => handleFileChange("logo", e.target.files ? e.target.files[0] : null)}
+        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
       />
+      {errors.logo && <p className="text-red-500 text-sm mt-1">{errors.logo}</p>}
     </div>
 
     {/* Phone input with international code dropdown */}
@@ -798,7 +863,7 @@ console.log("Locales:", navigator.languages);
             "Young Environmental Scholar",
           ];
 
-          // Filter out any options that aren’t in your 4 allowed names
+          // Filter out any options that aren't in your 4 allowed names
           const filteredOptions = memberLevelField.options.filter((o: any) =>
             allowedOptions.includes(o.name)
           );
@@ -867,9 +932,18 @@ console.log("Locales:", navigator.languages);
     const newErrors: Partial<Record<keyof FormData, string>> = {};
     if (currentStep === 1) {
       if (!formData.email) newErrors.email = "Email is required.";
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        newErrors.email = "Please enter a valid email address.";
+      }
+      
       if (!formData.firstName) newErrors.firstName = "First Name is required.";
       if (!formData.lastName) newErrors.lastName = "Last Name is required.";
-      if (!formData.photo) newErrors.photo = "Photo is required.";
+      
+      // Photo validation
+      if (!formData.photo && !formData.photoUrl) {
+        newErrors.photo = "Profile photo is required.";
+      }
+
       // Combine country code and phone and validate using libphonenumber-js
       const fullPhone = formData.phoneCountryCode.split("-")[0] + formData.phone;
       const defaultCountry: CountryCode = (formData.phoneCountryCode.split("-")[1]?.toUpperCase() || "US") as CountryCode;
@@ -877,7 +951,6 @@ console.log("Locales:", navigator.languages);
       if (!phoneNumber || !phoneNumber.isValid()) {
         newErrors.phone = "Please enter a valid phone number including country code.";
       }
-
     } else if (currentStep === 2) {
       if (!formData.memberLevel) newErrors.memberLevel = "Member level is required.";
       if (!formData.bio) newErrors.bio = "Bio is required.";
@@ -905,12 +978,19 @@ console.log("Locales:", navigator.languages);
 
   // Helper to upload a file to Cloudinary via our /api/upload endpoint
   const uploadFile = async (file: File): Promise<string> => {
+    console.log("Starting file upload for:", file.name, "type:", file.type, "size:", file.size);
     const data = new FormData();
     data.append("file", file);
-    const response = await axios.post("/api/upload", data, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return response.data.url;
+    try {
+        const response = await axios.post("/api/upload", data, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+        console.log("Upload response:", response.data);
+        return response.data.url;
+    } catch (error) {
+        console.error("Upload error:", error);
+        throw error;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -918,35 +998,73 @@ console.log("Locales:", navigator.languages);
     if (!validateStep()) return;
     setIsSubmitting(true);
     try {
-      // Upload photo and logo if provided and not already uploaded
-      let photoUrl = formData.photoUrl;
-      let logoUrl = formData.logoUrl;
-      if (formData.photo && !formData.photoUrl) {
-        photoUrl = await uploadFile(formData.photo);
-        setFormData((prev) => ({ ...prev, photoUrl }));
-      }
-      if (formData.logo && !formData.logoUrl) {
-        logoUrl = await uploadFile(formData.logo);
-        setFormData((prev) => ({ ...prev, logoUrl }));
-      }
-      // Build final data using the updated photoUrl and logoUrl values
-      const finalAirtableFields = mapFormDataToAirtableFields({
-        ...formData,
-        photoUrl,
-        logoUrl,
-        // latitude: lat,
-        // longitude: lng,
-      });
-      console.log(finalAirtableFields)
-      // Submit to Airtable
-      const response = await AirtableUtils.submitToAirtable(finalAirtableFields);
-      console.log("Data submitted successfully:", response);
-      setIsSubmitted(true);
+        // Debug log initial state
+        console.log("Initial form data:", {
+            photo: formData.photo?.name,
+            photoUrl: formData.photoUrl,
+            logo: formData.logo?.name,
+            logoUrl: formData.logoUrl
+        });
+
+        let photoUrl = null;
+        let logoUrl = null;
+
+        // Upload photo if provided
+        if (formData.photo) {
+            console.log("Uploading photo to Cloudinary...");
+            try {
+                photoUrl = await uploadFile(formData.photo);
+                console.log("Photo upload successful:", photoUrl);
+            } catch (uploadError) {
+                console.error("Photo upload failed:", uploadError);
+                throw new Error("Failed to upload photo");
+            }
+        }
+
+        // Upload logo if provided
+        if (formData.logo) {
+            console.log("Uploading logo to Cloudinary...");
+            try {
+                logoUrl = await uploadFile(formData.logo);
+                console.log("Logo upload successful:", logoUrl);
+            } catch (uploadError) {
+                console.error("Logo upload failed:", uploadError);
+                throw new Error("Failed to upload logo");
+            }
+        }
+
+        // Debug log before mapping to Airtable fields
+        console.log("URLs before Airtable mapping:", { photoUrl, logoUrl });
+
+        // Build final data using the updated photoUrl and logoUrl values
+        const finalAirtableFields = {
+            ...mapFormDataToAirtableFields(formData),
+            ...(photoUrl ? { 
+                "PHOTO": [{ 
+                    url: photoUrl,
+                    filename: formData.photo?.name || "profile-photo.jpg" 
+                }] 
+            } : {}),
+            ...(logoUrl ? { 
+                "LOGO": [{ 
+                    url: logoUrl,
+                    filename: formData.logo?.name || "organization-logo.jpg" 
+                }] 
+            } : {})
+        };
+
+        // Debug log final Airtable fields
+        console.log("Final Airtable fields:", finalAirtableFields);
+
+        // Submit to Airtable
+        const response = await AirtableUtils.submitToAirtable(finalAirtableFields);
+        console.log("Airtable submission response:", response);
+        setIsSubmitted(true);
     } catch (error) {
-      console.error("Error submitting data:", error);
-      alert("Failed to register. Please try again.");
+        console.error("Submission error:", error);
+        alert("Failed to register. Please try again.");
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
   };
 
@@ -954,7 +1072,51 @@ console.log("Locales:", navigator.languages);
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
   const handleFileChange = (field: keyof FormData, file: File | null) => {
-    setFormData((prev) => ({ ...prev, [field]: file }));
+    // Clear any existing errors for this field
+    setErrors(prev => ({ ...prev, [field]: undefined }));
+
+    // If no file selected, clear the field
+    if (!file) {
+      setFormData(prev => ({
+        ...prev,
+        [field]: null,
+        ...(field === "photo" ? { photoUrl: "" } : { logoUrl: "" })
+      }));
+      return;
+    }
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: "Please upload a valid image file (JPEG, PNG, GIF, or WEBP)"
+      }));
+      return;
+    }
+
+    // Validate file size (5MB max)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: "File size must be less than 5MB"
+      }));
+      return;
+    }
+
+    // Create a preview URL and update form data
+    const previewUrl = URL.createObjectURL(file);
+    setFormData(prev => ({
+      ...prev,
+      [field]: file,
+      ...(field === "photo" ? { photoUrl: previewUrl } : { logoUrl: previewUrl })
+    }));
+
+    // Clean up the preview URL when component unmounts
+    return () => {
+      URL.revokeObjectURL(previewUrl);
+    };
   };
   const handleToggleFocus = (value: string) => {
     setFormData((prev) => {
@@ -1040,8 +1202,7 @@ console.log("Locales:", navigator.languages);
               handleInputChange={handleInputChange}
               errors={errors}
               handleFileChange={handleFileChange}
-              phoneInputRef={phoneInputRef} // 👈 Add this
-              
+              phoneInputRef={phoneInputRef}
             />
           )}
           {currentStep === 2 && (

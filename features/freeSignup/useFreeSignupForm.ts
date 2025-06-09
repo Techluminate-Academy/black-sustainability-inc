@@ -1,6 +1,7 @@
 // features/freeSignup/useFreeSignupForm.ts
 
 import { useState, useEffect } from "react";
+import axios from "axios";
 import {
   FreeFormData,
   FormState,
@@ -11,6 +12,7 @@ import {
 } from "./types";
 import AirtableUtils from "@/features/freeSignup/airtableUtils";
 import { geocodeByPlaceId, getLatLng } from "react-google-places-autocomplete";
+import { uploadFile } from "./freeSignupService";
 
 export function useFreeSignupForm() {
   const [formState, setFormState] = useState<FormState>({
@@ -24,6 +26,8 @@ export function useFreeSignupForm() {
       primaryIndustry: "",
       organizationName: "",
       bio: "",
+      photo: null,
+      logo: null,
       form: "",
     },
     errors: [],
@@ -91,6 +95,12 @@ export function useFreeSignupForm() {
       case "primaryIndustry":
         if (!stringValue) return "Primary industry is required.";
         return null;
+      case "photo":
+        if (!value) return "Profile photo is required.";
+        return null;
+      case "logo":
+        // Logo is optional
+        return null;
       default:
         return null;
     }
@@ -103,7 +113,8 @@ export function useFreeSignupForm() {
       "lastName",
       "email",
       "address",
-      "primaryIndustry"
+      "primaryIndustry",
+      "photo"
     ];
 
     requiredFields.forEach(field => {
@@ -195,25 +206,98 @@ export function useFreeSignupForm() {
     });
   };
 
+  const handleFileChange = async (field: keyof FreeFormData, file: File | null): Promise<void> => {
+    // Clear any existing errors for this field
+    setFormState(prev => ({
+      ...prev,
+      errors: prev.errors.filter(e => e.field !== field)
+    }));
+
+    if (!file) {
+      setFormState(prev => ({
+        ...prev,
+        data: {
+          ...prev.data,
+          [field]: null,
+          [`${field}Url`]: undefined
+        },
+        touched: Array.from(new Set([...prev.touched, field]))
+      }));
+      return;
+    }
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setFormState(prev => ({
+        ...prev,
+        errors: [...prev.errors, {
+          field,
+          message: "Please upload a valid image file (JPEG, PNG, GIF, or WEBP)"
+        }]
+      }));
+      return;
+    }
+
+    // Validate file size (5MB max)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setFormState(prev => ({
+        ...prev,
+        errors: [...prev.errors, {
+          field,
+          message: "File size must be less than 5MB"
+        }]
+      }));
+      return;
+    }
+
+    // Set file and generate preview
+    const url = URL.createObjectURL(file);
+    setFormState(prev => ({
+      ...prev,
+      data: {
+        ...prev.data,
+        [field]: file,
+        [`${field}Url`]: url
+      },
+      touched: Array.from(new Set([...prev.touched, field]))
+    }));
+  };
+
   const handleSubmit = async (): Promise<void> => {
     if (!validate()) return;
 
     setFormState(prev => ({ ...prev, isSubmitting: true }));
 
-    const payload: AirtableSubmissionPayload = {
-      "FIRST NAME": formState.data.firstName,
-      "LAST NAME": formState.data.lastName,
-      "EMAIL ADDRESS": formState.data.email,
-      "PRIMARY INDUSTRY HOUSE": formState.data.primaryIndustry,
-      "Address": formState.data.address,
-      "Latitude": formState.data.latitude!,
-      "Longitude": formState.data.longitude!,
-      "Featured": "checked",
-      ...(formState.data.organizationName ? { "ORGANIZATION NAME": formState.data.organizationName } : {}),
-      ...(formState.data.bio ? { "BIO": formState.data.bio } : {})
-    };
-
     try {
+      // Upload photo and logo if present
+      let photoUrl = undefined;
+      let logoUrl = undefined;
+
+      if (formState.data.photo) {
+        photoUrl = await uploadFile(formState.data.photo);
+      }
+
+      if (formState.data.logo) {
+        logoUrl = await uploadFile(formState.data.logo);
+      }
+
+      const payload: AirtableSubmissionPayload = {
+        "FIRST NAME": formState.data.firstName,
+        "LAST NAME": formState.data.lastName,
+        "EMAIL ADDRESS": formState.data.email,
+        "PRIMARY INDUSTRY HOUSE": formState.data.primaryIndustry,
+        "Address": formState.data.address,
+        "Latitude": formState.data.latitude!,
+        "Longitude": formState.data.longitude!,
+        "Featured": "checked",
+        ...(formState.data.organizationName ? { "ORGANIZATION NAME": formState.data.organizationName } : {}),
+        ...(formState.data.bio ? { "BIO": formState.data.bio } : {}),
+        ...(photoUrl ? { "PHOTO": [{ url: photoUrl }] } : {}),
+        ...(logoUrl ? { "LOGO": [{ url: logoUrl }] } : {})
+      };
+
       await AirtableUtils.submitToAirtable(payload);
       setFormState(prev => ({ ...prev, isSubmitted: true }));
     } catch (error) {
@@ -239,6 +323,7 @@ export function useFreeSignupForm() {
     isSubmitting: formState.isSubmitting,
     isSubmitted: formState.isSubmitted,
     handleFieldChange,
+    handleFileChange,
     handleAddressSelect,
     handleSubmit,
     touched: formState.touched,

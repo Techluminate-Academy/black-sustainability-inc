@@ -16,8 +16,8 @@ export interface FreeSubmissionPayload {
 }
 
 /**
- * Sends a “free sign-up” record to Airtable.
- * We must pass the exact single-select option name for the “Featured” field.
+ * Sends a "free sign-up" record to Airtable.
+ * We must pass the exact single-select option name for the "Featured" field.
  */
 export async function sendToAirtable(data: FreeSubmissionPayload): Promise<void> {
   const airtableFields: Record<string, any> = {
@@ -29,7 +29,7 @@ export async function sendToAirtable(data: FreeSubmissionPayload): Promise<void>
     Latitude: data.latitude,      // still a number
     Longitude: data.longitude,    // still a number
 
-    // Since Featured is defined as a “Single select” in your base, 
+    // Since Featured is defined as a "Single select" in your base, 
     // use exactly the option label (e.g. "checked" or whatever your option is called).
     "Featured": "checked",
   };
@@ -43,3 +43,18 @@ export async function sendToAirtable(data: FreeSubmissionPayload): Promise<void>
 
   await AirtableUtils.submitToAirtable(airtableFields);
 }
+
+export const uploadFile = async (file: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  
+  try {
+    const response = await axios.post("/api/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data.url;
+  } catch (error) {
+    console.error("Error uploading file:", error);
+    throw new Error("Failed to upload file");
+  }
+};

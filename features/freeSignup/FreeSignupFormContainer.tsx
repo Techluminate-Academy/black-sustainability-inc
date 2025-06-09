@@ -16,6 +16,7 @@ const FreeSignupFormContainer: React.FC = () => {
     isSubmitting,
     isSubmitted,
     handleFieldChange,
+    handleFileChange,
     handleAddressSelect,
     handleSubmit,
     touched,
@@ -29,6 +30,7 @@ const FreeSignupFormContainer: React.FC = () => {
       isSubmitting={isSubmitting}
       isSubmitted={isSubmitted}
       onFieldChange={handleFieldChange}
+      onFileChange={handleFileChange}
       onAddressSelect={handleAddressSelect}
       onSubmit={handleSubmit}
       touched={touched}

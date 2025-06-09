@@ -14,6 +14,7 @@ interface FreeSignupFormProps {
   isSubmitting: boolean;
   isSubmitted: boolean;
   onFieldChange: (field: keyof FreeFormData, value: string) => void;
+  onFileChange: (field: keyof FreeFormData, file: File | null) => void;
   onAddressSelect: (val: GooglePlacesOption | null) => void;
   onSubmit: () => void;
   touched: Array<keyof FreeFormData>;
@@ -26,6 +27,7 @@ const FreeSignupForm: React.FC<FreeSignupFormProps> = ({
   isSubmitting,
   isSubmitted,
   onFieldChange,
+  onFileChange,
   onAddressSelect,
   onSubmit,
   touched,
@@ -235,6 +237,121 @@ const FreeSignupForm: React.FC<FreeSignupFormProps> = ({
                 aria-live="polite"
               >
                 {errors.email}
+              </p>
+            )}
+          </div>
+
+          {/* Photo Upload */}
+          <div className="form-field">
+            <label 
+              htmlFor="photo"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Profile Photo <span className="text-red-600">*</span>
+            </label>
+            <p className="text-xs text-gray-500 mb-2">Upload a clear photo of yourself</p>
+            {formData.photoUrl && (
+              <div className="mb-3">
+                <Image
+                  src={formData.photoUrl}
+                  alt="Profile photo preview"
+                  width={120}
+                  height={120}
+                  className="rounded-lg object-cover"
+                />
+              </div>
+            )}
+            <input
+              id="photo"
+              type="file"
+              accept="image/*"
+              onChange={(e) => onFileChange("photo", e.target.files ? e.target.files[0] : null)}
+              className={`
+                w-full
+                px-4
+                py-3
+                text-base
+                border
+                rounded-lg
+                focus:ring-2
+                focus:ring-blue-500
+                focus:ring-offset-1
+                ${errors.photo 
+                  ? 'border-red-500 focus:ring-red-200' 
+                  : 'border-gray-300 focus:ring-blue-200'
+                }
+                transition-colors
+                duration-200
+              `}
+              aria-invalid={!!errors.photo}
+              aria-describedby={errors.photo ? "photo-error" : undefined}
+              aria-required="true"
+            />
+            {errors.photo && touched.includes('photo') && (
+              <p 
+                id="photo-error"
+                role="alert"
+                className="mt-1.5 text-sm text-red-600 font-medium"
+                aria-live="polite"
+              >
+                {errors.photo}
+              </p>
+            )}
+          </div>
+
+          {/* Logo Upload */}
+          <div className="form-field">
+            <label 
+              htmlFor="logo"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Organization Logo
+            </label>
+            <p className="text-xs text-gray-500 mb-2">Optional: Upload your organization's logo if applicable</p>
+            {formData.logoUrl && (
+              <div className="mb-3">
+                <Image
+                  src={formData.logoUrl}
+                  alt="Logo preview"
+                  width={120}
+                  height={120}
+                  className="rounded-lg object-contain"
+                />
+              </div>
+            )}
+            <input
+              id="logo"
+              type="file"
+              accept="image/*"
+              onChange={(e) => onFileChange("logo", e.target.files ? e.target.files[0] : null)}
+              className={`
+                w-full
+                px-4
+                py-3
+                text-base
+                border
+                rounded-lg
+                focus:ring-2
+                focus:ring-blue-500
+                focus:ring-offset-1
+                ${errors.logo 
+                  ? 'border-red-500 focus:ring-red-200' 
+                  : 'border-gray-300 focus:ring-blue-200'
+                }
+                transition-colors
+                duration-200
+              `}
+              aria-invalid={!!errors.logo}
+              aria-describedby={errors.logo ? "logo-error" : undefined}
+            />
+            {errors.logo && touched.includes('logo') && (
+              <p 
+                id="logo-error"
+                role="alert"
+                className="mt-1.5 text-sm text-red-600 font-medium"
+                aria-live="polite"
+              >
+                {errors.logo}
               </p>
             )}
           </div>

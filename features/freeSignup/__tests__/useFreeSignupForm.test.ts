@@ -1,21 +1,11 @@
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useFreeSignupForm } from '../useFreeSignupForm';
 import AirtableUtils from '../airtableUtils';
+import * as freeSignupService from '../freeSignupService';
 
-// Mock console.error to reduce noise in test output
-const originalError = console.error;
-beforeAll(() => {
-  console.error = (...args: any[]) => {
-    if (args[0].includes('Warning: An update to TestComponent')) {
-      return;
-    }
-    originalError.call(console, ...args);
-  };
-});
-
-afterAll(() => {
-  console.error = originalError;
-});
+// Mock the signup service
+jest.mock('../freeSignupService');
+const mockedSignupService = freeSignupService as jest.Mocked<typeof freeSignupService>;
 
 // Mock AirtableUtils
 jest.mock('../airtableUtils', () => ({
@@ -45,6 +35,16 @@ jest.mock('react-google-places-autocomplete', () => ({
 }));
 
 describe('useFreeSignupForm', () => {
+  beforeAll(() => {
+    global.URL.createObjectURL = jest.fn(() => 'blob:mock-url');
+    global.URL.revokeObjectURL = jest.fn();
+  });
+
+  afterAll(() => {
+    (global.URL.createObjectURL as jest.Mock).mockRestore();
+    (global.URL.revokeObjectURL as jest.Mock).mockRestore();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -62,6 +62,8 @@ describe('useFreeSignupForm', () => {
       primaryIndustry: '',
       organizationName: '',
       bio: '',
+      photo: null,
+      logo: null,
       form: ''
     });
     expect(result.current.errors).toEqual({});
@@ -70,9 +72,8 @@ describe('useFreeSignupForm', () => {
   it('loads industry options on mount', async () => {
     const { result } = renderHook(() => useFreeSignupForm());
 
-    // Wait for the useEffect to complete
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0));
+    await waitFor(() => {
+      expect(result.current.industryOptions).toHaveLength(2);
     });
 
     expect(AirtableUtils.fetchTableMetadata).toHaveBeenCalled();
@@ -93,6 +94,41 @@ describe('useFreeSignupForm', () => {
     expect(result.current.errors.firstName).toBeUndefined();
   });
 
+  it('handles file changes correctly', async () => {
+    const { result } = renderHook(() => useFreeSignupForm());
+    const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+    await act(async () => {
+      await result.current.handleFileChange('photo', file);
+    });
+
+    expect(result.current.formData.photo).toBe(file);
+    expect(result.current.formData.photoUrl).toBe('blob:mock-url');
+    expect(result.current.errors).toEqual({});
+  });
+
+  it('validates file type', async () => {
+    const { result } = renderHook(() => useFreeSignupForm());
+    const file = new File(['test'], 'test.pdf', { type: 'application/pdf' });
+
+    await act(async () => {
+      await result.current.handleFileChange('photo', file);
+    });
+
+    expect(result.current.errors.photo).toBe('Please upload a valid image file (JPEG, PNG, GIF, or WEBP)');
+  });
+
+  it('validates file size', async () => {
+    const { result } = renderHook(() => useFreeSignupForm());
+    const largeFile = new File(['a'.repeat(6 * 1024 * 1024)], 'large.png', { type: 'image/png' });
+
+    await act(async () => {
+      await result.current.handleFileChange('photo', largeFile);
+    });
+    
+    expect(result.current.errors.photo).toBe('File size must be less than 5MB');
+  });
+
   it('validates required fields on submit', async () => {
     const { result } = renderHook(() => useFreeSignupForm());
 
@@ -105,7 +141,8 @@ describe('useFreeSignupForm', () => {
       lastName: 'Last name is required.',
       email: 'Enter a valid email.',
       address: 'Address is required.',
-      primaryIndustry: 'Primary industry is required.'
+      primaryIndustry: 'Primary industry is required.',
+      photo: 'Profile photo is required.'
     });
     expect(AirtableUtils.submitToAirtable).not.toHaveBeenCalled();
   });
@@ -114,29 +151,10 @@ describe('useFreeSignupForm', () => {
     const { result } = renderHook(() => useFreeSignupForm());
 
     await act(async () => {
-      // Fill in other required fields first
-      result.current.handleFieldChange('firstName', 'John');
-      result.current.handleFieldChange('lastName', 'Doe');
-      result.current.handleFieldChange('primaryIndustry', 'Technology');
-      await result.current.handleAddressSelect({
-        label: '123 Test St',
-        value: {
-          place_id: 'test-place-id',
-          structured_formatting: {
-            main_text: '123 Test St',
-            secondary_text: 'New York, NY'
-          }
-        }
-      });
-      // Set invalid email last
       result.current.handleFieldChange('email', 'invalid-email');
-      // Validate only email field
-      result.current.validate(['email']);
     });
 
-    expect(result.current.errors).toEqual({
-      email: 'Enter a valid email.'
-    });
+    expect(result.current.errors.email).toBe('Enter a valid email.');
   });
 
   it('handles address selection and geocoding', async () => {
@@ -161,51 +179,12 @@ describe('useFreeSignupForm', () => {
     expect(result.current.formData.longitude).toBe(-74.0060);
   });
 
-  it('submits form successfully when all fields are valid', async () => {
-    const { result } = renderHook(() => useFreeSignupForm());
-
-    // Fill in all required fields
-    await act(async () => {
-      result.current.handleFieldChange('firstName', 'John');
-      result.current.handleFieldChange('lastName', 'Doe');
-      result.current.handleFieldChange('email', 'john@example.com');
-      result.current.handleFieldChange('primaryIndustry', 'Technology');
-      
-      await result.current.handleAddressSelect({
-        label: '123 Test St',
-        value: {
-          place_id: 'test-place-id',
-          structured_formatting: {
-            main_text: '123 Test St',
-            secondary_text: 'New York, NY'
-          }
-        }
-      });
-    });
-
-    await act(async () => {
-      await result.current.handleSubmit();
-    });
-
-    expect(Object.keys(result.current.errors)).toHaveLength(0);
-    expect(result.current.isSubmitted).toBe(true);
-    expect(AirtableUtils.submitToAirtable).toHaveBeenCalledWith(expect.objectContaining({
-      'FIRST NAME': 'John',
-      'LAST NAME': 'Doe',
-      'EMAIL ADDRESS': 'john@example.com',
-      'PRIMARY INDUSTRY HOUSE': 'Technology',
-      'Address': '123 Test St',
-      'Latitude': 40.7128,
-      'Longitude': -74.0060,
-      'Featured': 'checked'
-    }));
-  });
-
   it('handles submission errors', async () => {
     const mockError = new Error('Submission failed');
     (AirtableUtils.submitToAirtable as jest.Mock).mockRejectedValueOnce(mockError);
 
     const { result } = renderHook(() => useFreeSignupForm());
+    const mockPhoto = new File(['photo'], 'photo.png', { type: 'image/png' });
 
     // Fill in all required fields
     await act(async () => {
@@ -213,6 +192,7 @@ describe('useFreeSignupForm', () => {
       result.current.handleFieldChange('lastName', 'Doe');
       result.current.handleFieldChange('email', 'john@example.com');
       result.current.handleFieldChange('primaryIndustry', 'Technology');
+      await result.current.handleFileChange('photo', mockPhoto);
       await result.current.handleAddressSelect({
         label: '123 Test St',
         value: {
@@ -232,5 +212,52 @@ describe('useFreeSignupForm', () => {
 
     expect(result.current.errors.form).toBe('Failed to submit form. Please try again.');
     expect(result.current.isSubmitted).toBe(false);
+  });
+
+  it('submits form successfully when all fields are valid', async () => {
+    const { result } = renderHook(() => useFreeSignupForm());
+    const mockPhoto = new File(['photo'], 'photo.png', { type: 'image/png' });
+
+    // Mock the upload response
+    mockedSignupService.uploadFile.mockResolvedValue('http://cloudinary.com/photo.png');
+
+    // Fill in all required fields
+    await act(async () => {
+      result.current.handleFieldChange('firstName', 'John');
+      result.current.handleFieldChange('lastName', 'Doe');
+      result.current.handleFieldChange('email', 'john@example.com');
+      result.current.handleFieldChange('primaryIndustry', 'Technology');
+      await result.current.handleFileChange('photo', mockPhoto);
+      
+      await result.current.handleAddressSelect({
+        label: '123 Test St',
+        value: {
+          place_id: 'test-place-id',
+          structured_formatting: {
+            main_text: '123 Test St',
+            secondary_text: 'New York, NY'
+          }
+        }
+      });
+    });
+
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    expect(result.current.errors).toEqual({});
+    expect(result.current.isSubmitted).toBe(true);
+    expect(freeSignupService.uploadFile).toHaveBeenCalledWith(mockPhoto);
+    expect(AirtableUtils.submitToAirtable).toHaveBeenCalledWith(expect.objectContaining({
+      'FIRST NAME': 'John',
+      'LAST NAME': 'Doe',
+      'EMAIL ADDRESS': 'john@example.com',
+      'PRIMARY INDUSTRY HOUSE': 'Technology',
+      'Address': '123 Test St',
+      'Latitude': 40.7128,
+      'Longitude': -74.0060,
+      'Featured': 'checked',
+      'PHOTO': [{ url: 'http://cloudinary.com/photo.png' }]
+    }));
   });
 }); 

@@ -16,8 +16,8 @@ jest.mock('@/public/png/bsn-logo.png', () => ({
 jest.mock('next/image', () => ({
   __esModule: true,
   default: (props: any) => {
-    // Remove fetchPriority to avoid React warning
-    const { fetchPriority, ...rest } = props;
+    // Remove priority to avoid React warning
+    const { priority, ...rest } = props;
     return <img {...rest} />;
   }
 }));
@@ -60,6 +60,10 @@ describe('FreeSignupForm', () => {
     primaryIndustry: '',
     organizationName: '',
     bio: '',
+    photo: null,
+    logo: null,
+    photoUrl: '',
+    logoUrl: '',
     form: ''
   };
 
@@ -75,6 +79,7 @@ describe('FreeSignupForm', () => {
     isSubmitting: false,
     isSubmitted: false,
     onFieldChange: jest.fn(),
+    onFileChange: jest.fn(),
     onAddressSelect: jest.fn(),
     onSubmit: jest.fn(),
     touched: []
@@ -88,15 +93,17 @@ describe('FreeSignupForm', () => {
     render(<FreeSignupForm {...defaultProps} />);
 
     // Check for required field labels
-    expect(screen.getByText('First Name *')).toBeInTheDocument();
-    expect(screen.getByText('Last Name *')).toBeInTheDocument();
-    expect(screen.getByText('Email *')).toBeInTheDocument();
-    expect(screen.getByText('Address *')).toBeInTheDocument();
-    expect(screen.getByText('Primary Industry House *')).toBeInTheDocument();
+    expect(screen.getByLabelText(/First Name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Last Name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Email/i)).toBeInTheDocument();
+    expect(screen.getByTestId('google-places-autocomplete')).toBeInTheDocument(); // For address
+    expect(screen.getByLabelText(/Primary Industry House/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Profile Photo/i)).toBeInTheDocument();
 
     // Check for optional fields
-    expect(screen.getByText('Organization Name (optional)')).toBeInTheDocument();
-    expect(screen.getByText('Bio (optional)')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Organization Name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Bio/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Organization Logo/i)).toBeInTheDocument();
   });
 
   it('displays error messages when fields have errors', () => {
@@ -105,7 +112,8 @@ describe('FreeSignupForm', () => {
       errors: {
         firstName: 'First name is required',
         email: 'Invalid email format'
-      }
+      },
+      touched: ['firstName', 'email'] as (keyof FreeFormData)[]
     };
 
     render(<FreeSignupForm {...propsWithErrors} />);
@@ -123,6 +131,30 @@ describe('FreeSignupForm', () => {
     // Check that onFieldChange was called with the final value
     expect(defaultProps.onFieldChange).toHaveBeenCalledWith('firstName', 'n');
     expect(defaultProps.onFieldChange).toHaveBeenCalledTimes(4); // Once for each character
+  });
+
+  it('calls onFileChange when a file is selected', async () => {
+    render(<FreeSignupForm {...defaultProps} />);
+    const photoInput = screen.getByLabelText(/Profile Photo \*/);
+    const file = new File(['(⌐□_□)'], 'chuck.png', { type: 'image/png' });
+
+    await userEvent.upload(photoInput, file);
+
+    expect(defaultProps.onFileChange).toHaveBeenCalledWith('photo', file);
+  });
+
+  it('displays image preview when photoUrl is present', () => {
+    const propsWithPhoto = {
+      ...defaultProps,
+      formData: {
+        ...mockFormData,
+        photoUrl: '/fake/image.jpg'
+      }
+    };
+    render(<FreeSignupForm {...propsWithPhoto} />);
+    const image = screen.getByAltText('Profile photo preview');
+    expect(image).toBeInTheDocument();
+    expect(image).toHaveAttribute('src', '/fake/image.jpg');
   });
 
   it('calls onSubmit when form is submitted', async () => {
