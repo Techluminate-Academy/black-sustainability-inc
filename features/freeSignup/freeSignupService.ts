@@ -8,11 +8,13 @@ export interface FreeSubmissionPayload {
   lastName: string;
   email: string;
   address: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   primaryIndustry: string;
   organizationName?: string;
   bio?: string;
+  photoUrl?: string;
+  logoUrl?: string;
 }
 
 /**
@@ -26,12 +28,13 @@ export async function sendToAirtable(data: FreeSubmissionPayload): Promise<void>
     "EMAIL ADDRESS": data.email,
     "PRIMARY INDUSTRY HOUSE": data.primaryIndustry,
     Address: data.address,
-    Latitude: data.latitude,      // still a number
-    Longitude: data.longitude,    // still a number
+    Latitude: data.latitude,
+    Longitude: data.longitude,
+    MembershipType: "Free",
 
-    // Since Featured is defined as a "Single select" in your base, 
+    // Since Featured is defined as a "Single select" in your base,
     // use exactly the option label (e.g. "checked" or whatever your option is called).
-    "Featured": "checked",
+    Featured: "checked",
   };
 
   if (data.organizationName) {
@@ -39,6 +42,12 @@ export async function sendToAirtable(data: FreeSubmissionPayload): Promise<void>
   }
   if (data.bio) {
     airtableFields["BIO"] = data.bio;
+  }
+  if (data.photoUrl) {
+    airtableFields["PHOTO"] = [{ url: data.photoUrl }];
+  }
+  if (data.logoUrl) {
+    airtableFields["LOGO"] = [{ url: data.logoUrl }];
   }
 
   await AirtableUtils.submitToAirtable(airtableFields);

@@ -12,7 +12,7 @@ import {
 } from "./types";
 import AirtableUtils from "@/features/freeSignup/airtableUtils";
 import { geocodeByPlaceId, getLatLng } from "react-google-places-autocomplete";
-import { uploadFile } from "./freeSignupService";
+import { uploadFile, sendToAirtable, FreeSubmissionPayload } from "./freeSignupService";
 
 export function useFreeSignupForm() {
   const [formState, setFormState] = useState<FormState>({
@@ -252,65 +252,58 @@ export function useFreeSignupForm() {
       return;
     }
 
-    // Set file and generate preview
-    const url = URL.createObjectURL(file);
     setFormState(prev => ({
       ...prev,
-      data: {
-        ...prev.data,
-        [field]: file,
-        [`${field}Url`]: url
-      },
+      data: { ...prev.data, [field]: file },
       touched: Array.from(new Set([...prev.touched, field]))
     }));
   };
 
   const handleSubmit = async (): Promise<void> => {
-    if (!validate()) return;
+    if (!validate()) {
+      return;
+    }
 
-    setFormState(prev => ({ ...prev, isSubmitting: true }));
+    setFormState(prev => ({ ...prev, isSubmitting: true, errors: [] }));
 
     try {
-      // Upload photo and logo if present
-      let photoUrl = undefined;
-      let logoUrl = undefined;
+      let photoUrl: string | undefined = undefined;
+      let logoUrl: string | undefined = undefined;
 
       if (formState.data.photo) {
         photoUrl = await uploadFile(formState.data.photo);
       }
-
       if (formState.data.logo) {
         logoUrl = await uploadFile(formState.data.logo);
       }
-
-      const payload: AirtableSubmissionPayload = {
-        "FIRST NAME": formState.data.firstName,
-        "LAST NAME": formState.data.lastName,
-        "EMAIL ADDRESS": formState.data.email,
-        "PRIMARY INDUSTRY HOUSE": formState.data.primaryIndustry,
-        "Address": formState.data.address,
-        "Latitude": formState.data.latitude!,
-        "Longitude": formState.data.longitude!,
-        "Featured": "checked",
-        ...(formState.data.organizationName ? { "ORGANIZATION NAME": formState.data.organizationName } : {}),
-        ...(formState.data.bio ? { "BIO": formState.data.bio } : {}),
-        ...(photoUrl ? { "PHOTO": [{ url: photoUrl }] } : {}),
-        ...(logoUrl ? { "LOGO": [{ url: logoUrl }] } : {})
+      
+      const submissionData: FreeSubmissionPayload = {
+        firstName: formState.data.firstName,
+        lastName: formState.data.lastName,
+        email: formState.data.email,
+        address: formState.data.address,
+        latitude: formState.data.latitude,
+        longitude: formState.data.longitude,
+        primaryIndustry: formState.data.primaryIndustry,
+        organizationName: formState.data.organizationName,
+        bio: formState.data.bio,
+        photoUrl,
+        logoUrl,
       };
 
-      await AirtableUtils.submitToAirtable(payload);
-      setFormState(prev => ({ ...prev, isSubmitted: true }));
+      await sendToAirtable(submissionData);
+
+      setFormState(prev => ({ ...prev, isSubmitting: false, isSubmitted: true }));
     } catch (error) {
-      console.error("Error during submission:", error);
+      console.error("Submission failed:", error);
       setFormState(prev => ({
         ...prev,
-        errors: [...prev.errors, {
+        isSubmitting: false,
+        errors: [{
           field: "form",
-          message: "Failed to submit form. Please try again."
+          message: "An unexpected error occurred during submission."
         }]
       }));
-    } finally {
-      setFormState(prev => ({ ...prev, isSubmitting: false }));
     }
   };
 

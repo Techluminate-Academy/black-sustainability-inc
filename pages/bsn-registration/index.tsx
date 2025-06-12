@@ -192,141 +192,139 @@ const Step1: React.FC<{
   errors: Partial<Record<keyof FormData, string>>;
   handleFileChange: (field: keyof FormData, file: File | null) => void;
   phoneInputRef: React.RefObject<HTMLInputElement>;
-}> = ({ formData, handleInputChange, errors, handleFileChange, phoneInputRef }) => (
-  <>
-    <div>
-      <label className="block text-sm font-medium text-gray-700">Email Address *</label>
-      <input
-        type="email"
-        value={formData.email}
-        onChange={(e) => handleInputChange("email", e.target.value)}
-        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-      />
-      {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700">First Name *</label>
-      <input
-        type="text"
-        value={formData.firstName}
-        onChange={(e) => handleInputChange("firstName", e.target.value)}
-        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-      />
-      {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700">Last Name *</label>
-      <input
-        type="text"
-        value={formData.lastName}
-        onChange={(e) => handleInputChange("lastName", e.target.value)}
-        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-      />
-      {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
-    </div>
+}> = ({ formData, handleInputChange, errors, handleFileChange, phoneInputRef }) => {
+  console.log('🔍 Step1 rendering with formData:', formData);
+  
+  return (
+    <>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Email Address *</label>
+        <input
+          type="email"
+          value={formData.email}
+          onChange={(e) => handleInputChange("email", e.target.value)}
+          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">First Name *</label>
+        <input
+          type="text"
+          value={formData.firstName}
+          onChange={(e) => handleInputChange("firstName", e.target.value)}
+          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Last Name *</label>
+        <input
+          type="text"
+          value={formData.lastName}
+          onChange={(e) => handleInputChange("lastName", e.target.value)}
+          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
+      </div>
 
-    {/* Photo Upload Section */}
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">Photo *</label>
-      <p className="text-xs text-gray-500">Upload a clear photo of yourself</p>
-      {formData.photoUrl && (
-        <div className="mt-2 mb-4">
-          <Image
-            src={formData.photoUrl}
-            alt="Profile photo preview"
-            width={120}
-            height={120}
-            className="rounded-lg object-cover"
+      {/* Photo Upload Section */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Photo *</label>
+        <p className="text-xs text-gray-500">Upload a clear photo of yourself</p>
+        {formData.photoUrl && (
+          <div className="mt-2 mb-4">
+            <Image
+              src={formData.photoUrl}
+              alt="Profile photo preview"
+              width={120}
+              height={120}
+              className="rounded-lg object-cover"
+            />
+          </div>
+        )}
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => handleFileChange("photo", e.target.files ? e.target.files[0] : null)}
+          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        {errors.photo && <p className="text-red-500 text-sm mt-1">{errors.photo}</p>}
+      </div>
+
+      {/* Logo Upload Section */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Organization Logo</label>
+        <p className="text-xs text-gray-500">Optional: Upload your organization's logo if applicable</p>
+        {formData.logoUrl && (
+          <div className="mt-2 mb-4 flex flex-col items-start">
+            <p className="text-sm text-gray-600 mb-2">Current Logo:</p>
+            <Image
+              src={formData.logoUrl}
+              alt="Organization logo preview"
+              width={120}
+              height={120}
+              className="rounded-lg object-contain bg-white"
+            />
+          </div>
+        )}
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => handleFileChange("logo", e.target.files ? e.target.files[0] : null)}
+          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        {errors.logo && <p className="text-red-500 text-sm mt-1">{errors.logo}</p>}
+      </div>
+
+      {/* Phone input with international code dropdown */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Phone</label>
+        <p className="text-xs text-gray-600">
+          We want to ensure you receive BSN info via SMS (no SPAM we promise)...
+        </p>
+        <div
+          style={{width: '100%'}}
+          className="
+            flex
+            items-center
+            border
+            border-gray-300
+            rounded-md
+            w-full
+            sm:w-2/3
+          "
+        >
+          <CountryCodeDropdown
+            value={formData.phoneCountryCode}
+            options={internationalOptions}
+            onChange={(newValue) => {
+              handleInputChange("phoneCountryCode", newValue);
+              handleInputChange("phoneCountryCodeTouched", true);
+            }}
+          />
+          <input
+            ref={phoneInputRef}
+            type="tel"
+            value={formData.phone}
+            onChange={(e) => handleInputChange("phone", e.target.value)}
+            className="
+              px-3
+              py-2
+              w-full
+              focus:ring-blue-500
+              focus:border-blue-500
+              focus:outline-none
+            "
+            placeholder="Enter phone number"
+            autoComplete="off"
           />
         </div>
-      )}
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(e) => handleFileChange("photo", e.target.files ? e.target.files[0] : null)}
-        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-      />
-      {errors.photo && <p className="text-red-500 text-sm mt-1">{errors.photo}</p>}
-    </div>
-
-    {/* Logo Upload Section */}
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">Organization Logo</label>
-      <p className="text-xs text-gray-500">Optional: Upload your organization's logo if applicable</p>
-      {formData.logoUrl && (
-        <div className="mt-2 mb-4">
-          <Image
-            src={formData.logoUrl}
-            alt="Logo preview"
-            width={120}
-            height={120}
-            className="rounded-lg object-contain"
-          />
-        </div>
-      )}
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(e) => handleFileChange("logo", e.target.files ? e.target.files[0] : null)}
-        className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-      />
-      {errors.logo && <p className="text-red-500 text-sm mt-1">{errors.logo}</p>}
-    </div>
-
-    {/* Phone input with international code dropdown */}
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">Phone</label>
-      <p className="text-xs text-gray-600">
-        We want to ensure you receive BSN info via SMS (no SPAM we promise)...
-      </p>
-     {/* Container that forms the "input group" */}
-  <div
-  style={{width: '100%'}}
-    className="
-      flex
-      items-center
-      border
-      border-gray-300
-      rounded-md
-
-      w-full
-      sm:w-2/3
-    "
-  >
-    {/* Custom dropdown for country code */}
-    <CountryCodeDropdown
-      value={formData.phoneCountryCode}
-      options={internationalOptions}
-      onChange={(newValue) => {
-        handleInputChange("phoneCountryCode", newValue);
-        handleInputChange("phoneCountryCodeTouched", true);
-      }}
-    />
-
-    {/* Actual phone input */}
-    <input
-      ref={phoneInputRef}
-      type="tel"
-      value={formData.phone}
-      onChange={(e) => handleInputChange("phone", e.target.value)}
-      className="
-        px-3
-        py-2
-        w-full
-        focus:ring-blue-500
-        focus:border-blue-500
-        focus:outline-none
-      "
-      placeholder="Enter phone number"
-      autoComplete="off"
-    />
-  </div>
-
-      {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
-    </div>
-
-  </>
-);
+        {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
+      </div>
+    </>
+  );
+};
 
 // Step2: Membership & Focus
 const Step2: React.FC<{
@@ -727,8 +725,10 @@ const Step3: React.FC<{
 //
 // 5. MAIN MULTI-STEP COMPONENT
 //
-const BSNRegistrationForm: React.FC = () => {
-  const [formData, setFormData] = useState<FormData>({
+const BSNRegistrationForm: React.FC<{ initialData?: FormData }> = ({ initialData }) => {
+  console.log('🔍 BSNRegistrationForm received initialData:', initialData);
+
+  const defaultFormData = {
     email: "",
     firstName: "",
     lastName: "",
@@ -736,7 +736,9 @@ const BSNRegistrationForm: React.FC = () => {
     bio: "",
     organizationName: "",
     photo: null,
+    photoUrl: "",
     logo: null,
+    logoUrl: "",
     identification: "",
     gender: "",
     website: "",
@@ -744,8 +746,6 @@ const BSNRegistrationForm: React.FC = () => {
     phone: "",
     primaryIndustry: "",
     additionalFocus: [],
-    // locationCountry: "",
-    // locationCity: "",
     address: "",
     zipCode: 0,
     youtube: "",
@@ -760,13 +760,32 @@ const BSNRegistrationForm: React.FC = () => {
     showDropdown: false,
     affiliatedEntity: '',
     phoneCountryCodeTouched: false
-    
-  });
-  console.log(formData.phone, formData.phoneCountryCode)
+  };
+
+  // Initialize with merged data
+  const initialFormData = initialData ? { ...defaultFormData, ...initialData } : defaultFormData;
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+
+  // Update formData when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      console.log('📦 Updating form data with:', initialData);
+      const mergedData = { ...defaultFormData, ...initialData };
+      console.log('📦 Merged form data:', mergedData);
+      setFormData(mergedData);
+    }
+  }, [initialData]);
+
+  // Add effect to log formData changes
+  useEffect(() => {
+    console.log('📊 Form data state updated:', formData);
+  }, [formData]);
+
   const [currentStep, setCurrentStep] = useState<number>(1);
   const totalSteps = 3;
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Dropdown Data
   const [memberLevelOptions, setMemberLevelOptions] = useState<{ id: string; name: string; icon: string | null }[]>([]);
@@ -851,6 +870,7 @@ console.log("Locales:", navigator.languages);
   
   useEffect(() => {
     const fetchDropdownOptions = async () => {
+      setIsLoading(true);
       try {
         const dropdownData = await AirtableUtils.fetchTableMetadata();
         console.log("Dropdown data:", dropdownData);
@@ -921,8 +941,11 @@ console.log("Locales:", navigator.languages);
         setNameFromLocationOptions(nameFromLocationField?.options || []);
         const similarCategoriesField = dropdownData.find((f: any) => f.fieldName === "Similar Categories");
         setSimilarCategoriesOptions(similarCategoriesField?.options || []);
+
+        setIsLoading(false);
       } catch (error) {
         console.error("Error fetching dropdown options:", error);
+        setIsLoading(false);
       }
     };
     fetchDropdownOptions();
@@ -1141,6 +1164,18 @@ console.log("Locales:", navigator.languages);
       };
     });
   };
+
+  // Show loading state while fetching options
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading form options...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 py-12">
