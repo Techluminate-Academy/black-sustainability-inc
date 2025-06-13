@@ -1060,7 +1060,7 @@ console.log("Locales:", navigator.languages);
         console.log("URLs before Airtable mapping:", { photoUrl, logoUrl });
 
         // Build final data using the updated photoUrl and logoUrl values
-        const finalAirtableFields = {
+        let finalAirtableFields = {
             ...mapFormDataToAirtableFields(formData),
             ...(photoUrl ? { 
                 "PHOTO": [{ 
@@ -1075,6 +1075,11 @@ console.log("Locales:", navigator.languages);
                 }] 
             } : {})
         };
+
+        // Exclude MEMBER LEVEL
+        if (finalAirtableFields["MEMBER LEVEL"]) {
+          delete finalAirtableFields["MEMBER LEVEL"];
+        }
 
         // Debug log final Airtable fields
         console.log("Final Airtable fields:", finalAirtableFields);

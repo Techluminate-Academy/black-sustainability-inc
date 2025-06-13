@@ -2,18 +2,16 @@
 
 import axios from "axios";
 
-// ─── Dev-only Airtable configuration ────────────────────────────────────────
-// Replace the strings below with your actual development Airtable values.
-// These values are always used (no NODE_ENV check).
+// ─── Production Airtable configuration ────────────────────────────────────────
+// Use production Airtable environment variables
+const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN!;
+const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID!;
+const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME!;
 
-const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_DEV_AIRTABLE_ACCESS_TOKEN!;
-const BASE_ID = process.env.NEXT_PUBLIC_DEV_AIRTABLE_BASE_ID!;
-const TABLE_NAME = process.env.NEXT_PUBLIC_DEV_AIRTABLE_TABLE_NAME!;
-
-console.log("⛳ [DEV] Airtable →", BASE_ID, TABLE_NAME);
+console.log("⛳ [PROD] Airtable →", BASE_ID, TABLE_NAME);
 
 /**
- * Submits a new record to your dev Airtable table.
+ * Submits a new record to your prod Airtable table.
  * @param dataToSubmit - An object whose keys match column names in Airtable.
  * @returns {Promise<any>} - The Airtable response.
  */
@@ -28,19 +26,19 @@ const submitToAirtable = async (dataToSubmit: Record<string, any>) => {
 
   try {
     const response = await axios.post(url, { fields: dataToSubmit }, config);
-    console.log("✅ [DEV] Record created successfully:", response.data);
+    console.log("✅ [PROD] Record created successfully:", response.data);
     return response.data;
   } catch (error: any) {
     console.error(
-      "❌ [DEV] Error submitting data to Airtable:",
+      "❌ [PROD] Error submitting data to Airtable:",
       error.response?.data || error.message
     );
-    throw new Error("Failed to submit data to Airtable (dev).");
+    throw new Error("Failed to submit data to Airtable (prod).");
   }
 };
 
 /**
- * Fetches field metadata (e.g. single- or multi-select choices) for the dev table.
+ * Fetches field metadata (e.g. single- or multi-select choices) for the prod table.
  * @returns {Promise<Array<{ fieldName: string; fieldType: string; options: Array<{id: string; name: string; icon: any}> }>>}
  */
 export const fetchTableMetadata = async () => {
@@ -56,7 +54,7 @@ export const fetchTableMetadata = async () => {
     const tables = response.data.tables || [];
     const targetTable = tables.find((table: any) => table.id === TABLE_NAME);
     if (!targetTable) {
-      throw new Error(`Dev table '${TABLE_NAME}' not found.`);
+      throw new Error(`Prod table '${TABLE_NAME}' not found.`);
     }
 
     return targetTable.fields.map((field: any) => {
@@ -88,13 +86,13 @@ export const fetchTableMetadata = async () => {
       };
     });
   } catch (error: any) {
-    console.error("❌ [DEV] Error fetching Airtable metadata:", error.message);
-    throw new Error("Failed to fetch Airtable metadata (dev).");
+    console.error("❌ [PROD] Error fetching Airtable metadata:", error.message);
+    throw new Error("Failed to fetch Airtable metadata (prod).");
   }
 };
 
 /**
- * Updates an existing record in the dev Airtable table by record ID.
+ * Updates an existing record in the prod Airtable table by record ID.
  * @param recordId - The Airtable record ID to update.
  * @param dataToUpdate - An object whose keys match column names to update.
  * @returns {Promise<any>} - The Airtable response.
@@ -113,14 +111,14 @@ const updateRecord = async (
 
   try {
     const response = await axios.patch(url, { fields: dataToUpdate }, config);
-    console.log("✅ [DEV] Record updated successfully:", response.data);
+    console.log("✅ [PROD] Record updated successfully:", response.data);
     return response.data;
   } catch (error: any) {
     console.error(
-      "❌ [DEV] Error updating data in Airtable:",
+      "❌ [PROD] Error updating data in Airtable:",
       error.response?.data || error.message
     );
-    throw new Error("Failed to update data in Airtable (dev).");
+    throw new Error("Failed to update data in Airtable (prod).");
   }
 };
 

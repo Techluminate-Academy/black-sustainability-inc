@@ -28,13 +28,9 @@ export async function sendToAirtable(data: FreeSubmissionPayload): Promise<void>
     "EMAIL ADDRESS": data.email,
     "PRIMARY INDUSTRY HOUSE": data.primaryIndustry,
     Address: data.address,
-    Latitude: data.latitude,
-    Longitude: data.longitude,
-    MembershipType: "Free",
-
-    // Since Featured is defined as a "Single select" in your base,
-    // use exactly the option label (e.g. "checked" or whatever your option is called).
-    Featured: "checked",
+    Latitude: data.latitude !== undefined && data.latitude !== null ? String(data.latitude) : "",
+    Longitude: data.longitude !== undefined && data.longitude !== null ? String(data.longitude) : "",
+    "Membership Status Notes": "Free",
   };
 
   if (data.organizationName) {
