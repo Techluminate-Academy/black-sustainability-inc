@@ -1,30 +1,30 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useSession, signOut } from 'next-auth/react';
+// import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 
 export default function Dashboard() {
-  const { data: session, status } = useSession();
+  // const { data: session, status } = useSession();
   const router = useRouter();
 
   // Redirect to /signin if not logged in and not loading
-  useEffect(() => {
-    if (status !== 'loading' && !session) {
-      router.push('/signin');
-    }
-  }, [session, status, router]);
+  // useEffect(() => {
+  //   if (status !== 'loading' && !session) {
+  //     router.push('/signin');
+  //   }
+  // }, [session, status, router]);
 
   // Show a loading indicator if session is loading or not yet available
-  if (status === 'loading' || !session) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        Loading...
-      </div>
-    );
-  }
+  // if (status === 'loading' || !session) {
+  //   return (
+  //     <div className="flex justify-center items-center h-screen">
+  //       Loading...
+  //     </div>
+  //   );
+  // }
 
   return (
     <>
@@ -36,7 +36,7 @@ export default function Dashboard() {
         <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6">
           <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
           <p className="mb-6">
-            Welcome, <span className="font-semibold">{session.user.email}</span>!
+            Welcome, <span className="font-semibold">Demo User</span>!
           </p>
 
           {/* Dashboard Content */}
@@ -64,8 +64,9 @@ export default function Dashboard() {
             </Link>
             <button
               onClick={() => {
-                signOut();
-                router.push('/signin');
+                // signOut();
+                // router.push('/signin');
+                alert('Sign out functionality disabled for static export');
               }}
               className="px-6 py-3 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
             >

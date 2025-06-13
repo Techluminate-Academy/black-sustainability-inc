@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Head from "next/head";
-import { useSession } from "next-auth/react";
+// import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 
@@ -14,30 +14,33 @@ function maskToken(token) {
 }
 
 export default function TokenManagement() {
-  const { data: session, status } = useSession();
+  // const { data: session, status } = useSession();
   const router = useRouter();
-  const [apiToken, setApiToken] = useState(null);
+  const [apiToken, setApiToken] = useState('demo_abcd1234567890efgh');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
   // Redirect unauthenticated users
-  useEffect(() => {
-    if (status !== "loading" && !session) {
-      router.push("/signin");
-    } else if (session) {
-      fetchToken();
-    }
-  }, [session, status, router]);
+  // useEffect(() => {
+  //   if (status !== "loading" && !session) {
+  //     router.push("/signin");
+  //   } else if (session) {
+  //     fetchToken();
+  //   }
+  // }, [session, status, router]);
 
   // Fetch the current token from /api/get-token
   const fetchToken = async () => {
     try {
-      const res = await fetch("/api/get-token");
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to fetch token");
-      }
-      setApiToken(data.apiToken);
+      // Mock token fetch for static export
+      // const res = await fetch("/api/get-token");
+      // const data = await res.json();
+      // if (!res.ok) {
+      //   throw new Error(data.error || "Failed to fetch token");
+      // }
+      // setApiToken(data.apiToken);
+      
+      // Mock token already set in state
     } catch (error) {
       setMessage(error.message);
     }
@@ -48,16 +51,20 @@ export default function TokenManagement() {
     setLoading(true);
     setMessage("");
     try {
-      const res = await fetch("/api/revoke-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to revoke token");
-      }
+      // Mock token revocation for static export
+      // const res = await fetch("/api/revoke-token", {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      // });
+      // const data = await res.json();
+      // if (!res.ok) {
+      //   throw new Error(data.error || "Failed to revoke token");
+      // }
+      
+      // Simulate revocation
+      await new Promise(resolve => setTimeout(resolve, 1000));
       setApiToken(null);
-      setMessage("Token revoked successfully.");
+      setMessage("Token revoked successfully (demo mode).");
     } catch (error) {
       setMessage(error.message);
     } finally {

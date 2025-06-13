@@ -66,7 +66,7 @@ interface AirtableFields {
   "EMAIL ADDRESS": string;
   "FIRST NAME": string;
   "LAST NAME": string;
-  "MEMBER LEVEL": string[];
+  "MEMBER LEVEL"?: string[];
   "BIO": string;
   "ORGANIZATION NAME": string;
   "IDENTIFICATION": string;
@@ -103,7 +103,7 @@ const mapFormDataToAirtableFields = (formData: FormData): AirtableFields => {
     "EMAIL ADDRESS": formData.email,
     "FIRST NAME": formData.firstName,
     "LAST NAME": formData.lastName,
-    "MEMBER LEVEL": [formData.memberLevel],
+    "MEMBER LEVEL": formData.memberLevel ? [formData.memberLevel] : undefined,
     "BIO": formData.bio,
     "ORGANIZATION NAME": formData.organizationName,
     "IDENTIFICATION": formData.identification,
@@ -810,7 +810,10 @@ const BSNRegistrationForm: React.FC<{ initialData?: FormData }> = ({ initialData
   useEffect(() => {
     // Only run if the user hasn't manually selected a country code
     if (!formData.phoneCountryCodeTouched && !formData.phone) {
-      const locale = navigator.language || navigator.languages?.[0] || "en-US";
+      // Check if we're in the browser environment
+      const locale = typeof window !== 'undefined' && navigator 
+        ? (navigator.language || navigator.languages?.[0] || "en-US")
+        : "en-US";
       let defaultCode = "+1-us"; // fallback for US
   
       // Check if the locale indicates Canada
@@ -829,8 +832,12 @@ const BSNRegistrationForm: React.FC<{ initialData?: FormData }> = ({ initialData
       }));
     }
   }, []);
-  console.log("Locale:", navigator.language);
-console.log("Locales:", navigator.languages);
+  
+  // Only log in browser environment
+  if (typeof window !== 'undefined' && navigator) {
+    console.log("Locale:", navigator.language);
+    console.log("Locales:", navigator.languages);
+  }
 
   useEffect(() => {
     if (!phoneInputRef.current || formData.phoneCountryCodeTouched) return;
