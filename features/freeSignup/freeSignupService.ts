@@ -26,17 +26,21 @@ export async function sendToAirtable(data: FreeSubmissionPayload): Promise<void>
     "FIRST NAME": data.firstName,
     "LAST NAME": data.lastName,
     "EMAIL ADDRESS": data.email,
-    "PRIMARY INDUSTRY HOUSE": data.primaryIndustry,
     Address: data.address,
-    Latitude: data.latitude !== undefined && data.latitude !== null ? String(data.latitude) : "",
-    Longitude: data.longitude !== undefined && data.longitude !== null ? String(data.longitude) : "",
+    Latitude: data.latitude !== undefined && data.latitude !== null ? data.latitude.toString() : undefined,
+    Longitude: data.longitude !== undefined && data.longitude !== null ? data.longitude.toString() : undefined,
     "Membership Status Notes": "Free",
   };
 
-  if (data.organizationName) {
+  // Only add primaryIndustry if it's not empty
+  if (data.primaryIndustry && data.primaryIndustry.trim() !== "") {
+    airtableFields["PRIMARY INDUSTRY HOUSE"] = data.primaryIndustry;
+  }
+
+  if (data.organizationName && data.organizationName.trim() !== "") {
     airtableFields["ORGANIZATION NAME"] = data.organizationName;
   }
-  if (data.bio) {
+  if (data.bio && data.bio.trim() !== "") {
     airtableFields["BIO"] = data.bio;
   }
   if (data.photoUrl) {

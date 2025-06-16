@@ -10,6 +10,14 @@ const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME!;
 
 console.log("⛳ [PROD] Airtable →", BASE_ID, TABLE_NAME);
 
+// ─── Development Airtable configuration (COMMENTED OUT) ────────────────────────────────────────
+// Use development Airtable environment variables
+// const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_DEV_AIRTABLE_ACCESS_TOKEN!;
+// const BASE_ID = process.env.NEXT_PUBLIC_DEV_AIRTABLE_BASE_ID!;
+// const TABLE_NAME = process.env.NEXT_PUBLIC_DEV_AIRTABLE_TABLE_NAME!;
+
+// console.log("⛳ [DEV] Airtable →", BASE_ID, TABLE_NAME);
+
 /**
  * Submits a new record to your prod Airtable table.
  * @param dataToSubmit - An object whose keys match column names in Airtable.

@@ -69,18 +69,18 @@ interface AirtableFields {
   "MEMBER LEVEL"?: string[];
   "BIO": string;
   "ORGANIZATION NAME": string;
-  "IDENTIFICATION": string;
-  "GENDER": string;
-  "WEBSITE": string;
+  "IDENTIFICATION"?: string;
+  "GENDER"?: string;
+  "WEBSITE"?: string;
   "PHONE US/CAN ONLY": string;
-  "PRIMARY INDUSTRY HOUSE": string;
+  "PRIMARY INDUSTRY HOUSE"?: string;
   "ADDITIONAL FOCUS AREAS": string[];
-  "AFFILIATED ENTITY": string;
+  "AFFILIATED ENTITY"?: string;
   "Zip/Postal Code": number;
-  "YOUTUBE": string;
-  "Location (Nearest City)": string;
-  "Name (from Location)": string;
-  "FUNDING GOAL": string;
+  "YOUTUBE"?: string;
+  "Location (Nearest City)"?: string;
+  "Name (from Location)"?: string;
+  "FUNDING GOAL"?: string;
   "Similar Categories": string[];
   "NAICS Code": string;
   "Featured": boolean;
@@ -95,8 +95,7 @@ interface AirtableFields {
 
 // 3. Map formData -> Airtable fields
 const mapFormDataToAirtableFields = (formData: FormData): AirtableFields => {
-  // Extract the dial code from the stored value (e.g., from "+1-us" get "+1")
-  const dialCode = formData.phoneCountryCode.split("-")[0];
+  const dialCode = formData.phoneCountryCode.split("-")[0]; // E.g., "+1-us" -> "+1"
   const fullPhone = dialCode + formData.phone;
 
   const airtableFields: AirtableFields = {
@@ -106,18 +105,9 @@ const mapFormDataToAirtableFields = (formData: FormData): AirtableFields => {
     "MEMBER LEVEL": formData.memberLevel ? [formData.memberLevel] : undefined,
     "BIO": formData.bio,
     "ORGANIZATION NAME": formData.organizationName,
-    "IDENTIFICATION": formData.identification,
-    "GENDER": formData.gender,
-    "WEBSITE": formData.website,
     "PHONE US/CAN ONLY": fullPhone,
-    "PRIMARY INDUSTRY HOUSE": formData.primaryIndustry,
     "ADDITIONAL FOCUS AREAS": formData.additionalFocus,
-    "AFFILIATED ENTITY": formData.affiliatedEntity,
     "Zip/Postal Code": formData.zipCode,
-    "YOUTUBE": formData.youtube,
-    "Location (Nearest City)": formData.nearestCity,
-    "Name (from Location)": formData.nameFromLocation,
-    "FUNDING GOAL": formData.fundingGoal,
     "Similar Categories": formData.similarCategories.filter(
       (cat) => cat && cat.trim() !== ""
     ),
@@ -127,6 +117,35 @@ const mapFormDataToAirtableFields = (formData: FormData): AirtableFields => {
     "Longitude": formData.longitude !== null ? formData.longitude.toString() : "",
     "Address": formData.address,
   };
+
+  // Only include select fields if they have valid values (not empty strings)
+  if (formData.identification && formData.identification.trim() !== "") {
+    airtableFields["IDENTIFICATION"] = formData.identification;
+  }
+  if (formData.gender && formData.gender.trim() !== "") {
+    airtableFields["GENDER"] = formData.gender;
+  }
+  if (formData.website && formData.website.trim() !== "") {
+    airtableFields["WEBSITE"] = formData.website;
+  }
+  if (formData.primaryIndustry && formData.primaryIndustry.trim() !== "") {
+    airtableFields["PRIMARY INDUSTRY HOUSE"] = formData.primaryIndustry;
+  }
+  if (formData.affiliatedEntity && formData.affiliatedEntity.trim() !== "") {
+    airtableFields["AFFILIATED ENTITY"] = formData.affiliatedEntity;
+  }
+  if (formData.youtube && formData.youtube.trim() !== "") {
+    airtableFields["YOUTUBE"] = formData.youtube;
+  }
+  if (formData.nearestCity && formData.nearestCity.trim() !== "") {
+    airtableFields["Location (Nearest City)"] = formData.nearestCity;
+  }
+  if (formData.nameFromLocation && formData.nameFromLocation.trim() !== "") {
+    airtableFields["Name (from Location)"] = formData.nameFromLocation;
+  }
+  if (formData.fundingGoal && formData.fundingGoal.trim() !== "") {
+    airtableFields["FUNDING GOAL"] = formData.fundingGoal;
+  }
 
   // Add photo if available
   if (formData.photoUrl) {
