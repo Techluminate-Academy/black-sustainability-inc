@@ -15,8 +15,7 @@
 //   port: 587,
 //   secure: false, // Use TLS
 //   auth: {
-//     user: "members@blacksustainability.org",
-//     pass: "vlljgivmqetinktu"
+
 //   }
 // });
 
