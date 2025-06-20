@@ -58,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           bio: record.fields['BIO'],
           photo: record.fields['PHOTO'],
           logo: record.fields['LOGO'],
-          memberLevel: record.fields['MembershipType'],
+          "MEMBER LEVEL": record.fields['MEMBER LEVEL'],
           organizationName: record.fields['ORGANIZATION NAME'],
           identification: record.fields['IDENTIFICATION'],
           gender: record.fields['GENDER'],

@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { connectToDatabase } from '../../../lib/mongodb';
+import nodemailer from 'nodemailer';
 import axios from 'axios';
 
 // Airtable credentials
@@ -7,8 +8,14 @@ const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
 const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
 const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
 
-// Mailchimp API credentials
-const MAILCHIMP_API_KEY = process.env.MAILCHIMP_API_KEY;
+// Create Gmail transporter configuration
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD
+  }
+});
 
 // Check if user exists in Airtable
 async function checkUserInAirtable(email: string) {
@@ -40,28 +47,8 @@ async function checkUserInAirtable(email: string) {
   }
 }
 
-// Add email to Mandrill allowlist to resolve domain mismatch issues
-async function addToAllowlist(email: string) {
-  try {
-    console.log('📝 Adding email to Mandrill allowlist:', email);
-    
-    const response = await axios.post('https://mandrillapp.com/api/1.0/allowlists/add', {
-      key: MAILCHIMP_API_KEY,
-      email: email,
-      comment: 'BSN profile verification access'
-    });
-
-    console.log('✅ Successfully added to allowlist:', response.data);
-    return response.data;
-  } catch (error: any) {
-    console.error('❌ Failed to add to allowlist:', error.response?.data || error.message);
-    // Don't throw error - continue with email sending even if allowlist fails
-    return null;
-  }
-}
-
-// Send verification email using Mandrill API directly with proper format
-async function sendVerificationEmailMandrill(email: string, code: string, firstName?: string) {
+// Send verification email using Gmail SMTP
+async function sendVerificationEmail(email: string, code: string, firstName?: string) {
   const htmlContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="text-align: center; margin-bottom: 30px;">
@@ -99,112 +86,23 @@ async function sendVerificationEmailMandrill(email: string, code: string, firstN
 
   const textContent = `Hello ${firstName ? firstName : ''}!\n\nYou requested to access your BSN profile. Please use this verification code: ${code}\n\nThis code will expire in 10 minutes for security reasons.\n\nIf you didn't request this code, please ignore this email.\n\n© 2024 Black Sustainability, Inc.`;
 
-  // First try to add email to allowlist
-  await addToAllowlist(email);
-
-  // Use the exact format from Mandrill documentation
-  const requestBody = {
-    key: MAILCHIMP_API_KEY,
-    message: {
-      html: htmlContent,
-      text: textContent,
-      subject: 'Your BSN Profile Access Code',
-      from_email: 'info@blacksustainability.org',
-      from_name: 'Black Sustainability, Inc.',
-      to: [
-        {
-          email: email,
-          type: 'to'
-        }
-      ],
-      headers: {},
-      important: false,
-      track_opens: false,
-      track_clicks: false,
-      auto_text: false,
-      auto_html: false,
-      inline_css: false,
-      url_strip_qs: false,
-      preserve_recipients: false,
-      view_content_link: false,
-      bcc_address: '',
-      tracking_domain: '',
-      signing_domain: '',
-      return_path_domain: '',
-      merge: false,
-      merge_language: 'mailchimp',
-      global_merge_vars: [],
-      merge_vars: [],
-      tags: [],
-      google_analytics_domains: [],
-      google_analytics_campaign: '',
-      metadata: {
-        website: ''
-      },
-      recipient_metadata: [],
-      attachments: [],
-      images: []
-    },
-    async: false,
-    ip_pool: '',
-    send_at: ''
-  };
-
   try {
-    console.log('📧 Sending via Mandrill API with exact documentation format...');
-    console.log('- From:', requestBody.message.from_email);
-    console.log('- To:', email);
-    console.log('- API Key (first 5):', MAILCHIMP_API_KEY?.substring(0, 5) + '...');
+    console.log('📧 Sending verification email via Gmail SMTP...');
     
-    const response = await axios.post('https://mandrillapp.com/api/1.0/messages/send', requestBody, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
+    const mailOptions = {
+      from: process.env.GMAIL_USER,
+      to: email,
+      subject: 'Your BSN Profile Access Code',
+      text: textContent,
+      html: htmlContent
+    };
 
-    console.log('📧 Mandrill API response:', JSON.stringify(response.data, null, 2));
+    const info = await transporter.sendMail(mailOptions);
+    console.log('📧 Email sent successfully:', info.messageId);
+    return info;
     
-    // Check if any messages were rejected
-    const rejectedMessages = response.data.filter((msg: any) => msg.status === 'rejected');
-    if (rejectedMessages.length > 0) {
-      console.error('❌ Some messages were rejected:', rejectedMessages);
-      
-      // If still getting domain mismatch, try alternative approach
-      if (rejectedMessages[0].reject_reason === 'recipient-domain-mismatch') {
-        console.log('🔄 Attempting alternative sender configuration...');
-        
-        // Try with a different from_email that might work better
-        const alternativeRequestBody = {
-          ...requestBody,
-          message: {
-            ...requestBody.message,
-            from_email: 'noreply@blacksustainability.org',
-            from_name: 'BSN Verification System'
-          }
-        };
-        
-        const retryResponse = await axios.post('https://mandrillapp.com/api/1.0/messages/send', alternativeRequestBody, {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        console.log('📧 Retry response:', JSON.stringify(retryResponse.data, null, 2));
-        
-        const retryRejected = retryResponse.data.filter((msg: any) => msg.status === 'rejected');
-        if (retryRejected.length > 0) {
-          throw new Error(`Email still rejected: ${retryRejected[0].reject_reason || 'Unknown reason'}`);
-        }
-        
-        return retryResponse.data;
-      } else {
-        throw new Error(`Email rejected: ${rejectedMessages[0].reject_reason || 'Unknown reason'}`);
-      }
-    }
-    
-    return response.data;
   } catch (error: any) {
-    console.error('❌ Mandrill API error:', error.response?.data || error.message);
+    console.error('❌ Failed to send email:', error);
     throw error;
   }
 }
@@ -259,7 +157,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('💾 Stored verification code in MongoDB');
 
     // 4. Send verification email
-    await sendVerificationEmailMandrill(email, code, airtableUser.firstName);
+    await sendVerificationEmail(email, code, airtableUser.firstName);
     console.log('📧 Verification email sent successfully');
 
     res.status(200).json({ 

@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { connectToDatabase } from '../../../lib/mongodb';
+import jwt from 'jsonwebtoken';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -13,71 +14,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    console.log('🔐 Verifying code for email:', email);
-    
     const { db } = await connectToDatabase();
-    
-    // Look up verification record
-    const verification = await db.collection('verifications').findOne({ email });
+
+    // Find verification code document
+    const verification = await db.collection('verifications').findOne({
+      email,
+      code,
+      verified: false,
+      expiresAt: { $gt: new Date() }
+    });
 
     if (!verification) {
-      console.log('❌ No verification record found for email:', email);
-      return res.status(400).json({ error: 'No verification code found. Please request a new code.' });
+      return res.status(400).json({ error: 'Invalid or expired verification code' });
     }
 
-    // Check if code has expired
-    if (verification.expiresAt < new Date()) {
-      console.log('❌ Verification code expired for email:', email);
-      // Delete expired record
-      await db.collection('verifications').deleteOne({ email });
-      return res.status(400).json({ error: 'Verification code has expired. Please request a new code.' });
-    }
-
-    // Check if too many attempts
-    if (verification.attempts >= 3) {
-      console.log('❌ Too many attempts for email:', email);
-      // Delete record after too many attempts
-      await db.collection('verifications').deleteOne({ email });
-      return res.status(400).json({ error: 'Too many failed attempts. Please request a new code.' });
-    }
-
-    // Check if code matches
-    if (verification.code !== code) {
-      console.log('❌ Invalid code provided for email:', email);
-      
-      // Increment attempts
-      await db.collection('verifications').updateOne(
-        { email },
-        { $inc: { attempts: 1 } }
-      );
-      
-      const newAttempts = verification.attempts + 1;
-      const remainingAttempts = 3 - newAttempts;
-      
-      return res.status(400).json({ 
-        error: `Invalid verification code. ${remainingAttempts} attempts remaining.` 
-      });
-    }
-
-    // Code is valid - mark as verified
-    await db.collection('verifications').updateOne(
-      { email },
-      { $set: { verified: true } }
+    // Generate token
+    const token = jwt.sign(
+      { 
+        email: verification.email,
+        firstName: verification.userData?.firstName,
+        exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hour expiration
+      },
+      process.env.JWT_SECRET!
     );
 
-    console.log('✅ Code verified successfully for email:', email);
+    // Invalidate the verification code
+    await db.collection('verifications').updateOne(
+      { _id: verification._id },
+      { 
+        $set: { 
+          expiresAt: new Date(Date.now() - 1000),
+          verified: true 
+        } 
+      }
+    );
 
-    res.status(200).json({ 
-      success: true, 
-      message: 'Code verified successfully',
-      userData: verification.userData 
+    res.status(200).json({
+      success: true,
+      token,
+      expiresIn: 3600, // 1 hour in seconds
+      userData: verification.userData
     });
 
   } catch (error: any) {
-    console.error('❌ Error verifying code:', error);
-    res.status(500).json({ 
-      error: 'Failed to verify code',
-      details: error.message 
-    });
+    console.error('Error verifying code:', error);
+    res.status(500).json({ error: 'Failed to verify code' });
   }
 } 

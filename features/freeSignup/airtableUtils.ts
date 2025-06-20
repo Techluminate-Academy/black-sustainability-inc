@@ -100,15 +100,12 @@ export const fetchTableMetadata = async () => {
 };
 
 /**
- * Updates an existing record in the prod Airtable table by record ID.
- * @param recordId - The Airtable record ID to update.
- * @param dataToUpdate - An object whose keys match column names to update.
- * @returns {Promise<any>} - The Airtable response.
+ * Updates an existing record in Airtable
+ * @param recordId - The ID of the record to update
+ * @param dataToUpdate - The fields to update
+ * @returns {Promise<any>} - The Airtable response
  */
-const updateRecord = async (
-  recordId: string,
-  dataToUpdate: Record<string, any>
-) => {
+const updateRecord = async (recordId: string, dataToUpdate: Record<string, any>) => {
   const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}/${recordId}`;
   const config = {
     headers: {
@@ -118,7 +115,11 @@ const updateRecord = async (
   };
 
   try {
-    const response = await axios.patch(url, { fields: dataToUpdate }, config);
+    const response = await axios.patch(
+      url,
+      { fields: dataToUpdate },
+      config
+    );
     console.log("✅ [PROD] Record updated successfully:", response.data);
     return response.data;
   } catch (error: any) {
@@ -133,5 +134,5 @@ const updateRecord = async (
 export default {
   fetchTableMetadata,
   submitToAirtable,
-  updateRecord,
+  updateRecord
 };

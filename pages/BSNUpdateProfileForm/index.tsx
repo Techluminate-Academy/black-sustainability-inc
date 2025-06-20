@@ -11,18 +11,7 @@ import { allCountries } from "country-telephone-data";
 import logo from "@/public/png/bsn-logo.png";
 import CountryCodeDropdown from "../../components/CountryCodeDropdown/CountryCodeDropdown";
 import Link from "next/link";
-// Hard-coded member level options
-const HARDCODED_MEMBER_LEVELS = [
-  { id: "recGP35SbgqyZ4FQN", name: "🏢 Entity - Black & Green Organization" },
-  { id: "recgWTcJQnfOQW0Dm", name: "👓 Enthusiast - Excited to Learn" },
-  { id: "rectzSiMASJ9OcN52", name: "🥋 Expert - Experienced Professional" },
-  { id: "recEqcQWORWPnOh3d", name: "Young Environmental Scholar" },
-];
-
-
-
-
-
+import { HARDCODED_MEMBER_LEVELS } from '@/constants/member-levels';
 
 export interface FormData {
   email: string;
@@ -92,7 +81,6 @@ const defaultFormData: FormData = {
   phoneCountryCodeTouched: false,
 };
 
-
 export interface InitialData extends FormData {
   id: string;           // Airtable record ID  
   airtableId: string;   // same as `id`, used for Mongo lookup  
@@ -102,8 +90,6 @@ interface BSNUpdateProfileFormProps {
   /** ⬅️ MODIFIED: expects InitialData, not just FormData */
   initialData?: InitialData;
 }
-
-
 
 // 1) Raw shape from country-telephone-data  
 interface RawCountry {
@@ -126,7 +112,6 @@ const internationalOptions: IntlOption[] = raw.map((country) => ({
   country: country.name,
   iso2:    country.iso2 ?? "",       // ⬅️ MODIFIED: guarantee string
 }));
-
 
 // Map formData to the fields structure expected by Airtable
 const mapFormDataToAirtableFields = (formData: FormData) => {
@@ -680,8 +665,6 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
 
   const [authenticatedUser, setAuthenticatedUser] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-
 
   useEffect(() => {
     if (!initialData) return;

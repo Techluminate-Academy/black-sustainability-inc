@@ -14,15 +14,7 @@ import Image from 'next/image';
 import { allCountries } from "country-telephone-data";
 import logo from '@/public/png/bsn-logo.png'
 import CountryCodeDropdown from "../../components/CountryCodeDropdown/CountryCodeDropdown";
-
-// You can define this array at the top of your file or outside your component
-const HARDCODED_MEMBER_LEVELS = [
-  { id: "recGP35SbgqyZ4FQN", name: "🏢 Entity - Black & Green Organization" },
-  { id: "recgWTcJQnfOQW0Dm", name: "👓 Enthusiast - Excited to Learn" },
-  { id: "rectzSiMASJ9OcN52", name: "🥋 Expert - Experienced Professional" },
-  { id: "recEqcQWORWPnOh3d", name: "Young Environmental Scholar" },
-];
-
+import { HARDCODED_MEMBER_LEVELS } from '@/constants/member-levels';
 
 // 1. TYPES & INTERFACES
 interface FormData {
@@ -93,10 +85,22 @@ interface AirtableFields {
 
 
 
+// Helper function to format phone numbers as (XXX) XXX-XXXX
+const formatPhoneNumber = (phoneNumber: string) => {
+  // Remove all non-numeric characters
+  const cleaned = phoneNumber.replace(/\D/g, '');
+  
+  // Format as (XXX) XXX-XXXX
+  if (cleaned.length === 10) {
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+  }
+  return phoneNumber;
+};
+
 // 3. Map formData -> Airtable fields
 const mapFormDataToAirtableFields = (formData: FormData): AirtableFields => {
-  const dialCode = formData.phoneCountryCode.split("-")[0]; // E.g., "+1-us" -> "+1"
-  const fullPhone = dialCode + formData.phone;
+  // Format the phone number
+  const phoneNumber = formatPhoneNumber(formData.phone);
 
   const airtableFields: AirtableFields = {
     "EMAIL ADDRESS": formData.email,
@@ -105,7 +109,7 @@ const mapFormDataToAirtableFields = (formData: FormData): AirtableFields => {
     "MEMBER LEVEL": formData.memberLevel ? [formData.memberLevel] : undefined,
     "BIO": formData.bio,
     "ORGANIZATION NAME": formData.organizationName,
-    "PHONE US/CAN ONLY": fullPhone,
+    "PHONE US/CAN ONLY": phoneNumber,
     "ADDITIONAL FOCUS AREAS": formData.additionalFocus,
     "Zip/Postal Code": formData.zipCode,
     "Similar Categories": formData.similarCategories.filter(
@@ -378,7 +382,7 @@ const Step2: React.FC<{
           className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="">Select</option>
-          {HARDCODED_MEMBER_LEVELS.map((option) => (
+          {memberLevelOptions.map((option) => (
             <option key={option.id} value={option.id}>
               {option.name}
             </option>
@@ -807,7 +811,12 @@ const BSNRegistrationForm: React.FC<{ initialData?: FormData }> = ({ initialData
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Dropdown Data
-  const [memberLevelOptions, setMemberLevelOptions] = useState<{ id: string; name: string; icon: string | null }[]>([]);
+  const [memberLevelOptions, setMemberLevelOptions] = useState<{ id: string; name: string; icon: string | null }[]>(
+    HARDCODED_MEMBER_LEVELS.map(level => ({
+      ...level,
+      icon: null
+    }))
+  );
   const [identificationOptions, setIdentificationOptions] = useState<any[]>([]);
   const [genderOptions, setGenderOptions] = useState<any[]>([]);
   const [locationCountryOptions, setLocationCountryOptions] = useState<any[]>([]);
@@ -900,29 +909,7 @@ const BSNRegistrationForm: React.FC<{ initialData?: FormData }> = ({ initialData
       try {
         const dropdownData = await AirtableUtils.fetchTableMetadata();
         console.log("Dropdown data:", dropdownData);
-        const memberLevelField = dropdownData.find((f: any) => f.fieldName === "MEMBER LEVEL");
-        if (memberLevelField) {
-          const allowedOptions = [
-            "👓 Enthusiast -Excited to Learn",
-            "🥋 Expert - Experienced Professional",
-            "🏢 Entity - Black & Green Organization",
-            "Young Environmental Scholar",
-          ];
-
-          // Filter out any options that aren't in your 4 allowed names
-          const filteredOptions = memberLevelField.options.filter((o: any) =>
-            allowedOptions.includes(o.name)
-          );
-
-          // Alphabetize them by .name
-          const sortedOptions = filteredOptions
-            .slice()
-            .sort((a: any, b: any) =>
-              a.name.localeCompare(b.name, "en", { sensitivity: "base" })
-            );
-
-          setMemberLevelOptions(sortedOptions);
-        }
+        
         const countryField = dropdownData.find((f: any) => f.fieldName === "Country");
         if (countryField) {
           setLocationCountryOptions(countryField.options);
@@ -941,7 +928,6 @@ const BSNRegistrationForm: React.FC<{ initialData?: FormData }> = ({ initialData
           // 3. Set state with the cleaned-up sorted array
           setIdentificationOptions(sortedIdentifications);
         }
-        // setIdentificationOptions(identificationField?.options || []);
         const genderField = dropdownData.find((f: any) => f.fieldName === "GENDER");
         setGenderOptions(genderField?.options || []);
         const primaryIndustryField = dropdownData.find((f: any) => f.fieldName === "PRIMARY INDUSTRY HOUSE");
@@ -962,7 +948,6 @@ const BSNRegistrationForm: React.FC<{ initialData?: FormData }> = ({ initialData
           console.log(sortedIndustry, 'Sorted by ignoring leading emojis/spaces');
           setPrimaryIndustryOptions(sortedIndustry);
         }
-        // setPrimaryIndustryOptions(primaryIndustryField?.options || []);
         const nameFromLocationField = dropdownData.find((f: any) => f.fieldName === "Name (from Location)");
         setNameFromLocationOptions(nameFromLocationField?.options || []);
         const similarCategoriesField = dropdownData.find((f: any) => f.fieldName === "Similar Categories");
@@ -1018,8 +1003,12 @@ const BSNRegistrationForm: React.FC<{ initialData?: FormData }> = ({ initialData
     return Object.keys(newErrors).length === 0;
   };
 
-  const nextStep = () => {
-    if (validateStep()) setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
+  const nextStep = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();           // Prevent form submission
+    e.stopPropagation();         // Stop event bubbling
+    if (validateStep()) {
+      setCurrentStep((s) => Math.min(s + 1, totalSteps));
+    }
   };
   const prevStep = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
@@ -1102,17 +1091,32 @@ const BSNRegistrationForm: React.FC<{ initialData?: FormData }> = ({ initialData
             } : {})
         };
 
-        // Exclude MEMBER LEVEL
-        if (finalAirtableFields["MEMBER LEVEL"]) {
-          delete finalAirtableFields["MEMBER LEVEL"];
-        }
-
         // Debug log final Airtable fields
         console.log("Final Airtable fields:", finalAirtableFields);
 
-        // Submit to Airtable
-        const response = await AirtableUtils.submitToAirtable(finalAirtableFields);
-        console.log("Airtable submission response:", response);
+        // First, try to find existing record by email
+        const url = `https://api.airtable.com/v0/${process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID}/${process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME}`;
+        const searchResponse = await fetch(url + `?filterByFormula={EMAIL ADDRESS}='${formData.email}'`, {
+            headers: {
+                'Authorization': `Bearer ${process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN}`,
+                'Content-Type': 'application/json',
+            },
+        });
+        
+        const searchData = await searchResponse.json();
+        
+        let response;
+        if (searchData.records && searchData.records.length > 0) {
+            // Record exists, update it
+            const recordId = searchData.records[0].id;
+            response = await AirtableUtils.updateRecord(recordId, finalAirtableFields);
+            console.log("Airtable record updated:", response);
+        } else {
+            // No existing record, create new one
+            response = await AirtableUtils.submitToAirtable(finalAirtableFields);
+            console.log("New Airtable record created:", response);
+        }
+
         setIsSubmitted(true);
     } catch (error) {
         console.error("Submission error:", error);
@@ -1233,7 +1237,14 @@ const BSNRegistrationForm: React.FC<{ initialData?: FormData }> = ({ initialData
         </div>
       ) : (
         
-        <form onSubmit={handleSubmit} className="w-full max-w-3xl bg-white p-6 rounded-lg shadow-md space-y-6">
+        <form onSubmit={(e) => {
+          // Only allow form submission on the final step
+          if (currentStep !== 3) {
+            e.preventDefault();
+            return;
+          }
+          handleSubmit(e);
+        }} className="w-full max-w-3xl bg-white p-6 rounded-lg shadow-md space-y-6">
             <div className="flex justify-center mb-6">
             <Image
               src={logo}

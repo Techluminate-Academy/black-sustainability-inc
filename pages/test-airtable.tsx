@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import BSNRegistrationForm from '@/pages/bsn-registration';
+import { HARDCODED_MEMBER_LEVELS } from '@/constants/member-levels';
 
 export default function TestAirtable() {
   const [email, setEmail] = useState('');
@@ -12,6 +13,128 @@ export default function TestAirtable() {
   const [emailSent, setEmailSent] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [userName, setUserName] = useState('');
+
+  useEffect(() => {
+    const checkExistingToken = async () => {
+      const token = localStorage.getItem('profileAccessToken');
+      
+      if (token) {
+        try {
+          // Verify token is still valid
+          const response = await fetch('/api/auth/check-token', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          if (response.ok) {
+            // Token is valid, auto-fetch user data
+            const tokenData = JSON.parse(atob(token.split('.')[1]));
+            setEmail(tokenData.email);
+            
+            // Fetch user data using the token
+            const userResponse = await fetch(
+              `/api/airtable/get-user?email=${encodeURIComponent(tokenData.email)}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              }
+            );
+            
+            if (userResponse.ok) {
+              const data = await userResponse.json();
+              const transformedData = transformUserData(data.data);
+              setUserData(transformedData);
+              setFormReady(true);
+            }
+          } else {
+            // Token expired or invalid, remove it
+            localStorage.removeItem('profileAccessToken');
+          }
+        } catch (error) {
+          console.error('Error checking token:', error);
+          localStorage.removeItem('profileAccessToken');
+        }
+      }
+    };
+
+    checkExistingToken();
+  }, []);
+
+  // Helper function to format phone numbers as (XXX) XXX-XXXX
+  const formatPhoneNumber = (phoneNumber: string) => {
+    // Remove all non-numeric characters
+    const cleaned = phoneNumber.replace(/\D/g, '');
+    
+    // Format as (XXX) XXX-XXXX
+    if (cleaned.length === 10) {
+      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+    }
+    return phoneNumber;
+  };
+
+  const transformUserData = (data: any) => {
+    // Get the phone number and remove any +1 prefix if it exists
+    let phoneNumber = (data?.fields?.phone || '').replace(/^\+1/, '');
+    
+    // If the phone number is not already in (XXX) XXX-XXXX format,
+    // clean it and format it
+    if (phoneNumber && !phoneNumber.includes('(')) {
+      phoneNumber = phoneNumber.replace(/\D/g, '');
+      if (phoneNumber.length === 10) {
+        phoneNumber = formatPhoneNumber(phoneNumber);
+      }
+    }
+
+    // Get member level ID from the MEMBER LEVEL array in Airtable
+    // This is a linked record, so we get the record ID directly
+    let memberLevel = '';
+    if (Array.isArray(data?.fields?.["MEMBER LEVEL"]) && data.fields["MEMBER LEVEL"].length > 0) {
+      // Use the record ID directly - this matches our HARDCODED_MEMBER_LEVELS ids
+      memberLevel = data.fields["MEMBER LEVEL"][0];
+    }
+
+    // Debug log for member level
+    console.log('🎯 Member Level from Airtable:', {
+      raw: data?.fields?.["MEMBER LEVEL"],
+      transformed: memberLevel
+    });
+
+    return {
+      email: data?.fields?.email || '',
+      firstName: data?.fields?.firstName || '',
+      lastName: data?.fields?.lastName || '',
+      memberLevel: memberLevel, // This will be the Airtable record ID
+      bio: data?.fields?.bio || '',
+      organizationName: data?.fields?.organizationName || '',
+      photo: null,
+      photoUrl: data?.fields?.photo?.[0]?.url || '',
+      logo: null,
+      logoUrl: data?.fields?.logo?.[0]?.url || '',
+      identification: data?.fields?.identification || '',
+      gender: data?.fields?.gender || '',
+      website: data?.fields?.website || '',
+      phoneCountryCode: '+1-us',
+      phone: phoneNumber,
+      primaryIndustry: data?.fields?.primaryIndustry || '',
+      additionalFocus: data?.fields?.additionalFocus || [],
+      address: data?.fields?.address || '',
+      zipCode: data?.fields?.zipCode || 0,
+      youtube: data?.fields?.youtube || '',
+      nearestCity: data?.fields?.nearestCity || '',
+      nameFromLocation: data?.fields?.nameFromLocation || '',
+      fundingGoal: data?.fields?.fundingGoal || '',
+      similarCategories: data?.fields?.similarCategories || [],
+      naicsCode: data?.fields?.naicsCode || '',
+      includeOnMap: data?.fields?.includeOnMap || false,
+      latitude: data?.fields?.latitude || null,
+      longitude: data?.fields?.longitude || null,
+      showDropdown: false,
+      affiliatedEntity: data?.fields?.affiliatedEntity || '',
+      phoneCountryCodeTouched: false
+    };
+  };
 
   const sendVerificationEmail = async () => {
     setLoading(true);
@@ -60,7 +183,7 @@ export default function TestAirtable() {
     try {
       console.log('🔐 Verifying code for email:', email);
       
-      // First verify the code
+      // First verify the code and get access token
       const verifyResponse = await fetch('/api/auth/verify-code', {
         method: 'POST',
         headers: {
@@ -75,59 +198,34 @@ export default function TestAirtable() {
         throw new Error(verifyData.error || 'Invalid verification code');
       }
 
-      console.log('✅ Code verified, fetching user data');
-
-      // Now fetch the full user data from Airtable
-      const response = await fetch(
-        `/api/airtable/get-user?email=${encodeURIComponent(email)}`
-      );
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch data');
+      // Store the token
+      if (verifyData.token) {
+        localStorage.setItem('profileAccessToken', verifyData.token);
       }
 
+      console.log('✅ Code verified, fetching user data');
+
+      // Now fetch the full user data from Airtable using the token
+      const response = await fetch(
+        `/api/airtable/get-user?email=${encodeURIComponent(email)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${verifyData.token}`
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+
+      const data = await response.json();
       console.log('🔍 Raw API response:', data);
 
-      // Transform the data to match BSNRegistrationForm's expected format
-      const transformedData = {
-        email: data.data?.fields?.email || '',
-        firstName: data.data?.fields?.firstName || '',
-        lastName: data.data?.fields?.lastName || '',
-        memberLevel: data.data?.fields?.memberLevel || '',
-        bio: data.data?.fields?.bio || '',
-        organizationName: data.data?.fields?.organizationName || '',
-        photo: null,
-        photoUrl: data.data?.fields?.photo?.[0]?.url || '',
-        logo: null,
-        logoUrl: data.data?.fields?.logo?.[0]?.url || '',
-        identification: data.data?.fields?.identification || '',
-        gender: data.data?.fields?.gender || '',
-        website: data.data?.fields?.website || '',
-        phoneCountryCode: data.data?.fields?.phoneCountryCode || '+1-us',
-        phone: data.data?.fields?.phone || '',
-        primaryIndustry: data.data?.fields?.primaryIndustry || '',
-        additionalFocus: data.data?.fields?.additionalFocus || [],
-        address: data.data?.fields?.address || '',
-        zipCode: data.data?.fields?.zipCode || 0,
-        youtube: data.data?.fields?.youtube || '',
-        nearestCity: data.data?.fields?.nearestCity || '',
-        nameFromLocation: data.data?.fields?.nameFromLocation || '',
-        fundingGoal: data.data?.fields?.fundingGoal || '',
-        similarCategories: data.data?.fields?.similarCategories || [],
-        naicsCode: data.data?.fields?.naicsCode || '',
-        includeOnMap: data.data?.fields?.includeOnMap || false,
-        latitude: data.data?.fields?.latitude || null,
-        longitude: data.data?.fields?.longitude || null,
-        showDropdown: false,
-        affiliatedEntity: data.data?.fields?.affiliatedEntity || '',
-        phoneCountryCodeTouched: false
-      };
-      
+      const transformedData = transformUserData(data.data);
       console.log('📦 Transformed data:', transformedData);
       setUserData(transformedData);
       
-      // Add a small delay to ensure state is set before marking as ready
       setTimeout(() => {
         setFormReady(true);
       }, 100);
@@ -141,6 +239,7 @@ export default function TestAirtable() {
   };
 
   const resetFlow = () => {
+    localStorage.removeItem('profileAccessToken');
     setEmail('');
     setVerificationCode('');
     setEmailSent(false);
