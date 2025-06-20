@@ -353,14 +353,8 @@ export default function TestAirtable() {
         {/* BSN Registration Form */}
         {userData && formReady && (
           <div>
-            <div className="mb-4 p-4 bg-green-50 rounded-lg flex justify-between items-center">
+            <div className="mb-4 p-4 bg-green-50 rounded-lg">
               <p className="text-green-800">✅ Profile accessed successfully for: {userData.email}</p>
-              <button
-                onClick={resetFlow}
-                className="px-4 py-2 bg-green-200 text-green-800 rounded hover:bg-green-300 text-sm"
-              >
-                Access Different Profile
-              </button>
             </div>
             <BSNRegistrationForm key={userData.email} initialData={userData} />
           </div>
