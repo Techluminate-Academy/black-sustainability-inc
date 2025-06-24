@@ -253,32 +253,49 @@ export default function TestAirtable() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold mb-8">Access Your BSN Profile</h1>
+        <h1 className="text-2xl font-bold mb-8">Upgrade Your Free BSN Profile - Register for BSN Membership</h1>
         
         {/* Step 1: Email Input */}
         {!emailSent && !userData && (
-          <div className="bg-white p-6 rounded-lg shadow mb-8">
-            <h2 className="text-xl font-semibold mb-4">Enter Your Email</h2>
-            <p className="text-gray-600 mb-4">
-              We'll send you a verification code to access your profile securely.
-            </p>
-            <div className="flex gap-4 mb-4">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email address"
-                className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                onClick={sendVerificationEmail}
-                disabled={loading || !email.trim()}
-                className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Sending...' : 'Send Code'}
-              </button>
+          <>
+            <div className="mb-6 text-center">
+              <h2 className="text-xl font-semibold">
+                Black Sustainability Network (BSN) Member Registration
+              </h2>
+              <p className="text-gray-600 mt-2">
+                Welcome to our community of sustainability practitioners of African
+                descent. If you are Black AND Green, please fill out the
+                information below to apply to join our network of over 2,300 people.
+              </p>
+              <p className="text-gray-600 mt-2 font-bold">We exist and are growing!</p>
+              <p className="text-gray-600 mt-2 text-sm">
+                *Not Black AND Green? No worries, email info@blacksustainability.org
+                to find out how best to connect with us.
+              </p>
             </div>
-          </div>
+            <div className="bg-white p-6 rounded-lg shadow mb-8">
+              <h2 className="text-xl font-semibold mb-4">Upgrade Your Free BSN Profile - Register for BSN Membership</h2>
+              <p className="text-gray-600 mb-4">
+                We'll send you a verification code to access your profile securely.
+              </p>
+              <div className="flex gap-4 mb-4">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email address"
+                  className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={sendVerificationEmail}
+                  disabled={loading || !email.trim()}
+                  className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Sending...' : 'Send Code'}
+                </button>
+              </div>
+            </div>
+          </>
         )}
 
         {/* Step 2: Verification Code Input */}
