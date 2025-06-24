@@ -859,7 +859,7 @@ const BSNRegistrationForm: React.FC<{ initialData?: FormData }> = ({ initialData
   // For populating dropdowns
   const [memberLevelOptions, setMemberLevelOptions] = useState<
     { id: string; name: string; icon: string | null }[]
-  >(HARDCODED_MEMBER_LEVELS.map(level => ({ ...level, icon: null })));
+  >(HARDCODED_MEMBER_LEVELS.map((level) => ({ ...level, icon: null })));
   const [identificationOptions, setIdentificationOptions] = useState([]);
   const [genderOptions, setGenderOptions] = useState([]);
   const [primaryIndustryOptions, setPrimaryIndustryOptions] = useState([]);
@@ -1200,157 +1200,139 @@ const BSNRegistrationForm: React.FC<{ initialData?: FormData }> = ({ initialData
     setSubmissionError(null);
   };
 
-  // Show loading state while fetching options
-  if (status === "loading") {
+  if (status === "success") {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading form options...</p>
-        </div>
+      <div className="bg-white p-8 rounded-lg shadow-md max-w-2xl mx-auto text-center">
+        <h2 className="text-2xl font-bold text-green-700 mb-4">
+          Give thanks for your submission.
+        </h2>
+        <p className="text-gray-600">
+          Please allow five (5) business days for our team to review your
+          application to join our network. If you do not hear from us, contact{" "}
+          <a
+            href="mailto:members@blacksustainability.org"
+            className="text-blue-600 hover:underline"
+          >
+            members@blacksustainability.org
+          </a>
+          .
+        </p>
+        <button
+          onClick={handleBackToForm}
+          className="mt-6 bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600"
+        >
+          Go back to form
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 py-12">
-       {status === "success" ? (
-         <div className="max-w-xl bg-white p-6 rounded-lg shadow-md text-center">
-           <h2 className="text-2xl font-bold text-green-700 mb-4">
-             Give thanks for your submission.
-           </h2>
-           <p className="text-gray-600">
-             Please allow five (5) business days for our team to review your
-             application to join our network. If you do not hear from us, contact{" "}
-             <a
-               href="mailto:members@blacksustainability.org"
-               className="text-blue-600 hover:underline"
-             >
-               members@blacksustainability.org
-             </a>
-             .
-           </p>
-           <button
-             onClick={handleBackToForm}
-             className="mt-6 bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600"
-           >
-             Go back to form
-           </button>
-         </div>
-        ) : (
-         
-         <form onSubmit={handleSubmit} className="w-full max-w-3xl bg-white p-6 rounded-lg shadow-md space-y-6">
-          <div className="text-center mb-8">
-            <Image
-              src={logo}
-              alt="BSN Logo"
-              width={80}
-              height={80}
-              className="mx-auto"
-            />
-            <h1 className="text-2xl font-bold mt-4">
-              BSN Member Registration
-            </h1>
-            <p className="text-gray-600 mt-2">
-              Step {step} of 3
-            </p>
-          </div>
+    <div className="bg-white p-8 rounded-lg shadow-md max-w-2xl mx-auto">
+      <div className="text-center mb-8">
+        <Image
+          src={logo}
+          alt="BSN Logo"
+          width={80}
+          height={80}
+          className="mx-auto"
+        />
+        <h1 className="text-2xl font-bold mt-4">
+          BSN Member Registration
+        </h1>
+        <p className="text-gray-600 mt-2">
+          Step {step} of 3
+        </p>
+      </div>
 
-          <div className="mb-6">
-            <div className="text-center p-4 border border-gray-200 rounded-lg bg-gray-50">
-              <h2 className="text-lg font-semibold">
-                Black Sustainability Network (BSN) Member Registration
-              </h2>
-              <p className="text-gray-600 mt-2">
-                Welcome to our community of sustainability practitioners of African
-                descent. If you are Black AND Green, please fill out the
-                information below to apply to join our network of over 2,300 people.
-              </p>
-              <p className="text-gray-600 mt-2 font-bold">We exist and are growing!</p>
-              <p className="text-gray-600 mt-2">
-                *Not Black AND Green? No worries, email info@blacksustainability.org
-                to find out how best to connect with us.
-              </p>
-            </div>
-          </div>
-
-          {step === 1 && (
-            <Step1
-              formData={formData}
-              handleInputChange={handleInputChange}
-              errors={errors}
-              handleFileChange={handleFileChange}
-              phoneInputRef={phoneInputRef}
-            />
-          )}
-          {step === 2 && (
-            <Step2
-              formData={formData}
-              handleInputChange={handleInputChange}
-              errors={errors}
-              memberLevelOptions={memberLevelOptions}
-              identificationOptions={identificationOptions}
-              genderOptions={genderOptions}
-              primaryIndustryOptions={primaryIndustryOptions}
-              handleToggleFocus={handleToggleFocus}
-              additionalFocusOpen={formData.showDropdown || false}
-              setFormData={setFormData}
-            />
-          )}
-          {step === 3 && (
-            <Step3
-              formData={formData}
-              handleInputChange={handleInputChange}
-              errors={errors}
-              nameFromLocationOptions={nameFromLocationOptions}
-              similarCategoriesOptions={similarCategoriesOptions}
-              showDropdown={showDropdown}
-              setShowDropdown={setShowDropdown}
-              handleToggleCategory={handleToggleCategory}
-            />
-          )}
-          <div className="flex justify-between mt-6">
-            {step > 1 && (
-              <button
-                type="button"
-                onClick={prevStep}
-                className="bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300"
-              >
-                Previous
-              </button>
-            )}
-            {step < 3 ? (
-              <button
-                type="button"
-                onClick={nextStep}
-                className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 ml-auto"
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={status === "loading"}
-                className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 flex items-center justify-center gap-2 ml-auto"
-              >
-                {status === "loading" ? (
-                  <>
-                    <span className="animate-spin border-2 border-t-transparent border-white rounded-full w-5 h-5" />
-                    Submitting...
-                  </>
-                ) : (
-                  "Submit"
-                )}
-              </button>
-            )}
-          </div>
-        </form>
-      )}
-      {status === "error" && submissionError && (
-        <div className="mt-4 text-center text-red-500 bg-red-50 p-3 rounded-lg">
-          {submissionError}
+      <div className="mb-6">
+        <div className="text-center p-4 border border-gray-200 rounded-lg bg-gray-50">
+          <h2 className="text-lg font-semibold">
+            Black Sustainability Network (BSN) Member Registration
+          </h2>
+          <p className="text-gray-600 mt-2">
+            Welcome to our community of sustainability practitioners of African
+            descent. If you are Black AND Green, please fill out the
+            information below to apply to join our network of over 2,300 people.
+          </p>
+          <p className="text-gray-600 mt-2 font-bold">We exist and are growing!</p>
+          <p className="text-gray-600 mt-2">
+            *Not Black AND Green? No worries, email info@blacksustainability.org
+            to find out how best to connect with us.
+          </p>
         </div>
+      </div>
+
+      {step === 1 && (
+        <Step1
+          formData={formData}
+          handleInputChange={handleInputChange}
+          errors={errors}
+          handleFileChange={handleFileChange}
+          phoneInputRef={phoneInputRef}
+        />
       )}
+      {step === 2 && (
+        <Step2
+          formData={formData}
+          handleInputChange={handleInputChange}
+          errors={errors}
+          memberLevelOptions={memberLevelOptions}
+          identificationOptions={identificationOptions}
+          genderOptions={genderOptions}
+          primaryIndustryOptions={primaryIndustryOptions}
+          handleToggleFocus={handleToggleFocus}
+          additionalFocusOpen={formData.showDropdown || false}
+          setFormData={setFormData}
+        />
+      )}
+      {step === 3 && (
+        <Step3
+          formData={formData}
+          handleInputChange={handleInputChange}
+          errors={errors}
+          nameFromLocationOptions={nameFromLocationOptions}
+          similarCategoriesOptions={similarCategoriesOptions}
+          showDropdown={showDropdown}
+          setShowDropdown={setShowDropdown}
+          handleToggleCategory={handleToggleCategory}
+        />
+      )}
+      <div className="flex justify-between mt-6">
+        {step > 1 && (
+          <button
+            type="button"
+            onClick={prevStep}
+            className="bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300"
+          >
+            Previous
+          </button>
+        )}
+        {step < 3 ? (
+          <button
+            type="button"
+            onClick={nextStep}
+            className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 ml-auto"
+          >
+            Next
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={status === "loading"}
+            className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 flex items-center justify-center gap-2 ml-auto"
+          >
+            {status === "loading" ? (
+              <>
+                <span className="animate-spin border-2 border-t-transparent border-white rounded-full w-5 h-5" />
+                Submitting...
+              </>
+            ) : (
+              "Submit"
+            )}
+          </button>
+        )}
+      </div>
     </div>
   );
 };
