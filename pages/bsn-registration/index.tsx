@@ -1263,76 +1263,85 @@ const BSNRegistrationForm: React.FC<{ initialData?: FormData }> = ({ initialData
         </div>
       </div>
 
-      {step === 1 && (
-        <Step1
-          formData={formData}
-          handleInputChange={handleInputChange}
-          errors={errors}
-          handleFileChange={handleFileChange}
-          phoneInputRef={phoneInputRef}
-        />
-      )}
-      {step === 2 && (
-        <Step2
-          formData={formData}
-          handleInputChange={handleInputChange}
-          errors={errors}
-          memberLevelOptions={memberLevelOptions}
-          identificationOptions={identificationOptions}
-          genderOptions={genderOptions}
-          primaryIndustryOptions={primaryIndustryOptions}
-          handleToggleFocus={handleToggleFocus}
-          additionalFocusOpen={formData.showDropdown || false}
-          setFormData={setFormData}
-        />
-      )}
-      {step === 3 && (
-        <Step3
-          formData={formData}
-          handleInputChange={handleInputChange}
-          errors={errors}
-          nameFromLocationOptions={nameFromLocationOptions}
-          similarCategoriesOptions={similarCategoriesOptions}
-          showDropdown={showDropdown}
-          setShowDropdown={setShowDropdown}
-          handleToggleCategory={handleToggleCategory}
-        />
-      )}
-      <div className="flex justify-between mt-6">
-        {step > 1 && (
-          <button
-            type="button"
-            onClick={prevStep}
-            className="bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300"
-          >
-            Previous
-          </button>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {step === 1 && (
+          <Step1
+            formData={formData}
+            handleInputChange={handleInputChange}
+            errors={errors}
+            handleFileChange={handleFileChange}
+            phoneInputRef={phoneInputRef}
+          />
         )}
-        {step < 3 ? (
-          <button
-            type="button"
-            onClick={nextStep}
-            className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 ml-auto"
-          >
-            Next
-          </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={status === "loading"}
-            className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 flex items-center justify-center gap-2 ml-auto"
-          >
-            {status === "loading" ? (
-              <>
-                <span className="animate-spin border-2 border-t-transparent border-white rounded-full w-5 h-5" />
-                Submitting...
-              </>
-            ) : (
-              "Submit"
-            )}
-          </button>
+        {step === 2 && (
+          <Step2
+            formData={formData}
+            handleInputChange={handleInputChange}
+            errors={errors}
+            memberLevelOptions={memberLevelOptions}
+            identificationOptions={identificationOptions}
+            genderOptions={genderOptions}
+            primaryIndustryOptions={primaryIndustryOptions}
+            handleToggleFocus={handleToggleFocus}
+            additionalFocusOpen={additionalFocusOpen}
+            setFormData={setFormData}
+          />
         )}
-      </div>
+        {step === 3 && (
+          <Step3
+            formData={formData}
+            handleInputChange={handleInputChange}
+            errors={errors}
+            nameFromLocationOptions={nameFromLocationOptions}
+            similarCategoriesOptions={similarCategoriesOptions}
+            showDropdown={showDropdown}
+            setShowDropdown={setShowDropdown}
+            handleToggleCategory={handleToggleCategory}
+          />
+        )}
+
+        <div className="flex justify-between mt-6">
+          {step > 1 && (
+            <button
+              type="button"
+              onClick={prevStep}
+              className="bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300"
+            >
+              Previous
+            </button>
+          )}
+          {step < 3 ? (
+            <button
+              type="button"
+              onClick={nextStep}
+              className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 ml-auto"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={status === "loading"}
+              className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 flex items-center justify-center gap-2 ml-auto"
+            >
+              {status === "loading" ? (
+                <>
+                  <span className="animate-spin border-2 border-t-transparent border-white rounded-full w-5 h-5" />
+                  Submitting...
+                </>
+              ) : (
+                "Submit"
+              )}
+            </button>
+          )}
+        </div>
+      </form>
+
+      {status === "error" && submissionError && (
+        <div className="mt-4 text-center text-red-500 bg-red-50 p-3 rounded-lg">
+          {submissionError}
+        </div>
+      )}
     </div>
   );
 };
