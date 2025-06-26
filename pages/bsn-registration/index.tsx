@@ -804,7 +804,12 @@ const Step3: React.FC<{
 //
 // 5. MAIN MULTI-STEP COMPONENT
 //
-const BSNRegistrationForm: React.FC<{ initialData?: FormData }> = ({ initialData }) => {
+interface Props {
+  initialData?: FormData;
+  onSubmitSuccess?: () => void;
+}
+
+const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) => {
   console.log("📥 Initial data received:", initialData);
 
   const [step, setStep] = useState(1);
@@ -1111,6 +1116,11 @@ const BSNRegistrationForm: React.FC<{ initialData?: FormData }> = ({ initialData
         }
 
         setStatus("success");
+
+        // Call onSubmitSuccess after successful submission
+        if (onSubmitSuccess) {
+          onSubmitSuccess();
+        }
     } catch (error) {
         console.error("Submission error:", error);
         setStatus("error");

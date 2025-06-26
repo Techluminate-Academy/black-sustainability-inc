@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import BSNRegistrationForm from '@/pages/bsn-registration';
 import { HARDCODED_MEMBER_LEVELS } from '@/constants/member-levels';
+import MembershipOptions from '@/features/loginUpgrade/MembershipOptions';
 
 export default function TestAirtable() {
   const [email, setEmail] = useState('');
@@ -13,6 +14,7 @@ export default function TestAirtable() {
   const [emailSent, setEmailSent] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [userName, setUserName] = useState('');
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   useEffect(() => {
     const checkExistingToken = async () => {
@@ -252,8 +254,8 @@ export default function TestAirtable() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold mb-8">Upgrade Your Free BSN Profile - Register for BSN Membership</h1>
+      <div className={`mx-auto transition-all duration-300 ${isSubmitted ? 'max-w-7xl' : 'max-w-3xl'}`}>
+        {!isSubmitted && <h1 className="text-2xl font-bold mb-8">Upgrade Your Free BSN Profile - Register for BSN Membership</h1>}
         
         {/* Step 1: Email Input */}
         {!emailSent && !userData && (
@@ -368,12 +370,19 @@ export default function TestAirtable() {
         )}
 
         {/* BSN Registration Form */}
-        {userData && formReady && (
+        {userData && formReady && !isSubmitted && (
           <div>
             <div className="mb-4 p-4 bg-green-50 rounded-lg">
               <p className="text-green-800">✅ Profile accessed successfully for: {userData.email}</p>
             </div>
-            <BSNRegistrationForm key={userData.email} initialData={userData} />
+            <BSNRegistrationForm key={userData.email} initialData={userData} onSubmitSuccess={() => setIsSubmitted(true)} />
+          </div>
+        )}
+
+        {/* Show Membership Options after form submission */}
+        {isSubmitted && (
+          <div className="w-full max-w-[1400px] -mx-4">
+            <MembershipOptions />
           </div>
         )}
       </div>
