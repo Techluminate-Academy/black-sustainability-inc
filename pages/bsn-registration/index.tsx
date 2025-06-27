@@ -600,25 +600,6 @@ const Step3: React.FC<{
 
   return (
     <>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          NAICS Code
-        </label>
-        <p className="text-xs text-gray-500 mb-2">
-          If you want to be considered for collaborative opportunities, please
-          share your NAICS code(s). List in order of priority focus.
-        </p>
-        <input
-          type="text"
-          value={formData.naicsCode}
-          onChange={(e) => handleInputChange("naicsCode", e.target.value)}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        {errors.naicsCode && (
-          <p className="text-red-500 text-sm mt-1">{errors.naicsCode}</p>
-        )}
-      </div>
-
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">Address (Drop your pin on the map!)*</label>
         {googleApiKey ? (
@@ -779,22 +760,37 @@ const Step3: React.FC<{
             ))}
           </div>
         )}
-        {errors.similarCategories && <span className="text-red-500 text-sm">{errors.similarCategories}</span>}
       </div>
-      <div>
-        <label className="inline-flex items-center">
-          <input
-            type="checkbox"
-            checked={formData.includeOnMap}
-            onChange={(e) =>
-              handleInputChange("includeOnMap", e.target.checked)
-            }
-            className="rounded border-gray-300 text-blue-600"
-          />
 
-          <span className="ml-2 text-sm font-medium text-gray-700">
-            Include me on Global BSN Map
-          </span>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">
+          NAICS Code
+        </label>
+        <p className="text-xs text-gray-500 mb-2">
+          If you want to be considered for collaborative opportunities, please
+          share your NAICS code(s). List in order of priority focus.
+        </p>
+        <input
+          type="text"
+          value={formData.naicsCode}
+          onChange={(e) => handleInputChange("naicsCode", e.target.value)}
+          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        {errors.naicsCode && (
+          <p className="text-red-500 text-sm mt-1">{errors.naicsCode}</p>
+        )}
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <input
+          type="checkbox"
+          id="includeOnMap"
+          checked={formData.includeOnMap}
+          onChange={(e) => handleInputChange("includeOnMap", e.target.checked)}
+          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+        />
+        <label htmlFor="includeOnMap" className="text-sm font-medium text-gray-700">
+          Include me on Global BSN Map
         </label>
       </div>
     </>
