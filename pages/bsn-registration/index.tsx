@@ -83,7 +83,11 @@ interface AirtableFields {
   "LOGO"?: { url: string; filename: string }[];
 }
 
-
+interface Country {
+  name: string;
+  dialCode: string;
+  iso2: string;
+}
 
 // Helper function to format phone numbers as (XXX) XXX-XXXX
 const formatPhoneNumber = (phoneNumber: string) => {
@@ -215,13 +219,13 @@ const Step1: React.FC<{
   errors: Partial<Record<keyof FormData, string>>;
   handleFileChange: (field: keyof FormData, file: File | null) => void;
   phoneInputRef: React.RefObject<HTMLInputElement>;
-}> = ({ formData, handleInputChange, errors, handleFileChange, phoneInputRef }) => {
-  console.log('🔍 Step1 rendering with formData:', formData);
-  
+  memberLevelOptions: { id: string; name: string; icon: string | null }[];
+}> = ({ formData, handleInputChange, errors, handleFileChange, phoneInputRef, memberLevelOptions }) => {
   return (
     <>
       <div>
         <label className="block text-sm font-medium text-gray-700">Email Address *</label>
+        <p className="text-xs text-gray-500 mb-2">Please share your primary email address.</p>
         <input
           type="email"
           value={formData.email}
@@ -230,8 +234,10 @@ const Step1: React.FC<{
         />
         {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
       </div>
+
       <div>
         <label className="block text-sm font-medium text-gray-700">First Name *</label>
+        <p className="text-xs text-gray-500 mb-2">What is your first name?</p>
         <input
           type="text"
           value={formData.firstName}
@@ -240,8 +246,10 @@ const Step1: React.FC<{
         />
         {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
       </div>
+
       <div>
         <label className="block text-sm font-medium text-gray-700">Last Name *</label>
+        <p className="text-xs text-gray-500 mb-2">What is your last name/surname?</p>
         <input
           type="text"
           value={formData.lastName}
@@ -251,131 +259,9 @@ const Step1: React.FC<{
         {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
       </div>
 
-      {/* Photo Upload Section */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Photo *</label>
-        <p className="text-xs text-gray-500">Upload a clear photo of yourself</p>
-        {formData.photoUrl && (
-          <div className="mt-2 mb-4">
-            <Image
-              src={formData.photoUrl}
-              alt="Profile photo preview"
-              width={120}
-              height={120}
-              className="rounded-lg object-cover"
-            />
-          </div>
-        )}
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => handleFileChange("photo", e.target.files ? e.target.files[0] : null)}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        {errors.photo && <p className="text-red-500 text-sm mt-1">{errors.photo}</p>}
-      </div>
-
-      {/* Logo Upload Section */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Organization Logo</label>
-        <p className="text-xs text-gray-500">Optional: Upload your organization's logo if applicable</p>
-        {formData.logoUrl && (
-          <div className="mt-2 mb-4 flex flex-col items-start">
-            <p className="text-sm text-gray-600 mb-2">Current Logo:</p>
-            <Image
-              src={formData.logoUrl}
-              alt="Organization logo preview"
-              width={120}
-              height={120}
-              className="rounded-lg object-contain bg-white"
-            />
-          </div>
-        )}
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => handleFileChange("logo", e.target.files ? e.target.files[0] : null)}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        {errors.logo && <p className="text-red-500 text-sm mt-1">{errors.logo}</p>}
-      </div>
-
-      {/* Phone input with international code dropdown */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Phone</label>
-        <p className="text-xs text-gray-600">
-          We want to ensure you receive BSN info via SMS (no SPAM we promise)...
-        </p>
-        <div
-          style={{width: '100%'}}
-          className="
-            flex
-            items-center
-            border
-            border-gray-300
-            rounded-md
-            w-full
-            sm:w-2/3
-          "
-        >
-          <CountryCodeDropdown
-            value={formData.phoneCountryCode}
-            options={internationalOptions}
-            onChange={(newValue) => {
-              handleInputChange("phoneCountryCode", newValue);
-              handleInputChange("phoneCountryCodeTouched", true);
-            }}
-          />
-          <input
-            ref={phoneInputRef}
-            type="tel"
-            value={formData.phone}
-            onChange={(e) => handleInputChange("phone", e.target.value)}
-            className="
-              px-3
-              py-2
-              w-full
-              focus:ring-blue-500
-              focus:border-blue-500
-              focus:outline-none
-            "
-            placeholder="Enter phone number"
-            autoComplete="off"
-          />
-        </div>
-        {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
-      </div>
-    </>
-  );
-};
-
-// Step2: Membership & Focus
-const Step2: React.FC<{
-  formData: FormData;
-  handleInputChange: (field: keyof FormData, value: any) => void;
-  errors: Partial<Record<keyof FormData, string>>;
-  memberLevelOptions: { id: string; name: string; icon: string | null }[];
-  identificationOptions: any[];
-  genderOptions: any[];
-  primaryIndustryOptions: any[];
-  handleToggleFocus: (value: string) => void;
-  additionalFocusOpen: boolean;
-  setFormData: React.Dispatch<React.SetStateAction<FormData>>;
-}> = ({
-  formData,
-  handleInputChange,
-  errors,
-  memberLevelOptions,
-  identificationOptions,
-  genderOptions,
-  primaryIndustryOptions,
-  handleToggleFocus,
-  additionalFocusOpen,
-  setFormData,
-}) => (
-    <>
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">Member Level *</label>
+        <p className="text-xs text-gray-500 mb-2">In what capacity are you joining this network?</p>
         <select
           value={formData.memberLevel}
           onChange={(e) => handleInputChange("memberLevel", e.target.value)}
@@ -390,60 +276,95 @@ const Step2: React.FC<{
         </select>
         {errors.memberLevel && <p className="text-red-500 text-sm mt-1">{errors.memberLevel}</p>}
       </div>
+
       <div>
-        <label className="block text-sm font-medium text-gray-700">Bio (250 words or less)*</label>
+        <label className="block text-sm font-medium text-gray-700">Bio / Profile *</label>
+        <p className="text-xs text-gray-500 mb-2">Tell us about yourself and/or your organization.</p>
         <textarea
           value={formData.bio}
-          onChange={(e) => {
-            const text = e.target.value;
-            // Split the text into words while filtering out empty strings
-            const words = text.split(/\s+/).filter((word) => word.length > 0);
-            // If word count is within limit, update directly; else truncate
-            if (words.length <= 250) {
-              handleInputChange("bio", text);
-            } else {
-              handleInputChange("bio", words.slice(0, 250).join(" "));
-            }
-          }}
+          onChange={(e) => handleInputChange("bio", e.target.value)}
+          rows={4}
           className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
         />
-        {/*
-    Calculate word count and conditionally style:
-    If count equals (or reaches) 250, change text color to red.
-  */}
-        <p className={`text-xs mt-1 ${formData.bio.split(/\s+/).filter((w) => w.length > 0).length >= 250 ? "text-red-500" : "text-gray-600"}`}>
-          Word Count: {formData.bio.split(/\s+/).filter((w) => w.length > 0).length} / 250
-        </p>
         {errors.bio && <p className="text-red-500 text-sm mt-1">{errors.bio}</p>}
       </div>
 
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Photo *</label>
+        <p className="text-xs text-gray-500 mb-2">Share your headshot and/or logo to complete your profile.</p>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => handleFileChange("photo", e.target.files?.[0] || null)}
+          className="mt-1"
+        />
+        {errors.photo && <p className="text-red-500 text-sm mt-1">{errors.photo}</p>}
+        {formData.photoUrl && (
+          <div className="mt-2">
+            <img
+              src={formData.photoUrl}
+              alt="Current profile photo"
+              className="w-24 h-24 object-cover rounded"
+            />
+          </div>
+        )}
+      </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700">Organization Name (if Applicable)</label>
+        <label className="block text-sm font-medium text-gray-700">Logo</label>
+        <p className="text-xs text-gray-500 mb-2">Drop files here</p>
         <input
-          type="text"
-          value={formData.organizationName || ""}
-          onChange={(e) => handleInputChange("organizationName", e.target.value)}
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+          type="file"
+          accept="image/*"
+          onChange={(e) => handleFileChange("logo", e.target.files?.[0] || null)}
+          className="mt-1"
         />
+        {formData.logoUrl && (
+          <div className="mt-2">
+            <img
+              src={formData.logoUrl}
+              alt="Current logo"
+              className="w-24 h-24 object-cover rounded"
+            />
+          </div>
+        )}
       </div>
+    </>
+  );
+};
 
-      {/* New dropdown for Affiliated Entity */}
-      {/* Updated affiliated entity field as a regular text input */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Which entity are you affiliated with? (Not a member)
-        </label>
-        <input
-          type="text"
-          value={formData.affiliatedEntity || ""}
-          onChange={(e) =>
-            handleInputChange("affiliatedEntity", e.target.value)
-          }
-          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-          placeholder="Enter affiliated entity"
-        />
-      </div>
+// Step2: Additional Info
+const Step2: React.FC<{
+  formData: FormData;
+  handleInputChange: (field: keyof FormData, value: any) => void;
+  errors: Partial<Record<keyof FormData, string>>;
+  identificationOptions: any[];
+  genderOptions: any[];
+  primaryIndustryOptions: any[];
+  handleToggleFocus: (value: string) => void;
+  additionalFocusOpen: boolean;
+  setFormData: React.Dispatch<React.SetStateAction<FormData>>;
+  phoneInputRef: React.RefObject<HTMLInputElement>;
+}> = ({
+  formData,
+  handleInputChange,
+  errors,
+  identificationOptions,
+  genderOptions,
+  primaryIndustryOptions,
+  handleToggleFocus,
+  additionalFocusOpen,
+  setFormData,
+  phoneInputRef,
+}) => {
+  const internationalOptions = allCountries.map((country: Country) => ({
+    value: `+${country.dialCode}-${country.iso2}`,
+    label: `${country.name} (+${country.dialCode})`,
+    iso2: country.iso2,
+  }));
+
+  return (
+    <>
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">Identification *</label>
         <select
@@ -460,6 +381,7 @@ const Step2: React.FC<{
         </select>
         {errors.identification && <p className="text-red-500 text-sm mt-1">{errors.identification}</p>}
       </div>
+
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">Gender *</label>
         <select
@@ -476,8 +398,10 @@ const Step2: React.FC<{
         </select>
         {errors.gender && <p className="text-red-500 text-sm mt-1">{errors.gender}</p>}
       </div>
+
       <div>
         <label className="block text-sm font-medium text-gray-700">Website</label>
+        <p className="text-xs text-gray-500 mb-2">Do you have a website? Share below.</p>
         <input
           type="url"
           value={formData.website}
@@ -485,8 +409,40 @@ const Step2: React.FC<{
           className="mt-1 w-full border border-gray-300 rounded-lg p-2"
         />
       </div>
+
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Phone</label>
+        <p className="text-xs text-gray-500 mb-2">
+          OPTIONAL: we want to ensure you receive BSN membership info from us via email, then sms/text as a secondary option. 
+          By providing your mobile phone number, you are agreeing to receive automated and personalized text messages with varying frequency. 
+          Message and data rates may apply. You may opt out of receiving text messages at any time by relying STOP. 
+          Please view our Terms & Conditions and Privacy Policy at www.blacksustainability.org/terms-of-use.
+        </p>
+        <div className="flex w-full">
+          <CountryCodeDropdown
+            value={formData.phoneCountryCode}
+            options={internationalOptions}
+            onChange={(newValue) => {
+              handleInputChange("phoneCountryCode", newValue);
+              handleInputChange("phoneCountryCodeTouched", true);
+            }}
+          />
+          <input
+            ref={phoneInputRef}
+            type="tel"
+            value={formData.phone}
+            onChange={(e) => handleInputChange("phone", e.target.value)}
+            className="flex-1 px-3 py-2 border border-l-0 border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="13125811589"
+            autoComplete="off"
+          />
+        </div>
+        {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
+      </div>
+
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">Primary Industry House *</label>
+        <p className="text-xs text-gray-500 mb-2">What is your primary field of EXPERTISE?</p>
         <select
           value={formData.primaryIndustry}
           onChange={(e) => handleInputChange("primaryIndustry", e.target.value)}
@@ -501,8 +457,10 @@ const Step2: React.FC<{
         </select>
         {errors.primaryIndustry && <p className="text-red-500 text-sm mt-1">{errors.primaryIndustry}</p>}
       </div>
+
       <div className="space-y-2 relative">
-        <label className="block text-sm font-medium text-gray-700">Additional Industry Houses</label>
+        <label className="block text-sm font-medium text-gray-700">Additional Focus Areas</label>
+        <p className="text-xs text-gray-500 mb-2">If you have additional areas of expertise/interest, select all below.</p>
         <div
           className="w-full border border-gray-300 rounded-lg p-2 cursor-pointer"
           onClick={() =>
@@ -530,24 +488,18 @@ const Step2: React.FC<{
         {formData.showDropdown && (
           <div className="absolute z-10 bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-auto w-full">
             {[
-              "🌾 Agriculture/Sustainable Food Production / Land Management",
               "☀️ Alternative Energy",
-              "💰 Alternative Economics",
+              "🌾 Agriculture/Sustainable Food Production / Land Management",
               "🏘 Community Development",
               "🛖 Eco-friendly Building",
+              "💰 Alternative Economics",
               "🧑🏾‍🏫 Education & Cultural Preservation",
-              "Environmental Justice",
+              "Environmental Justice/Advocacy",
               "♻️ Green Lifestyle",
-              "❓ Other",
-              "💧Water",
-              "💻 Technology",
-              "🗑 Waste",
-              "🧘🏿‍♀️ Wholistic Health",
-              "Climate",
-              "Spirituality",
               "🆘 Survival/Preparedness",
-              "Youth",
-              "Africa",
+              "🗑 Waste",
+              "💧Water",
+              "🧘🏿‍♀️ Wholistic Health"
             ].map((focus) => (
               <div
                 key={focus}
@@ -559,17 +511,16 @@ const Step2: React.FC<{
             ))}
           </div>
         )}
-        {errors.additionalFocus && <span className="text-red-500 text-sm">{errors.additionalFocus}</span>}
       </div>
     </>
   );
+};
 
 // Step3: Location & Categories
 const Step3: React.FC<{
   formData: FormData;
   handleInputChange: (field: keyof FormData, value: any) => void;
   errors: Partial<Record<keyof FormData, string>>;
-  // locationCountryOptions: any[];
   nameFromLocationOptions: any[];
   similarCategoriesOptions: any[];
   showDropdown: boolean;
@@ -579,7 +530,6 @@ const Step3: React.FC<{
   formData,
   handleInputChange,
   errors,
-  // locationCountryOptions,
   nameFromLocationOptions,
   similarCategoriesOptions,
   showDropdown,
@@ -589,7 +539,6 @@ const Step3: React.FC<{
   const [googleApiKey, setGoogleApiKey] = useState("");
 
   useEffect(() => {
-    // In a real app, you'd fetch this from a secure endpoint
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (apiKey) {
       setGoogleApiKey(apiKey);
@@ -601,45 +550,46 @@ const Step3: React.FC<{
   return (
     <>
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Address (Drop your pin on the map!)*</label>
+        <label className="block text-sm font-medium text-gray-700">Location (Country) *</label>
+        <p className="text-xs text-gray-500 mb-2">Where in the world are you?</p>
+        <input
+          type="text"
+          value={formData.address}
+          onChange={(e) => handleInputChange("address", e.target.value)}
+          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        {errors.address && <p className="text-red-500 text-sm mt-1">{errors.address}</p>}
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Location (City) *</label>
+        <p className="text-xs text-gray-500 mb-2">Share the name of the city where you live so others can link with you.</p>
         {googleApiKey ? (
           <GooglePlacesAutocomplete
             apiKey={googleApiKey}
             selectProps={{
-              value: formData.address
-                ? { label: formData.address, value: formData.address }
+              value: formData.nearestCity
+                ? { label: formData.nearestCity, value: formData.nearestCity }
                 : null,
               onChange: async (selection) => {
                 if (selection) {
-                  handleInputChange("address", selection.label);
+                  handleInputChange("nearestCity", selection.label);
                   try {
                     const placeId = selection.value.place_id;
                     const results = await geocodeByPlaceId(placeId);
                     const { lat, lng } = await getLatLng(results[0]);
                     handleInputChange("latitude", lat);
                     handleInputChange("longitude", lng);
-
-                    const addressComponents = results[0].address_components;
-                    const zipCodeComponent = addressComponents.find((c) =>
-                      c.types.includes("postal_code")
-                    );
-                    if (zipCodeComponent) {
-                      handleInputChange(
-                        "zipCode",
-                        parseInt(zipCodeComponent.long_name, 10)
-                      );
-                    }
                   } catch (error) {
                     console.error("Error getting lat/lng from address", error);
                   }
                 } else {
-                  handleInputChange("address", "");
+                  handleInputChange("nearestCity", "");
                   handleInputChange("latitude", null);
                   handleInputChange("longitude", null);
-                  handleInputChange("zipCode", 0);
                 }
               },
-              placeholder: "Start typing your address...",
+              placeholder: "Start typing your city...",
               styles: {
                 input: (provided: any) => ({
                   ...provided,
@@ -659,13 +609,11 @@ const Step3: React.FC<{
             Loading map...
           </div>
         )}
-        {errors.address && (
-          <p className="text-red-500 text-sm mt-1">{errors.address}</p>
-        )}
       </div>
 
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">Zip/Postal Code</label>
+        <p className="text-xs text-gray-500 mb-2">Enter your zip code/postal code if available. This will allow other members to find you geographically.</p>
         <input
           type="text"
           value={formData.zipCode === 0 ? "" : formData.zipCode}
@@ -678,9 +626,10 @@ const Step3: React.FC<{
         />
         {errors.zipCode && <span className="text-red-500 text-sm">{errors.zipCode}</span>}
       </div>
+
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">YouTube</label>
-        <p className="text-xs text-gray-600">Do you have a video to share/showcase your work...</p>
+        <p className="text-xs text-gray-500 mb-2">Do you have a video to share/showcase your work with other members?</p>
         <input
           type="url"
           value={formData.youtube}
@@ -690,6 +639,7 @@ const Step3: React.FC<{
         />
         {errors.youtube && <p className="text-red-500 text-sm mt-1">{errors.youtube}</p>}
       </div>
+
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">Location (Nearest City)</label>
         <input
@@ -701,6 +651,7 @@ const Step3: React.FC<{
         />
         {errors.nearestCity && <p className="text-red-500 text-sm mt-1">{errors.nearestCity}</p>}
       </div>
+
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">Name (from Location)</label>
         <select
@@ -716,8 +667,10 @@ const Step3: React.FC<{
           ))}
         </select>
       </div>
+
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">Funding Goal</label>
+        <p className="text-xs text-gray-500 mb-2">Are you working on a project that needs funding? Share your goal - we may be able to support you!</p>
         <textarea
           value={formData.fundingGoal}
           onChange={(e) => handleInputChange("fundingGoal", e.target.value)}
@@ -726,6 +679,7 @@ const Step3: React.FC<{
         />
         {errors.fundingGoal && <span className="text-red-500 text-sm">{errors.fundingGoal}</span>}
       </div>
+
       <div className="space-y-2 relative">
         <label className="block text-sm font-medium text-gray-700">Similar Categories</label>
         <div
@@ -763,12 +717,9 @@ const Step3: React.FC<{
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700">
-          NAICS Code
-        </label>
+        <label className="block text-sm font-medium text-gray-700">NAICS Code</label>
         <p className="text-xs text-gray-500 mb-2">
-          If you want to be considered for collaborative opportunities, please
-          share your NAICS code(s). List in order of priority focus.
+          If you want to be considered for collaborative opportunities, please share your NAICS code(s). List in order of priority focus.
         </p>
         <input
           type="text"
@@ -776,22 +727,38 @@ const Step3: React.FC<{
           onChange={(e) => handleInputChange("naicsCode", e.target.value)}
           className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
         />
-        {errors.naicsCode && (
-          <p className="text-red-500 text-sm mt-1">{errors.naicsCode}</p>
-        )}
+        {errors.naicsCode && <p className="text-red-500 text-sm mt-1">{errors.naicsCode}</p>}
       </div>
 
-      <div className="flex items-center space-x-2">
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Include me on Global BSN Map</label>
+        <p className="text-xs text-gray-500 mb-4">Check the box to be included. Leave blank if you do NOT want to be on the map</p>
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="includeOnMap"
+            checked={formData.includeOnMap}
+            onChange={(e) => handleInputChange("includeOnMap", e.target.checked)}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Affiliated Entity</label>
+        <p className="text-xs text-gray-500 mb-2">
+          If you were referred by another org to use this map, list the name of the organization you are affiliated with. 
+          This is SEPARATE from the organization you are representing i.e. if you are a member of a National Black Energy Group 
+          and they invited you to join our map and the name of your organization is BlackSolar, list BlackSolar above under 
+          Organization and list National Black Energy Group in this section.
+        </p>
         <input
-          type="checkbox"
-          id="includeOnMap"
-          checked={formData.includeOnMap}
-          onChange={(e) => handleInputChange("includeOnMap", e.target.checked)}
-          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          type="text"
+          value={formData.affiliatedEntity}
+          onChange={(e) => handleInputChange("affiliatedEntity", e.target.value)}
+          className="mt-1 w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+          placeholder="Enter affiliated entity"
         />
-        <label htmlFor="includeOnMap" className="text-sm font-medium text-gray-700">
-          Include me on Global BSN Map
-        </label>
       </div>
     </>
   );
@@ -1277,6 +1244,7 @@ const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) 
             errors={errors}
             handleFileChange={handleFileChange}
             phoneInputRef={phoneInputRef}
+            memberLevelOptions={memberLevelOptions}
           />
         )}
         {step === 2 && (
@@ -1284,13 +1252,13 @@ const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) 
             formData={formData}
             handleInputChange={handleInputChange}
             errors={errors}
-            memberLevelOptions={memberLevelOptions}
             identificationOptions={identificationOptions}
             genderOptions={genderOptions}
             primaryIndustryOptions={primaryIndustryOptions}
             handleToggleFocus={handleToggleFocus}
             additionalFocusOpen={additionalFocusOpen}
             setFormData={setFormData}
+            phoneInputRef={phoneInputRef}
           />
         )}
         {step === 3 && (
