@@ -10,18 +10,26 @@ import AirtableUtils from "@/pages/api/submitForm";
 import { UpgradeFormData, FreeUserData } from "./types";
 import { submitUpgrade, uploadFile } from "./upgradeService";
 
+// Define the type for the raw country data from the library
 interface CountryData {
+  name: string;
   dialCode: string;
   iso2: string;
-  name: string;
 }
 
-const internationalOptions: { code: string; country: string; iso2: string }[] =
-  allCountries.map((country: CountryData) => ({
-    code: `+${country.dialCode}`,
-    country: country.name,
-    iso2: country.iso2,
-  }));
+// Define the type for our transformed country options
+interface CountryOption {
+  value: string;
+  label: string;
+  iso2: string;
+}
+
+// Transform the raw country data into the format expected by CountryCodeDropdown
+const internationalOptions: CountryOption[] = (allCountries as CountryData[]).map(country => ({
+  value: `+${country.dialCode}-${country.iso2}`,
+  label: `${country.name} (+${country.dialCode})`,
+  iso2: country.iso2.toLowerCase()
+}));
 
 interface UpgradeFormProps {
   userData: FreeUserData;
@@ -346,7 +354,7 @@ const UpgradeForm: React.FC<UpgradeFormProps> = ({ userData, onLogout }) => {
           {/* Phone Number */}
           <div>
             <label className="block text-sm font-medium text-gray-700">Phone Number *</label>
-            <div className="flex mt-1">
+            <div className="flex w-full">
               <CountryCodeDropdown
                 value={formData.phoneCountryCode}
                 onChange={(value) => handleInputChange("phoneCountryCode", value)}
@@ -357,8 +365,9 @@ const UpgradeForm: React.FC<UpgradeFormProps> = ({ userData, onLogout }) => {
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => handleInputChange("phone", e.target.value)}
-                className="flex-1 border border-gray-300 rounded-r-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter phone number"
+                className="flex-1 px-3 py-2 border border-l-0 border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="13125811589"
+                autoComplete="off"
               />
             </div>
             {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}

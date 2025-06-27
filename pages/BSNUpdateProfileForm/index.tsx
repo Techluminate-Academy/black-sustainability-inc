@@ -91,26 +91,25 @@ interface BSNUpdateProfileFormProps {
   initialData?: InitialData;
 }
 
-// 1) Raw shape from country-telephone-data  
-interface RawCountry {
+// Define the type for the raw country data from the library
+interface CountryData {
   name: string;
   dialCode: string;
-  iso2?: string;
-}
-
-// 2) Target shape  
-interface IntlOption {
-  code: string;
-  country: string;
   iso2: string;
 }
 
-// 3) Cast + map with coalesce  
-const raw = allCountries as RawCountry[];
-const internationalOptions: IntlOption[] = raw.map((country) => ({
-  code:    `+${country.dialCode}`,
-  country: country.name,
-  iso2:    country.iso2 ?? "",       // ⬅️ MODIFIED: guarantee string
+// Define the type for our transformed country options
+interface CountryOption {
+  value: string;
+  label: string;
+  iso2: string;
+}
+
+// Transform the raw country data into the format expected by CountryCodeDropdown
+const internationalOptions: CountryOption[] = (allCountries as CountryData[]).map(country => ({
+  value: `+${country.dialCode}-${country.iso2}`,
+  label: `${country.name} (+${country.dialCode})`,
+  iso2: country.iso2.toLowerCase()
 }));
 
 // Map formData to the fields structure expected by Airtable
@@ -255,23 +254,22 @@ const Step1: React.FC<Step1Props> = ({
 
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-700">Phone</label>
-      <p className="text-xs text-gray-600">We want to ensure you receive BSN info via SMS (no SPAM we promise)...</p>
-      <div className="flex items-center border rounded w-full sm:w-2/3">
+      <div className="flex w-full">
         <CountryCodeDropdown
           value={formData.phoneCountryCode}
-          options={internationalOptions}
-          onChange={(newValue) => {
-            handleInputChange("phoneCountryCode", newValue);
+          onChange={(value) => {
+            handleInputChange("phoneCountryCode", value);
             handleInputChange("phoneCountryCodeTouched", true);
           }}
+          options={internationalOptions}
         />
         <input
           ref={phoneInputRef}
           type="tel"
           value={formData.phone}
           onChange={(e) => handleInputChange("phone", e.target.value)}
-          className="px-3 py-2 w-full focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-          placeholder="Enter phone number"
+          className="flex-1 px-3 py-2 border border-l-0 border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          placeholder="13125811589"
           autoComplete="off"
         />
       </div>

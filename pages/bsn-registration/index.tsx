@@ -174,10 +174,6 @@ const mapFormDataToAirtableFields = (formData: FormData): AirtableFields => {
   return airtableFields;
 };
 
-
-
-
-
 // Helper to map country names to ISO Alpha-2 codes used by Google Places
 function getCountryCode(countryName: string): string {
   const lower = countryName.toLowerCase();
@@ -198,14 +194,19 @@ interface CountryData {
   name: string;
 }
 
-// Build the international options array with explicit types
-const internationalOptions: { code: string; country: string; iso2: string }[] =
-  allCountries.map((country: CountryData) => ({
-    code: `+${country.dialCode}`,
-    country: country.name,
-    iso2: country.iso2,
-  }));
+// Define the type for our transformed country options
+interface CountryOption {
+  value: string;
+  label: string;
+  iso2: string;
+}
 
+// Build the international options array with explicit types
+const internationalOptions: CountryOption[] = allCountries.map((country: CountryData) => ({
+  value: `+${country.dialCode}-${country.iso2}`,
+  country: country.name,
+  iso2: country.iso2,
+}));
 
 console.log(internationalOptions)
 //
@@ -357,12 +358,6 @@ const Step2: React.FC<{
   setFormData,
   phoneInputRef,
 }) => {
-  const internationalOptions = allCountries.map((country: Country) => ({
-    value: `+${country.dialCode}-${country.iso2}`,
-    label: `${country.name} (+${country.dialCode})`,
-    iso2: country.iso2,
-  }));
-
   return (
     <>
       <div className="space-y-2">
@@ -421,11 +416,8 @@ const Step2: React.FC<{
         <div className="flex w-full">
           <CountryCodeDropdown
             value={formData.phoneCountryCode}
+            onChange={(value) => handleInputChange("phoneCountryCode", value)}
             options={internationalOptions}
-            onChange={(newValue) => {
-              handleInputChange("phoneCountryCode", newValue);
-              handleInputChange("phoneCountryCodeTouched", true);
-            }}
           />
           <input
             ref={phoneInputRef}
