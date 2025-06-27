@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import BSNRegistrationForm from '@/pages/bsn-registration';
 import { HARDCODED_MEMBER_LEVELS } from '@/constants/member-levels';
 import MembershipOptions from '@/features/loginUpgrade/MembershipOptions';
+import Image from 'next/image';
 
 export default function TestAirtable() {
   const [email, setEmail] = useState('');
@@ -255,6 +256,18 @@ export default function TestAirtable() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className={`mx-auto transition-all duration-300 ${isSubmitted ? 'max-w-7xl' : 'max-w-3xl'}`}>
+        {/* Logo */}
+        <div className="flex justify-center mb-8">
+          <Image
+            src="/png/bsn-logo.png"
+            alt="BSN Logo"
+            width={200}
+            height={100}
+            priority
+            className="h-auto"
+          />
+        </div>
+        
         {!isSubmitted && <h1 className="text-2xl font-bold mb-8">Upgrade Your Free BSN Profile - Register for BSN Membership</h1>}
         
         {/* Step 1: Email Input */}
@@ -382,7 +395,7 @@ export default function TestAirtable() {
         {/* Show Membership Options after form submission */}
         {isSubmitted && (
           <div className="w-full max-w-[1400px] -mx-4">
-            <MembershipOptions />
+            <MembershipOptions onReturn={() => setIsSubmitted(false)} />
           </div>
         )}
       </div>
