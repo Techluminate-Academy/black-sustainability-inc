@@ -1,7 +1,6 @@
 import { SessionProvider } from "next-auth/react";
-// 1) Bootstrap’s CSS (for grid, nav, tabs, etc.)
+// 1) Bootstrap's CSS (for grid, nav, tabs, etc.)
 import "bootstrap/dist/css/bootstrap.min.css";
-import "formiojs/dist/formio.full.min.css";
 import "@/styles/globals.css";
 import type { AppProps } from "next/app";
 
