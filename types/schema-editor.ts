@@ -7,10 +7,17 @@ export interface FieldOption {
   value: string;
 }
 
-export interface FieldDef extends Omit<FieldDefinition, 'name'> {
-  name: string;  // We'll use string instead of keyof FormData for flexibility
-  step: number;  // Additional field for form organization
-  description?: string;  // Additional field for help text
+export interface FieldDef {
+  id: string;
+  name: string;
+  label: string;
+  type: FieldType;
+  required: boolean;
+  options: { label: string; value: string }[];
+  step: number;
+  description: string;
+  placeholder: string;
+  originalIndex?: number;  // Added for step organization
 }
 
 // Get array of valid field types from FieldType

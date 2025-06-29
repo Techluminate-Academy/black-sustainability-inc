@@ -1,59 +1,80 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import axios from 'axios';
-
-const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_DEV_AIRTABLE_ACCESS_TOKEN;
-const BASE_ID = process.env.NEXT_PUBLIC_DEV_AIRTABLE_BASE_ID;
-const TABLE_NAME = process.env.NEXT_PUBLIC_DEV_AIRTABLE_TABLE_NAME;
+import { connectToDatabase } from '@/lib/mongodb';
+import type { Collection } from 'mongodb';
+import type { FormVersion } from '@/models/formVersion';
+import getAirtableConfig from '@/lib/airtableConfig';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'PUT') {
+  if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { recordId, fields } = req.body;
-
-  if (!recordId) {
-    return res.status(400).json({ error: 'Record ID is required' });
-  }
-
   try {
-    console.log('⛳ [DEV] Updating Airtable record:', recordId);
-    console.log('📝 [DEV] Original fields:', fields);
+    const { formData, formVersion } = req.body;
 
-    // No special handling needed for member level since it's a single select
-    const updatedFields = { ...fields };
-
-    console.log('📝 [DEV] Final fields to update:', updatedFields);
-
-    const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}/${recordId}`;
-    
-    try {
-      const response = await axios.patch(url, {
-        fields: updatedFields
-      }, {
-        headers: {
-          'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      console.log('✅ [DEV] Update successful:', response.data);
-      res.status(200).json({ success: true, data: response.data });
-    } catch (error: any) {
-      console.error('❌ [DEV] Update failed:', error.response?.data || error.message);
-      if (error.response?.data?.error?.type === 'INVALID_VALUE_FOR_COLUMN') {
-        console.error('❌ [DEV] Invalid value details:', {
-          originalFields: fields,
-          processedFields: updatedFields,
-          memberLevel: updatedFields['MEMBER LEVEL']
-        });
-      }
-      throw error;
+    if (!formData || !formVersion) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
-  } catch (error: any) {
-    res.status(500).json({ 
-      success: false, 
-      error: error.response?.data?.error || error.message 
+
+    // Get form configuration
+    const { db } = await connectToDatabase();
+    const coll = db.collection('formVersions') as Collection<FormVersion>;
+    const formConfig = await coll.findOne({ version: formVersion });
+
+    if (!formConfig) {
+      return res.status(404).json({ error: 'Form configuration not found' });
+    }
+
+    // Get Airtable configuration
+    const airtableConfig = await getAirtableConfig();
+    const { apiKey, baseId, tableName } = airtableConfig;
+
+    // Map form data to Airtable fields
+    const airtableFields = formConfig.fields.reduce((acc, field) => {
+      if (formData[field.name]) {
+        acc[field.name] = formData[field.name];
+      }
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Make request to Airtable
+    const response = await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        records: [{
+          fields: airtableFields
+        }]
+      })
     });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('Airtable error:', error);
+      return res.status(response.status).json({ error: 'Failed to update Airtable' });
+    }
+
+    const result = await response.json();
+    
+    // Log the submission for debugging
+    console.log('Form submission successful:', {
+      formVersion,
+      formName: formConfig.name,
+      submittedData: formData,
+      airtableResponse: result
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Data successfully submitted to Airtable',
+      record: result.records[0]
+    });
+
+  } catch (error) {
+    console.error('Error processing form submission:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 } 

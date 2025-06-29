@@ -1,26 +1,49 @@
 // pages/api/form-versions.ts
-import type { NextApiRequest, NextApiResponse } from "next";
-import type { Collection } from "mongodb";
+import { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from "@/lib/mongodb";
 import type { FormVersion } from "@/models/formVersion";
+import redis from "@/lib/redis";
+import CACHE_EXPIRY from "@/constants/CacheExpiry";
+import { Collection } from "mongodb";
+
+const cachePrefix = "form-version";
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // Reuse your existing connection util
   const { db } = await connectToDatabase();
-
-  // Cast to our typed interface
-  const collection = db
-    .collection("formVersions") as Collection<FormVersion>;
+  const collection = db.collection("formVersions") as Collection<FormVersion>;
 
   if (req.method === "GET") {
+    // If all=true is specified, return all versions
+    if (req.query.all === "true") {
+      // Clear all caches to ensure fresh data
+      await redis.del(`${cachePrefix}:all`);
+      await redis.del(`${cachePrefix}:published`);
+      
+      const versions = await collection.find({}).toArray();
+      // Ensure all required fields are present
+      const validVersions = versions.map(v => ({
+        ...v,
+        status: v.status || "draft", // Default to draft if status is missing
+        fields: v.fields || [],      // Default to empty array if fields is missing
+        updatedAt: v.updatedAt || new Date().toISOString() // Default to now if updatedAt is missing
+      })) as FormVersion[];
+      return res.status(200).json(validVersions);
+    }
+
     const versions = await collection
       .find({})
-      .sort({ version: -1 })
       .toArray();
-    return res.status(200).json(versions);
+    // Ensure all required fields are present
+    const validVersions = versions.map(v => ({
+      ...v,
+      status: v.status || "draft", // Default to draft if status is missing
+      fields: v.fields || [],      // Default to empty array if fields is missing
+      updatedAt: v.updatedAt || new Date().toISOString() // Default to now if updatedAt is missing
+    })) as FormVersion[];
+    return res.status(200).json(validVersions);
   }
 
   if (req.method === "POST") {
@@ -44,6 +67,5 @@ export default async function handler(
     return res.status(201).json(newDoc);
   }
 
-  res.setHeader("Allow", ["GET", "POST"]);
-  res.status(405).end("Method Not Allowed");
+  return res.status(405).json({ message: "Method not allowed" });
 }

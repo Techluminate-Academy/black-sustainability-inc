@@ -1,4 +1,4 @@
-// pages/api/form-versions.ts
+// pages/api/form-versions/version.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import redis from "@/lib/redis";
 import { connectToDatabase } from "@/lib/mongodb";
@@ -6,11 +6,12 @@ import type { FormVersion } from "@/models/formVersion";
 import type { Collection } from "mongodb";
 import CACHE_EXPIRY from "@/constants/CacheExpiry";
 
+const cachePrefix = "form-version"; // Fixed cache prefix
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const cachePrefix = "formVersions";
   const { version: queryVersion, all } = req.query;
 
   try {
@@ -49,20 +50,48 @@ export default async function handler(
             return res.status(404).json({ error: "Version not found" });
           }
 
-          // If publishing, handle existing published version
-          if (status === "published") {
-            const currentPublished = await coll.findOne({ status: "published" });
-            if (currentPublished && currentPublished.version !== bodyVersion) {
-              await coll.updateOne(
-                { version: currentPublished.version },
-                { $set: { status: "draft", updatedAt: now } }
-              );
-              await redis.del(`${cachePrefix}:${currentPublished.version}`);
-              await redis.del(`${cachePrefix}:published`);
-            }
+          // Prevent updates to master configurations
+          if (existingVersion.master) {
+            return res.status(403).json({ error: "Cannot modify master configurations. Create a new version instead." });
           }
 
-          // Update the version
+          // If publishing, handle existing published version
+          if (status === "published") {
+            // Find ALL currently published versions of this form (including master)
+            const currentPublished = await coll.find({ 
+              status: "published",
+              name: existingVersion.name,
+              version: { $ne: bodyVersion } // Don't include the version we're trying to publish
+            }).toArray();
+
+            // Set all currently published versions to draft
+            if (currentPublished.length > 0) {
+              await Promise.all(currentPublished.map(async (version) => {
+                // Skip if it's a master config
+                if (version.master) {
+                  return;
+                }
+                
+                await coll.updateOne(
+                  { version: version.version },
+                  { 
+                    $set: { 
+                      status: "draft",
+                      updatedAt: now
+                    }
+                  }
+                );
+                // Clear cache for the unpublished version
+                await redis.del(`${cachePrefix}:${version.version}`);
+              }));
+            }
+
+            // Clear the published cache since we're changing which version is published
+            await redis.del(`${cachePrefix}:published`);
+            await redis.del(`${cachePrefix}:all`);
+          }
+
+          // Now update the target version
           const result = await coll.updateOne(
             { version: bodyVersion },
             { 
@@ -78,7 +107,7 @@ export default async function handler(
             throw new Error("Failed to update version");
           }
 
-          // Update cache
+          // Update cache for the modified version
           const updated = await coll.findOne({ version: bodyVersion });
           await redis.del(`${cachePrefix}:${bodyVersion}`);
           if (status === "published") {
@@ -90,10 +119,14 @@ export default async function handler(
             );
           }
 
+          // Get fresh data for response
+          const freshData = await coll.findOne({ version: bodyVersion });
+
           return res.status(200).json({
             version: bodyVersion,
             status,
-            updatedAt: now
+            updatedAt: now,
+            data: freshData
           });
         } catch (error) {
           console.error("Error updating version:", error);
@@ -103,18 +136,39 @@ export default async function handler(
 
       // Creating a new version
       try {
-        const last = await coll.find().sort({ version: -1 }).limit(1).next();
-        const nextVersion = last ? last.version + 1 : 1;
+        // Get the master version if specified
+        const masterVersion = req.body.masterVersion;
+        let baseConfig: FormVersion | null = null;
+
+        if (masterVersion) {
+          baseConfig = await coll.findOne({ version: masterVersion, master: true });
+          if (!baseConfig) {
+            return res.status(404).json({ error: "Master configuration not found" });
+          }
+        }
+
+        // Get the next version number
+        const last = await coll.find({ master: { $ne: true } }).sort({ version: -1 }).limit(1).next();
+        const nextVersion = last ? last.version + 1 : 2000; // Start non-master versions from 2000
+
+        // Create new version based on master or as fresh config
         const newDoc: FormVersion = {
           version: nextVersion,
-          status,
+          name: baseConfig ? baseConfig.name : `Form ${nextVersion}`,
+          master: false, // Never create new master configurations through API
           fields,
+          isMultiStep: baseConfig ? baseConfig.isMultiStep : false,
+          status,
           updatedAt: now,
         };
 
         // If publishing new version, handle existing published version
         if (status === "published") {
-          const currentPublished = await coll.findOne({ status: "published" });
+          const currentPublished = await coll.findOne({ 
+            status: "published",
+            master: { $ne: true }, // Ignore master configurations
+            name: newDoc.name // Only look for published versions of the same form
+          });
           if (currentPublished) {
             await coll.updateOne(
               { version: currentPublished.version },
@@ -212,7 +266,10 @@ export default async function handler(
         }
 
         const published = await coll
-          .find({ status: "published" })
+          .find({ 
+            status: "published",
+            master: { $ne: true } // Ignore master configurations when getting published version
+          })
           .sort({ version: -1 })
           .limit(1)
           .next();
@@ -232,8 +289,8 @@ export default async function handler(
     // ── METHOD NOT ALLOWED ──────────────────────────────────────────
     res.setHeader("Allow", ["GET", "POST"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
-  } catch (err: any) {
-    console.error("❌ form-versions error:", err);
-    return res.status(500).json({ error: err.message });
+  } catch (error) {
+    console.error("Error in form version handler:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
