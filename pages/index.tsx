@@ -55,7 +55,7 @@ export default function Home() {
   const [sidebarPage, setSidebarPage] = useState(1);
   // Modification: totalCount now initialized as null instead of 0.
   const [totalCount, setTotalCount] = useState<number | null>(null);
-console.log(filteredData, 'filtered data')
+  console.log(filteredData, 'filtered data')
   const route = useRouter();
   const [showBackToTop, setShowBackToTop] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -84,7 +84,7 @@ console.log(filteredData, 'filtered data')
       const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
       return match ? decodeURIComponent(match[2]) : null;
     }
-  
+
     const raw = getCookie('bsn_user_data');
     if (!raw) {
       // no cookie, handle unauthenticated state if needed
@@ -92,7 +92,7 @@ console.log(filteredData, 'filtered data')
       setAuthenticatedUser(null);
       return;
     }
-  
+
     try {
       const userObj = JSON.parse(raw);
       setAuthenticatedUser(userObj);
@@ -103,7 +103,7 @@ console.log(filteredData, 'filtered data')
       setAuthenticatedUser(null);
     }
   }, []);
-  
+
 
   const scrollToTop = () => {
     if (sidebarRef.current) {
@@ -116,7 +116,7 @@ console.log(filteredData, 'filtered data')
 
 
   useEffect(() => {
-    const getMapLocations = async() =>{
+    const getMapLocations = async () => {
       const response = await fetch("api/getMarkers");
       if (!response.ok) throw new Error("Failed to fetch locations data.");
       const json = await response.json();  // <--- this was missing
@@ -124,7 +124,7 @@ console.log(filteredData, 'filtered data')
     }
     getMapLocations()
   }, [])
-  
+
   // --------------------------------------------------------------------
   // 1. Initial Data Fetch for Map & Sidebar
   // --------------------------------------------------------------------
@@ -172,7 +172,7 @@ console.log(filteredData, 'filtered data')
   // 2. Progressive Chunk Loading for Map
   // --------------------------------------------------------------------
   useEffect(() => {
-    if (lazyLoaded) return; 
+    if (lazyLoaded) return;
     const loadNextChunk = () => {
       if (filteredData) {
         if (
@@ -248,20 +248,20 @@ console.log(filteredData, 'filtered data')
   // --------------------------------------------------------------------
 
   const DEBOUNCE_DELAY = 500; // Adjust debounce delay as needed
-  
+
   useEffect(() => {
     const handler = setTimeout(() => {
       if (searchQuery.trim() !== "") {
         setLoading(true);
         setPreloaderSidebar(true);
-  
+
         fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}`)
           .then((response) => response.json())
           .then((result) => {
             if (result.success && Array.isArray(result.data)) {
               // console.log("Search API returned:", result.data.length, "records");
               setFilteredData(result.data);
-           
+
             } else {
               console.error("Search API did not return valid data", result);
               setFilteredData([]); // Ensure we clear data on error
@@ -280,10 +280,10 @@ console.log(filteredData, 'filtered data')
         setFilteredData(OriginalData);
       }
     }, DEBOUNCE_DELAY);
-  
+
     return () => clearTimeout(handler); // Cleanup previous timeout
   }, [searchQuery, OriginalData]);
-  
+
 
   // --------------------------------------------------------------------
   // 7. Dropdown Filter (unchanged)
@@ -322,12 +322,12 @@ console.log(filteredData, 'filtered data')
   //     );
   //     return match ? decodeURIComponent(match[2]) : "";
   //   }
-  
+
   //   const raw = getCookie("bsn_user_data");
   //   if (!raw) {
   //     return; // no cookie → stay unauthenticated
   //   }
-  
+
   //   try {
   //     const userObj = JSON.parse(raw);
   //     setAuthenticatedUser(userObj);
@@ -337,7 +337,7 @@ console.log(filteredData, 'filtered data')
   //     console.error("Failed to parse bsn_user_data cookie:", err);
   //   }
   // }, []);
-  
+
 
 
 
@@ -346,99 +346,99 @@ console.log(filteredData, 'filtered data')
   // --------------------------------------------------------------------
 
 
-   // 8. Viewport-Based Lazy Loading for Map Markers
+  // 8. Viewport-Based Lazy Loading for Map Markers
   // --------------------------------------------------------------------
   // This function gets called when the map's viewport changes.
-// This function gets called when the map's viewport changes.
-// This function gets called when the map's viewport changes.
-// const handleBoundsChange = async (bounds: LatLngBounds) => {
-//   const northEast = bounds.getNorthEast();
-//   const southWest = bounds.getSouthWest();
-//   try {
-//     const res = await fetch(
-//       `/api/getMarkers?northEastLat=${northEast.lat}&northEastLng=${northEast.lng}&southWestLat=${southWest.lat}&southWestLng=${southWest.lng}`
-//     );
-//     const result = await res.json();
-//     if (result.success) {
-//       console.log("Fetched markers based on bounds:", result.data);
-      
-//       // Mark that lazy load has occurred
-//       setLazyLoaded(true);
-      
-//       // Update all state variables with the full dataset
-//       setFilteredData(result.data);
-//       setOriginalData(result.data);
-//       setLoadedData(result.data); // Display all markers immediately
-//       setCurrentIndex(result.data.length);
-//       setChunkIndex(1);
-//       setChunkSizes([result.data.length]); // Disable further chunking
-//       setTotalCount(result.data.length);
-//     } else {
-//       console.error("Failed to fetch markers based on bounds", result);
-//     }
-//   } catch (error) {
-//     console.error("Error fetching markers by bounds:", error);
-//   }
-// };
+  // This function gets called when the map's viewport changes.
+  // This function gets called when the map's viewport changes.
+  // const handleBoundsChange = async (bounds: LatLngBounds) => {
+  //   const northEast = bounds.getNorthEast();
+  //   const southWest = bounds.getSouthWest();
+  //   try {
+  //     const res = await fetch(
+  //       `/api/getMarkers?northEastLat=${northEast.lat}&northEastLng=${northEast.lng}&southWestLat=${southWest.lat}&southWestLng=${southWest.lng}`
+  //     );
+  //     const result = await res.json();
+  //     if (result.success) {
+  //       console.log("Fetched markers based on bounds:", result.data);
+
+  //       // Mark that lazy load has occurred
+  //       setLazyLoaded(true);
+
+  //       // Update all state variables with the full dataset
+  //       setFilteredData(result.data);
+  //       setOriginalData(result.data);
+  //       setLoadedData(result.data); // Display all markers immediately
+  //       setCurrentIndex(result.data.length);
+  //       setChunkIndex(1);
+  //       setChunkSizes([result.data.length]); // Disable further chunking
+  //       setTotalCount(result.data.length);
+  //     } else {
+  //       console.error("Failed to fetch markers based on bounds", result);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error fetching markers by bounds:", error);
+  //   }
+  // };
 
 
-// useEffect(() => {
-//   async function bootstrapAuth() {
-//     // 0. Simple Safari detection:
-//     const ua = navigator.userAgent;
-//     const isSafari = ua.includes('Safari') && !ua.includes('Chrome');
+  // useEffect(() => {
+  //   async function bootstrapAuth() {
+  //     // 0. Simple Safari detection:
+  //     const ua = navigator.userAgent;
+  //     const isSafari = ua.includes('Safari') && !ua.includes('Chrome');
 
-//     // 1) Only ask for storage access in Safari:
-//     if (isSafari && document.hasStorageAccess) {
-//       try {
-//         const has = await document.hasStorageAccess();
-//         if (!has) {
-//           await document.requestStorageAccess();
-//         }
-//       } catch (e) {
-//         console.warn('Safari storage access denied; cookie stays hidden');
-//       }
-//     }
+  //     // 1) Only ask for storage access in Safari:
+  //     if (isSafari && document.hasStorageAccess) {
+  //       try {
+  //         const has = await document.hasStorageAccess();
+  //         if (!has) {
+  //           await document.requestStorageAccess();
+  //         }
+  //       } catch (e) {
+  //         console.warn('Safari storage access denied; cookie stays hidden');
+  //       }
+  //     }
 
-//     // 2) Read the cookie normally in all browsers:
-//     function getCookie(name: string): string {
-//       const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-//       return match ? decodeURIComponent(match[2]) : '';
-//     }
+  //     // 2) Read the cookie normally in all browsers:
+  //     function getCookie(name: string): string {
+  //       const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  //       return match ? decodeURIComponent(match[2]) : '';
+  //     }
 
-//     const raw = getCookie('bsn_user_data');
-//     if (!raw) return; // still no cookie
+  //     const raw = getCookie('bsn_user_data');
+  //     if (!raw) return; // still no cookie
 
-//     try {
-//       const userObj = JSON.parse(raw);
-//       setAuthenticatedUser(userObj);
-//       setIsAuthenticated(true);
-//       console.log(userObj, 'authenticated user data');
-//     } catch (err) {
-//       console.error('Failed to parse bsn_user_data cookie:', err);
-//     }
-//   }
+  //     try {
+  //       const userObj = JSON.parse(raw);
+  //       setAuthenticatedUser(userObj);
+  //       setIsAuthenticated(true);
+  //       console.log(userObj, 'authenticated user data');
+  //     } catch (err) {
+  //       console.error('Failed to parse bsn_user_data cookie:', err);
+  //     }
+  //   }
 
-//   bootstrapAuth();
-// }, []);
+  //   bootstrapAuth();
+  // }, []);
 
-useEffect(() => {
-  // only non-logged-in users should ever see it
-  if (!isAuthenticated) {
-    // once all chunks are loaded...
-    if (
-      loadedData.length > 0 &&
-      loadedData.length === filteredData.length
-    ) {
-      const timer = setTimeout(() => {
-        setIsPopUpActive(true);
-      }, 6000);
+  useEffect(() => {
+    // only non-logged-in users should ever see it
+    if (!isAuthenticated) {
+      // once all chunks are loaded...
+      if (
+        loadedData.length > 0 &&
+        loadedData.length === filteredData.length
+      ) {
+        const timer = setTimeout(() => {
+          setIsPopUpActive(true);
+        }, 6000);
 
-      // cleanup if auth or data changes before 6s
-      return () => clearTimeout(timer);
+        // cleanup if auth or data changes before 6s
+        return () => clearTimeout(timer);
+      }
     }
-  }
-}, [isAuthenticated, loadedData.length, filteredData.length]);
+  }, [isAuthenticated, loadedData.length, filteredData.length]);
 
   return (
     <div className="relative h-screen w-full">
@@ -452,7 +452,15 @@ useEffect(() => {
           <div className="sm:w-3/5 w-full sm:p-0 p-3 h-screen">
             {preloaderMap ? (
               <div className="relative w-full h-screen">
-                <Image src="/png/mapbg2.png" fill alt="map one" />
+                <Image
+                  src="/png/mapbg2.1920.png"
+                  width={1920}
+                  height={Math.round((3451 / 6134) * 1920)} // ≈ 1080
+                  unoptimized
+                  alt="map one"
+                  className="w-full h-auto"
+                />
+
                 <div className="absolute top-[45%] left-1/2 transform -translate-x-1/2 -translate-y-1/2">
                   <div className="font-lexend flex flex-col gap-y-2 justify-center items-center glass rounded-[30px] text-center px-10 py-5">
                     <Image
@@ -481,15 +489,15 @@ useEffect(() => {
                 isAuthenticated={isAuthenticated}
                 loadedData={loadedData}
                 hideCounter={hideCounter}
-                onMarkerHover={()=>{}}
+                onMarkerHover={() => { }}
                 filteredData={searchQuery === "" && selectedIndustry === "" ? mapLocations : filteredData}
 
               />
             )}
           </div>
-          <div 
+          <div
             ref={sidebarRef}
-          className="sm:w-2/5 w-full pb-4 flex flex-col justify-start items-center h-screen overflow-scroll">
+            className="sm:w-2/5 w-full pb-4 flex flex-col justify-start items-center h-screen overflow-scroll">
             <div className="bg-[#FFF8E5] py-2 sticky left-0 top-0 w-full flex flex-col items-center justify-center z-10">
               <div className="w-[95%]">
                 <Select
@@ -502,12 +510,12 @@ useEffect(() => {
                 />
               </div>
               <div className="w-[95%] relative">
-              <input
-  value={searchQuery}
-  onChange={(e) => setSearchQuery(e.target.value)}
-  className="bg-white border outline-none w-full px-5 py-2 rounded-full text-sm placeholder:capitalize placeholder:text-xs"
-  placeholder="Search by Name, Country, City, State, Zip Code, Organization, Bio Keywords, Industry, House, Affiliated"
-/>
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-white border outline-none w-full px-5 py-2 rounded-full text-sm placeholder:capitalize placeholder:text-xs"
+                  placeholder="Search by Name, Country, City, State, Zip Code, Organization, Bio Keywords, Industry, House, Affiliated"
+                />
 
                 <span className="absolute right-4 top-3">
                   <icons.search />

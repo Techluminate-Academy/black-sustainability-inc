@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+// import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 
 export default function Profile() {
-  const { data: session, status } = useSession();
+  // const { data: session, status } = useSession();
   const router = useRouter();
   const [formData, setFormData] = useState({
     firstName: '',
@@ -16,24 +16,24 @@ export default function Profile() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
-console.log(session)
+// console.log(session)
   // Redirect if there is no session (and we're not loading)
-  useEffect(() => {
-    if (status !== 'loading' && !session) {
-      router.push('/signin');
-    }
-  }, [session, status, router]);
+  // useEffect(() => {
+  //   if (status !== 'loading' && !session) {
+  //     router.push('/signin');
+  //   }
+  // }, [session, status, router]);
 
   // Pre-populate form fields from session data when available
-  useEffect(() => {
-    if (session && session.user) {
-      setFormData({
-        firstName: session.user.firstName || '',
-        lastName: session.user.lastName || '',
-        organization: session.user.organization || '',
-      });
-    }
-  }, [session]);
+  // useEffect(() => {
+  //   if (session && session.user) {
+  //     setFormData({
+  //       firstName: session.user.firstName || '',
+  //       lastName: session.user.lastName || '',
+  //       organization: session.user.organization || '',
+  //     });
+  //   }
+  // }, [session]);
 
   // Handle form field changes
   const handleChange = (e) => {
@@ -48,22 +48,26 @@ console.log(session)
     setMessage(null);
 
     try {
-      const res = await fetch('/api/auth/update-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: session.user.email, // Use the email from the session
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          organization: formData.organization,
-        }),
-      });
+      // Mock API call for static export
+      // const res = await fetch('/api/auth/update-user', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     email: session.user.email, // Use the email from the session
+      //     firstName: formData.firstName,
+      //     lastName: formData.lastName,
+      //     organization: formData.organization,
+      //   }),
+      // });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to update profile');
-      }
-      setMessage({ type: 'success', text: 'Profile updated successfully.' });
+      // const data = await res.json();
+      // if (!res.ok) {
+      //   throw new Error(data.error || 'Failed to update profile');
+      // }
+      
+      // Simulate successful update
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setMessage({ type: 'success', text: 'Profile updated successfully (demo mode).' });
     } catch (error) {
       setMessage({ type: 'error', text: error.message || 'An error occurred.' });
     } finally {
@@ -72,13 +76,13 @@ console.log(session)
   };
 
   // If the session is still loading or is not present, show a loading indicator.
-  if (status === 'loading' || !session) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <p>Loading...</p>
-      </div>
-    );
-  }
+  // if (status === 'loading' || !session) {
+  //   return (
+  //     <div className="flex justify-center items-center h-screen">
+  //       <p>Loading...</p>
+  //     </div>
+  //   );
+  // }
 
   return (
     <>
