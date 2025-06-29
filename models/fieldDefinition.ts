@@ -9,6 +9,8 @@ label: string;
 placeholder?: string;
 required?: boolean;
 options?: FieldOption[];
+step?: number;
+description?: string;
 }
 
 export interface FormDefinition {
