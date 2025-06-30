@@ -445,7 +445,7 @@ const FreeSignupForm: React.FC<FreeSignupFormProps> = ({
             )}
           </div>
 
-          {/* Primary Industry House */}
+          {/* Primary Industry */}
           <div className="form-field">
             <label 
               htmlFor="primaryIndustry"

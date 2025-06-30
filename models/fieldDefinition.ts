@@ -1,16 +1,16 @@
 import { FieldType, FieldOption } from "./field";
-import { FormData } from "./formData";
 
 export interface FieldDefinition {
-id: string;
-name: keyof FormData;
-type: FieldType;
-label: string;
-placeholder?: string;
-required?: boolean;
-options?: FieldOption[];
-step?: number;
-description?: string;
+  id: string;
+  name: string;
+  type: FieldType;
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+  options?: FieldOption[];
+  step?: number;
+  description?: string;
+  airtableColumn?: string;
 }
 
 export interface FormDefinition {

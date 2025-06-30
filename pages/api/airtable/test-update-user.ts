@@ -31,11 +31,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Map form data to Airtable fields
     const airtableFields = formConfig.fields.reduce((acc, field) => {
-      if (formData[field.name]) {
-        acc[field.name] = formData[field.name];
+      const value = formData[field.name];
+
+      if (value === undefined || value === null || value === '') {
+        return acc;
       }
+      
+      let airtableColumnName = field.label;
+      switch(field.name) {
+        case 'email': airtableColumnName = 'EMAIL ADDRESS'; break;
+        case 'firstName': airtableColumnName = 'FIRST NAME'; break;
+        case 'lastName': airtableColumnName = 'LAST NAME'; break;
+        case 'primaryIndustry': airtableColumnName = 'PRIMARY INDUSTRY HOUSE'; break;
+        case 'organizationName': airtableColumnName = 'ORGANIZATION NAME'; break;
+        case 'bio': airtableColumnName = 'BIO'; break;
+        case 'photo': airtableColumnName = 'PHOTO'; break;
+        case 'logo': airtableColumnName = 'LOGO'; break;
+      }
+
+      if ((field.name === 'photo' || field.name === 'logo') && typeof value === 'string' && value.startsWith('http')) {
+        acc[airtableColumnName] = [{ url: value }];
+      } else if (field.type === 'address' && typeof value === 'object' && value.address) {
+        acc['Address'] = value.address;
+        acc['Latitude'] = value.latitude;
+        acc['Longitude'] = value.longitude;
+      } else if (field.type !== 'file') {
+        acc[airtableColumnName] = value;
+      }
+      
       return acc;
     }, {} as Record<string, any>);
+
+    // Add hardcoded value for Membership Status Notes for the test form
+    airtableFields['Membership Status Notes'] = 'Free';
 
     // Make request to Airtable
     const response = await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}`, {
@@ -73,8 +101,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       record: result.records[0]
     });
 
-  } catch (error) {
-    console.error('Error processing form submission:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+  } catch (error: any) {
+    console.error('Server error:', error);
+    res.status(500).json({ error: 'An unexpected server error occurred.' });
   }
 } 

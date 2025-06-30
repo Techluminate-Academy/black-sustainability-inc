@@ -1,18 +1,17 @@
 // features/freeSignup/useFreeSignupForm.ts
 
 import { useState, useEffect } from "react";
-import axios from "axios";
 import {
   FreeFormData,
   FormState,
   FormError,
   GooglePlacesOption,
   IndustryOption,
-  AirtableSubmissionPayload
+  FreeSubmissionPayload
 } from "./types";
 import AirtableUtils from "@/features/freeSignup/airtableUtils";
 import { geocodeByPlaceId, getLatLng } from "react-google-places-autocomplete";
-import { uploadFile, sendToAirtable, FreeSubmissionPayload } from "./freeSignupService";
+import { uploadFile, sendToAirtable } from "./freeSignupService";
 
 export function useFreeSignupForm() {
   const [formState, setFormState] = useState<FormState>({
@@ -278,15 +277,7 @@ export function useFreeSignupForm() {
       }
       
       const submissionData: FreeSubmissionPayload = {
-        firstName: formState.data.firstName,
-        lastName: formState.data.lastName,
-        email: formState.data.email,
-        address: formState.data.address,
-        latitude: formState.data.latitude,
-        longitude: formState.data.longitude,
-        primaryIndustry: formState.data.primaryIndustry,
-        organizationName: formState.data.organizationName,
-        bio: formState.data.bio,
+        ...formState.data,
         photoUrl,
         logoUrl,
       };

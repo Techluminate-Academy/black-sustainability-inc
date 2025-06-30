@@ -5,11 +5,13 @@ import { FieldType } from '@/models/field';
 
 async function setupMasterForms() {
   const { db } = await connectToDatabase();
-  const formVersions = db.collection('formVersions') as Collection<FormVersion>;
+  const formVersions = db.collection<FormVersion>('formVersions');
 
   // Free Signup Form Configuration
   const freeSignupForm: FormVersion = {
-    version: 1000, // Using 1000 as base version for master configs
+    name: 'Free Signup Form',
+    version: 1000,
+    master: true,
     fields: [
       {
         id: 'firstName',
@@ -32,11 +34,29 @@ async function setupMasterForms() {
       {
         id: 'email',
         name: 'email',
-        label: 'Email Address',
+        label: 'Email',
         type: 'email' as FieldType,
         required: true,
         step: 1,
-        placeholder: 'Enter your email address'
+        placeholder: 'you@example.com'
+      },
+      {
+        id: 'photo',
+        name: 'photo',
+        label: 'Profile Photo',
+        type: 'file' as FieldType,
+        required: true,
+        step: 1,
+        description: 'Upload a clear photo of yourself'
+      },
+      {
+        id: 'logo',
+        name: 'logo',
+        label: 'Organization Logo',
+        type: 'file' as FieldType,
+        required: false,
+        step: 1,
+        description: "Optional: Upload your organization's logo if applicable"
       },
       {
         id: 'address',
@@ -45,70 +65,58 @@ async function setupMasterForms() {
         type: 'address' as FieldType,
         required: true,
         step: 1,
-        placeholder: 'Enter your address'
+        placeholder: 'Start typing your address...'
       },
       {
         id: 'primaryIndustry',
         name: 'primaryIndustry',
-        label: 'Primary Industry',
+        label: 'Primary Industry House',
         type: 'dropdown' as FieldType,
         required: true,
-        step: 2,
+        step: 1,
+        placeholder: 'Select one...',
         options: [
-          { label: 'Agriculture', value: 'agriculture' },
-          { label: 'Alternative Energy', value: 'alternative_energy' },
-          { label: 'Community Development', value: 'community_development' },
-          { label: 'Education', value: 'education' },
-          { label: 'Green Building', value: 'green_building' },
-          { label: 'Waste Management', value: 'waste_management' },
-          { label: 'Water', value: 'water' },
-          { label: 'Wholistic', value: 'wholistic' }
+          { value: 'agriculture', label: 'Agriculture' },
+          { value: 'alternative_energy', label: 'Alternative Energy' },
+          { value: 'community_development', label: 'Community Development' },
+          { value: 'education', label: 'Education' },
+          { value: 'green_building', label: 'Green Building' },
+          { value: 'waste_management', label: 'Waste Management' },
+          { value: 'water', label: 'Water' },
+          { value: 'wholistic', label: 'Wholistic' }
         ]
       },
       {
         id: 'organizationName',
         name: 'organizationName',
-        label: 'Organization Name',
+        label: 'Organization Name (optional)',
         type: 'text' as FieldType,
         required: false,
-        step: 2,
-        placeholder: 'Enter your organization name'
+        step: 1,
+        placeholder: 'Enter organization name'
       },
       {
         id: 'bio',
         name: 'bio',
-        label: 'Bio',
+        label: 'Bio (optional)',
         type: 'textarea' as FieldType,
         required: false,
-        step: 2,
-        placeholder: 'Tell us about yourself or your organization'
-      },
-      {
-        id: 'photo',
-        name: 'photo',
-        label: 'Profile Photo',
-        type: 'file' as FieldType,
-        required: false,
-        step: 3
-      },
-      {
-        id: 'logo',
-        name: 'logo',
-        label: 'Organization Logo',
-        type: 'file' as FieldType,
-        required: false,
-        step: 3
+        step: 1,
+        placeholder: 'Briefly describe your work...'
       }
     ],
+    isMultiStep: false,
     status: 'published',
     updatedAt: new Date().toISOString()
   };
 
-  // Upgrade Form Configuration
-  const upgradeForm: FormVersion = {
-    version: 1001, // Using 1001 for upgrade form
+  // BSN Registration Form Configuration
+  const bsnRegistrationForm: FormVersion = {
+    name: 'BSN Registration Form',
+    version: 1001,
+    master: true,
     fields: [
-      // Basic info from free signup
+      // Step 1: Basic Information
       {
         id: 'email',
         name: 'email',
@@ -136,7 +144,6 @@ async function setupMasterForms() {
         step: 1,
         placeholder: 'Enter your last name'
       },
-      // Additional fields for paid membership
       {
         id: 'memberLevel',
         name: 'memberLevel',
@@ -145,9 +152,10 @@ async function setupMasterForms() {
         required: true,
         step: 1,
         options: [
-          { label: 'Individual', value: 'individual' },
-          { label: 'Organization', value: 'organization' },
-          { label: 'Corporate', value: 'corporate' }
+          { value: '🥋 Expert - Experienced Professional', label: '🥋 Expert - Experienced Professional' },
+          { value: '👓 Enthusiast -Excited to Learn', label: '👓 Enthusiast -Excited to Learn' },
+          { value: '🏢 Entity - Black & Green Organization', label: '🏢 Entity - Black & Green Organization' },
+          { value: 'Young Environmental Scholar', label: 'Young Environmental Scholar' }
         ]
       },
       {
@@ -155,7 +163,7 @@ async function setupMasterForms() {
         name: 'affiliatedEntity',
         label: 'Affiliated Entity',
         type: 'text' as FieldType,
-        required: true,
+        required: false,
         step: 1,
         placeholder: 'Enter your affiliated entity'
       },
@@ -163,16 +171,24 @@ async function setupMasterForms() {
         id: 'identification',
         name: 'identification',
         label: 'Identification',
-        type: 'text' as FieldType,
-        required: true,
-        step: 1
+        type: 'dropdown' as FieldType,
+        required: false,
+        step: 1,
+        options: [
+            { value: 'African/Afrikan', label: 'African/Afrikan' },
+            { value: 'Black/African-American', label: 'Black/African-American' },
+            { value: 'Black/Afro-Diasporic', label: 'Black/Afro-Diasporic' },
+            { value: 'African-American/Black', label: 'African-American/Black' },
+            { value: 'Afro-diasporic (Afro-Caribbean, Afro-Cubano, Black/African-American, Afro-Brazilian, etc.)', label: 'Afro-diasporic (Afro-Caribbean, Afro-Cubano, Black/African-American, Afro-Brazilian, etc.)' },
+            { value: 'Of African Descent (Afro-Caribbean, Afro-Cuban, Afro-Colombian, etc.)', label: 'Of African Descent (Afro-Caribbean, Afro-Cuban, Afro-Colombian, etc.)' }
+        ]
       },
       {
         id: 'gender',
         name: 'gender',
         label: 'Gender',
         type: 'dropdown' as FieldType,
-        required: true,
+        required: false,
         step: 1,
         options: [
           { label: 'Male', value: 'male' },
@@ -181,6 +197,8 @@ async function setupMasterForms() {
           { label: 'Prefer not to say', value: 'prefer_not_to_say' }
         ]
       },
+
+      // Step 2: Contact & Focus Areas
       {
         id: 'website',
         name: 'website',
@@ -195,7 +213,7 @@ async function setupMasterForms() {
         name: 'phone',
         label: 'Phone Number',
         type: 'phone' as FieldType,
-        required: true,
+        required: false,
         step: 2
       },
       {
@@ -221,10 +239,12 @@ async function setupMasterForms() {
         name: 'zipCode',
         label: 'ZIP Code',
         type: 'text' as FieldType,
-        required: true,
+        required: false,
         step: 2,
         placeholder: 'Enter your ZIP code'
       },
+
+      // Step 3: Additional Information
       {
         id: 'youtube',
         name: 'youtube',
@@ -239,8 +259,9 @@ async function setupMasterForms() {
         name: 'nearestCity',
         label: 'Nearest City',
         type: 'text' as FieldType,
-        required: true,
-        step: 3
+        required: false,
+        step: 3,
+        placeholder: 'Enter the nearest major city'
       },
       {
         id: 'fundingGoal',
@@ -265,30 +286,34 @@ async function setupMasterForms() {
         name: 'includeOnMap',
         label: 'Include on Map',
         type: 'checkbox' as FieldType,
-        required: false,
+        required: true,
         step: 3
       }
     ],
+    isMultiStep: true,
     status: 'published',
     updatedAt: new Date().toISOString()
   };
 
   try {
-    // Remove existing master forms if they exist
-    await formVersions.deleteMany({ version: { $in: [1000, 1001] } });
+    // Upsert the master form configurations
+    await formVersions.updateOne(
+      { version: 1000 },
+      { $set: freeSignupForm },
+      { upsert: true }
+    );
+    await formVersions.updateOne(
+      { version: 1001 },
+      { $set: bsnRegistrationForm },
+      { upsert: true }
+    );
+    console.log('Successfully created/updated master form configurations:');
+    console.log(`- ${freeSignupForm.name} (version ${freeSignupForm.version})`);
+    console.log(`- ${bsnRegistrationForm.name} (version ${bsnRegistrationForm.version})`);
 
-    // Insert new master forms
-    await formVersions.insertMany([freeSignupForm, upgradeForm]);
-
-    console.log('Successfully created master form configurations:');
-    console.log('- Free Signup Form (version 1000)');
-    console.log('- Upgrade Form (version 1001)');
-  } catch (error) {
-    console.error('Error setting up master forms:', error);
-    process.exit(1);
+  } catch (err) {
+    console.error('Failed to set up master forms:', err);
   }
-
-  process.exit(0);
 }
 
 setupMasterForms().catch(console.error); 

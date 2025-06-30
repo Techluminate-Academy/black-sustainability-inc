@@ -2,20 +2,7 @@
 
 import axios from "axios";
 import AirtableUtils from "@/features/freeSignup/airtableUtils";
-
-export interface FreeSubmissionPayload {
-  firstName: string;
-  lastName: string;
-  email: string;
-  address: string;
-  latitude: number | null;
-  longitude: number | null;
-  primaryIndustry: string;
-  organizationName?: string;
-  bio?: string;
-  photoUrl?: string;
-  logoUrl?: string;
-}
+import { FreeSubmissionPayload } from "./types";
 
 /**
  * Sends a "free sign-up" record to Airtable.
@@ -29,7 +16,7 @@ export async function sendToAirtable(data: FreeSubmissionPayload): Promise<void>
     Address: data.address,
     Latitude: data.latitude !== undefined && data.latitude !== null ? data.latitude.toString() : undefined,
     Longitude: data.longitude !== undefined && data.longitude !== null ? data.longitude.toString() : undefined,
-    "Membership Status Notes": "Free",
+    "MembershipType": "Free",
   };
 
   // Only add primaryIndustry if it's not empty
@@ -49,6 +36,8 @@ export async function sendToAirtable(data: FreeSubmissionPayload): Promise<void>
   if (data.logoUrl) {
     airtableFields["LOGO"] = [{ url: data.logoUrl }];
   }
+  
+  airtableFields["Membership Status Notes"] = "Free";
 
   await AirtableUtils.submitToAirtable(airtableFields);
 }

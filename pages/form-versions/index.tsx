@@ -2,6 +2,8 @@
 
 import useSWR from "swr";
 import Link from "next/link";
+import { useState } from "react";
+import ConfirmationModal from "@/components/common/ConfirmationModal";
 
 interface FormVersion {
   _id: string;
@@ -16,17 +18,46 @@ interface FormVersion {
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function FormVersionsPage() {
-  const { data, error } = useSWR<FormVersion[]>(
+  const { data, error, mutate } = useSWR<FormVersion[]>(
     "/api/form-versions?all=true",
     fetcher
   );
+
+  const [deleteVersion, setDeleteVersion] = useState<FormVersion | null>(null);
+
+  const handleDelete = async () => {
+    if (!deleteVersion) return;
+
+    try {
+      const response = await fetch(`/api/form-versions/${deleteVersion.version}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to delete version');
+      }
+
+      // Show success message (you can add a toast notification here)
+      console.log(result.message);
+      
+      // Refresh the versions list
+      mutate();
+    } catch (error) {
+      console.error('Error deleting version:', error);
+      // Show error message (you can add a toast notification here)
+    }
+
+    setDeleteVersion(null);
+  };
 
   if (error)
     return <p className="p-8 text-red-600 text-center">Failed to load versions.</p>;
   if (!data) return <p className="p-8 text-center">Loading versions…</p>;
 
-  // Filter out forms without names
-  const namedForms = data.filter(form => form.name && !form.name.match(/^Form \d+$/));
+  // A form is valid if it's a master or has a name that isn't the default "Form X"
+  const namedForms = data.filter(form => form.master || (form.name && !form.name.match(/^Form \d+$/)));
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -87,19 +118,39 @@ export default function FormVersionsPage() {
                 )}
               </div>
 
-              <Link href={`/schema-editor/${v.version}`}>
-                <p className={`mt-4 inline-block self-start font-medium px-4 py-2 rounded-md transition-colors ${
-                  isMaster 
-                    ? 'bg-purple-600 text-white hover:bg-purple-700'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}>
-                  Load
-                </p>
-              </Link>
+              <div className="mt-4 flex gap-2">
+                <Link href={`/schema-editor/${v.version}`}>
+                  <p className={`inline-block font-medium px-4 py-2 rounded-md transition-colors ${
+                    isMaster 
+                      ? 'bg-purple-600 text-white hover:bg-purple-700'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}>
+                    Load
+                  </p>
+                </Link>
+                {!isMaster && !isLive && (
+                  <button
+                    onClick={() => setDeleteVersion(v)}
+                    className="font-medium px-4 py-2 rounded-md transition-colors bg-red-100 text-red-700 hover:bg-red-200"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
       </div>
+
+      <ConfirmationModal
+        isOpen={!!deleteVersion}
+        onClose={() => setDeleteVersion(null)}
+        onConfirm={handleDelete}
+        title="Delete Form Version"
+        message={`Are you sure you want to delete version ${deleteVersion?.version} of "${deleteVersion?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </div>
   );
 }

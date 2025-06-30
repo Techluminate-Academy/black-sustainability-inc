@@ -31,5 +31,6 @@ export interface FormData {
     longitude: number | null;
     showDropdown?: boolean;
     phoneCountryCodeTouched: boolean;
+    membershipStatusNotes?: string;
   }
   

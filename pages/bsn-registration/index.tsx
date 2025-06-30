@@ -863,7 +863,7 @@ const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) 
     const fetchDropdownOptions = async () => {
       try {
         const dropdownData = await AirtableUtils.fetchTableMetadata();
-        console.log("Dropdown data:", dropdownData);
+        console.log("Airtable Dropdown Data:", JSON.stringify(dropdownData, null, 2));
         
         const countryField = dropdownData.find((f: any) => f.fieldName === "Country");
         if (countryField) {

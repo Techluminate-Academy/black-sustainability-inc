@@ -26,6 +26,7 @@ export interface FreeFormData {
   logo: File | null;
   logoUrl?: string;
   form?: string;
+  membershipStatusNotes: string;
 }
 
 // Industry Option Type
@@ -56,6 +57,11 @@ export interface AirtableSubmissionPayload {
   "BIO"?: string;
   "PHOTO"?: { url: string }[];
   "LOGO"?: { url: string }[];
+}
+
+export interface FreeSubmissionPayload extends FreeFormData {
+  photoUrl?: string;
+  logoUrl?: string;
 }
 
 // Form State Types

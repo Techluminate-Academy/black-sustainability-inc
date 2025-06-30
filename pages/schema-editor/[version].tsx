@@ -1,22 +1,26 @@
 // pages/schema-editor/[version].tsx
 import { GetServerSideProps } from "next";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Formik, Form, FieldArray } from 'formik';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { connectToDatabase } from "@/lib/mongodb";
 import type { Collection } from "mongodb";
 import type { FormVersion } from "@/models/formVersion";
-import { FieldEditor } from '@/components/FieldEditor';
+import FieldEditor from '@/components/FieldEditor';
 import { FieldDef, formValidationSchema } from '@/types/schema-editor';
 import { FieldType } from '@/models/field';
-import toast from 'react-hot-toast';
+import ConfirmationModal from "@/components/common/ConfirmationModal";
+import { EyeIcon, PlusIcon, ChevronUpIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 
 interface SchemaEditorProps {
   version: number;
   formName: string;
   isMultiStep: boolean;
   initialFields: FieldDef[];
+  status: string;
+  isMaster: boolean;
 }
 
 export const getServerSideProps: GetServerSideProps<SchemaEditorProps> = async ({ params }) => {
@@ -52,378 +56,542 @@ export const getServerSideProps: GetServerSideProps<SchemaEditorProps> = async (
       version, 
       formName: doc.name || `Form ${version}`,
       isMultiStep: doc.isMultiStep || false,
-      initialFields 
+      initialFields,
+      status: doc.status || 'draft',
+      isMaster: doc.master || false
     } 
   };
 };
 
-export default function SchemaEditorPage({ version, formName, isMultiStep, initialFields }: SchemaEditorProps) {
-  const [isPublishing, setIsPublishing] = useState(false);
-  const [activeStep, setActiveStep] = useState(1);
-  const [collapsedSteps, setCollapsedSteps] = useState<number[]>([]);
+export default function SchemaEditorPage({ version, formName, isMultiStep, initialFields, status, isMaster }: SchemaEditorProps) {
+  const router = useRouter();
+  const [activeStep, setActiveStep] = useState<number | null>(isMultiStep ? 1 : null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [pendingFormValues, setPendingFormValues] = useState<{ fields: FieldDef[] } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<any>(null);
+  const lastFieldRef = useRef<HTMLDivElement>(null);
+  const errorRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  const toggleStep = (step: number) => {
-    setCollapsedSteps(prev => 
-      prev.includes(step) 
-        ? prev.filter(s => s !== step)
-        : [...prev, step]
-    );
-  };
-
-  const saveForm = async (values: { fields: FieldDef[] }, status: 'draft' | 'published') => {
+  const handleCreateNewVersion = async () => {
+    setIsSaving(true);
     try {
-      // Ensure all fields have IDs and names before saving
-      const fieldsWithIds = values.fields.map((field, index) => ({
-        ...field,
-        id: field.id || `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: field.name || `field_${index + 1}`,
-        type: (() => {
-          const t = typeof field.type === 'string' ? field.type.toLowerCase() : 'text';
-          const valid: FieldType[] = ['text','email','url','textarea','dropdown','checkbox','file','phone','address'];
-          return (valid.includes(t as FieldType) ? t : 'text') as FieldType;
-        })()
-      }));
-
-      const res = await fetch('/api/form-versions/version', {
+      const res = await fetch('/api/form-versions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fields: fieldsWithIds,
-          version,
-          status
+          masterVersion: version,
+          name: formName,
+          fields: initialFields,
+          isMultiStep,
         }),
       });
 
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || 'Failed to save schema');
+        throw new Error('Failed to create new version');
+      }
+
+      const newVersion = await res.json();
+      toast.success(`New draft (v${newVersion.version}) created successfully!`);
+      router.push(`/schema-editor/${newVersion.version}`);
+
+    } catch (error) {
+      console.error(error);
+      toast.error('Could not create new version.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleConfirmSave = async () => {
+    if (!pendingFormValues) return;
+
+    const { fields } = pendingFormValues;
+    const isPublishing = showPublishConfirm;
+
+    setIsSaving(true);
+    
+    const url = `/api/form-versions/${version}`;
+    const payload = {
+      version,
+      fields,
+      status: isPublishing ? 'published' : 'draft',
+    };
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to save form');
       }
 
       const result = await res.json();
-      toast.success(`Form schema ${status === 'published' ? 'published' : 'saved'} successfully`);
-      return result;
-    } catch (error) {
-      console.error('Save error:', error);
-      toast.error(error instanceof Error ? error.message : `Failed to ${status === 'published' ? 'publish' : 'save'} schema`);
-      throw error;
+      
+      toast.success(`Version ${isPublishing ? 'published' : 'saved'} successfully.`);
+
+      if (result.newDraft) {
+        router.push(`/schema-editor/${result.newDraft}`);
+      } else {
+        router.reload();
+      }
+    } catch (error: any) {
+      console.error('Error saving form:', error);
+      toast.error(error.message || `Failed to ${isPublishing ? 'publish' : 'save'}.`);
+    } finally {
+      setIsSaving(false);
+      setShowSaveConfirm(false);
+      setShowPublishConfirm(false);
+      setPendingFormValues(null);
     }
+  };
+
+  const toggleStep = (step: number) => {
+    setActiveStep(prev => (prev === step ? null : step));
+  };
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (status === 'published') {
+      toast.error('Published versions cannot be deleted');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      await fetch(`/api/form-versions/${version}`, {
+        method: 'DELETE',
+      });
+      toast.success('Version deleted successfully');
+      router.push('/form-versions');
+    } catch (error) {
+      console.error('Error deleting version:', error);
+      toast.error('Failed to delete version');
+    } finally {
+      setIsSaving(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  const defaultNewField: FieldDef = {
+    id: `field_${Date.now()}`,
+    name: '',
+    label: '',
+    type: 'text',
+    required: false,
+    step: 1,
+    options: [],
+    description: '',
+    placeholder: ''
+  };
+
+  const getFieldsByStep = (fields: FieldDef[]) => {
+    return fields.reduce((acc, field, index) => {
+      const step = field.step || 1;
+      if (!acc[step]) acc[step] = [];
+      acc[step].push({ ...field, originalIndex: index });
+      return acc;
+    }, {} as Record<number, (FieldDef & { originalIndex: number })[]>);
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <Toaster position="top-right" />
       
+      <div className="bg-white shadow-sm rounded-lg p-6 mb-8">
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-gray-900">{formName}</h1>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 text-sm font-medium rounded-full bg-green-100 text-green-800">
+                  Version {version}
+                </span>
+                <span className={`px-2.5 py-0.5 text-sm font-medium rounded-full ${
+                  status === 'published' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {status === 'published' ? 'Published' : 'Draft'}
+                </span>
+                {isMaster && (
+                  <span className="px-2.5 py-0.5 text-sm font-medium rounded-full bg-blue-100 text-blue-800">
+                    Master Version
+                  </span>
+                )}
+              </div>
+            </div>
+            <a 
+              href={`/form-preview/${version}`}
+              target="_blank"
+              rel="noopener noreferrer" 
+              className="mt-2 inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
+            >
+              <EyeIcon className="w-4 h-4 mr-1" />
+              Preview Form
+            </a>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={status === 'published'}
+              className={`px-4 py-2 text-sm font-medium rounded-md ${
+                status === 'published'
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+              }`}
+              title={status === 'published' ? "Published versions cannot be deleted" : "Delete this version"}
+            >
+              Delete Version
+            </button>
+            {isMaster && (
+               <button
+                type="button"
+                onClick={handleCreateNewVersion}
+                disabled={isSaving}
+                className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+              >
+                {isSaving ? 'Creating...' : 'Create New Version'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Delete Version</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Are you sure you want to delete this version? This action cannot be undone.
+              {status === 'published' && (
+                <span className="block mt-2 text-red-600 font-medium">
+                  Published versions cannot be deleted.
+                </span>
+              )}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isSaving || status === 'published'}
+                className={`px-4 py-2 text-sm font-medium rounded-md ${
+                  status === 'published'
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'text-white bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                {isSaving ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Formik
         initialValues={{ fields: initialFields }}
         validationSchema={formValidationSchema}
-        onSubmit={async (values, { setSubmitting }) => {
-          try {
-            const cleanedFields = values.fields.map(field => ({
-              ...field,
-              options: field.type === 'dropdown' ? field.options : [],
-              step: isMultiStep ? field.step : 1 // Force step 1 for non-multi-step forms
-            }));
-            await saveForm({ fields: cleanedFields }, isPublishing ? 'published' : 'draft');
-          } catch (error) {
-            // Error is already handled in saveForm
-          } finally {
-            setSubmitting(false);
-            setIsPublishing(false);
-          }
+        onSubmit={(values, { setSubmitting }) => {
+          // We trigger submission manually, so this can be a no-op
         }}
+        enableReinitialize
       >
         {({ values, isSubmitting, submitForm, validateForm, setTouched, setFieldValue }) => {
-          const handleSave = async (publish: boolean) => {
+          const handleTriggerSubmit = async (publish: boolean) => {
             await Promise.all(values.fields.map(async (field, index) => {
               if (field.type !== 'dropdown' && Array.isArray(field.options) && field.options.length > 0) {
                 await setFieldValue(`fields.${index}.options`, []);
               }
             }));
-
             const touchObj: any = {
-              fields: values.fields.map(() => ({
-                id: true,
-                name: true,
-                label: true,
-                type: true,
-                step: true,
-              }))
+              fields: values.fields.map(() => ({ name: true, label: true, type: true, step: true }))
             };
             setTouched(touchObj, true);
-
             const errors = await validateForm();
-            if (Object.keys(errors).length) {
-              toast.error('Please resolve the highlighted validation errors before saving');
+            if (Object.keys(errors).length > 0) {
+              setValidationErrors(errors.fields || {});
+              // Scroll to first error
+              const firstErrorIdx = (errors.fields || []).findIndex((f: any) => f && Object.keys(f).length > 0);
+              if (firstErrorIdx >= 0 && errorRefs.current[firstErrorIdx]) {
+                errorRefs.current[firstErrorIdx]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+              toast.error('Please fix the validation errors before saving.');
               return;
+            } else {
+              setValidationErrors(null);
             }
-
-            setIsPublishing(publish);
-            submitForm();
+            const cleanedFields = values.fields.map(field => ({
+              ...field,
+              options: field.type === 'dropdown' ? field.options : [],
+              step: isMultiStep ? field.step : 1
+            }));
+            setPendingFormValues({ fields: cleanedFields });
+            if (publish) {
+              setShowPublishConfirm(true);
+            } else {
+              setShowSaveConfirm(true);
+            }
           };
 
-          // Group fields by step
-          const fieldsByStep = useMemo(() => {
-            const steps: { [key: number]: FieldDef[] } = {};
-            values.fields.forEach((field, index) => {
-              const step = isMultiStep ? (field.step || 1) : 1;
-              if (!steps[step]) steps[step] = [];
-              steps[step].push({ ...field, originalIndex: index });
-            });
-            return steps;
-          }, [values.fields, isMultiStep]);
-
-          // Get the number of fields in each step
-          const stepCounts = useMemo(() => {
-            return Object.entries(fieldsByStep).reduce((acc, [step, fields]) => {
-              acc[parseInt(step)] = fields.length;
-              return acc;
-            }, {} as { [key: number]: number });
-          }, [fieldsByStep]);
+          const fieldsByStep = isMultiStep ? getFieldsByStep(values.fields) : {};
 
           return (
-            <Form className="space-y-6">
-              <div className="bg-white shadow rounded-lg p-6 sticky top-4 z-10">
-                <div className="flex flex-col space-y-4">
+            <>
+              <Form className="space-y-6">
+                <div className="bg-white shadow rounded-lg p-6 sticky top-4 z-10 border-b border-gray-200">
                   <div className="flex justify-between items-center">
-                    <div className="flex items-center space-x-4">
-                      <div>
-                        <h1 className="text-2xl font-bold">{formName}</h1>
-                        <p className="text-sm text-gray-500">Form Schema v{version}</p>
-                      </div>
-                      <Link 
-                        href={`/form-preview/${version}`}
-                        target="_blank"
-                        className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm"
-                      >
-                        👁️ Preview Form
-                      </Link>
-                    </div>
-                    
-                    <div className="flex items-center space-x-4">
-                      <FieldArray name="fields">
-                        {({ push }) => (
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                try {
-                                  // Create new version based on current fields
-                                  const res = await fetch('/api/form-versions/version', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                      fields: values.fields,
-                                      status: 'draft',
-                                      masterVersion: version
-                                    }),
-                                  });
-
-                                  if (!res.ok) {
-                                    const error = await res.json();
-                                    throw new Error(error.error || 'Failed to create new version');
-                                  }
-
-                                  const result = await res.json();
-                                  toast.success('New version created! Redirecting...');
-                                  
-                                  // Redirect to the new version
-                                  setTimeout(() => {
-                                    window.location.href = `/schema-editor/${result.version}`;
-                                  }, 1500);
-                                } catch (error) {
-                                  console.error('Error creating new version:', error);
-                                  toast.error(error instanceof Error ? error.message : 'Failed to create new version');
-                                }
-                              }}
-                              className="px-4 py-2 bg-purple-50 text-purple-600 rounded-md hover:bg-purple-100 transition-colors flex items-center space-x-2"
-                            >
-                              <span>🔄</span>
-                              <span>Create New Version</span>
-                            </button>
-                          </div>
-                        )}
-                      </FieldArray>
-
-                      <FieldArray name="fields">
-                        {({ push }) => (
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const lastStep = values.fields.length > 0 
-                                  ? (isMultiStep ? values.fields[values.fields.length - 1].step : 1)
-                                  : (isMultiStep ? activeStep : 1);
-                                
-                                let fieldNumber = values.fields.length + 1;
-                                let fieldName = `field_${fieldNumber}`;
-                                
-                                while (values.fields.some(f => f.name === fieldName)) {
-                                  fieldNumber++;
-                                  fieldName = `field_${fieldNumber}`;
-                                }
-
-                                push({
-                                  id: `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                                  name: fieldName,
-                                  label: `New Field ${fieldNumber}`,
-                                  type: 'text' as FieldType,
-                                  required: false,
-                                  options: [],
-                                  step: lastStep,
-                                  description: '',
-                                  placeholder: 'Enter your answer here'
-                                });
-
-                                setTimeout(() => {
-                                  window.scrollTo({
-                                    top: document.body.scrollHeight,
-                                    behavior: 'smooth'
-                                  });
-                                }, 100);
-
-                                toast.success('New field added! 🎉');
-                              }}
-                              className="px-4 py-2 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors flex items-center space-x-2"
-                            >
-                              <span>➕</span>
-                              <span>Add Field</span>
-                            </button>
-                          </div>
-                        )}
-                      </FieldArray>
-
+                    <h2 className="text-xl font-semibold">Form Controls</h2>
+                    <div className="flex items-center gap-3">
                       <button
                         type="button"
-                        onClick={() => handleSave(false)}
-                        disabled={isSubmitting}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        onClick={() => handleTriggerSubmit(false)}
+                        disabled={isSubmitting || isSaving || isMaster}
+                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
                       >
-                        {isSubmitting && !isPublishing ? 'Saving...' : 'Save Draft'}
+                        {isSaving && !showPublishConfirm ? 'Saving...' : 'Save Draft'}
                       </button>
-
                       <button
                         type="button"
-                        onClick={() => handleSave(true)}
-                        disabled={isSubmitting}
-                        className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
+                        onClick={() => handleTriggerSubmit(true)}
+                        disabled={isSubmitting || isSaving || isMaster}
+                        className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-400"
                       >
-                        {isSubmitting && isPublishing ? 'Publishing...' : 'Publish'}
+                        {isSaving && showPublishConfirm ? 'Publishing...' : 'Publish'}
                       </button>
                     </div>
                   </div>
+                </div>
 
-                  {/* Step Navigation - Only show for multi-step forms */}
-                  {isMultiStep && (
-                    <div className="flex space-x-4 pt-4 border-t">
-                      {[1, 2, 3].map(step => (
+                {validationErrors && Array.isArray(validationErrors) && validationErrors.length > 0 && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 rounded-md p-4 mb-4">
+                    <strong>Validation Errors:</strong>
+                    <ul className="list-disc ml-6 mt-2">
+                      {validationErrors.map((err: any, idx: number) => (
+                        err && Object.values(err).map((msg, i) => (
+                          <li key={idx + '-' + i}>{typeof msg === 'string' ? msg : JSON.stringify(msg)}</li>
+                        ))
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {isMultiStep && (
+                  <div className="mb-6 space-y-2">
+                    {[1, 2, 3].map(step => {
+                      const stepFields = fieldsByStep[step] || [];
+                      const isActive = activeStep === step;
+                      return (
                         <button
                           key={step}
                           type="button"
-                          onClick={() => {
-                            setActiveStep(step);
-                            // Expand the clicked step and collapse others
-                            setCollapsedSteps([1, 2, 3].filter(s => s !== step));
-                          }}
-                          className={`px-4 py-2 rounded-md flex items-center space-x-2 ${
-                            activeStep === step
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          onClick={() => toggleStep(step)}
+                          className={`w-full text-left px-4 py-3 rounded-lg flex items-center justify-between transition-colors ${
+                            isActive ? 'bg-white shadow-sm' : 'bg-gray-50 hover:bg-gray-100'
                           }`}
                         >
-                          <span>Step {step}</span>
-                          <span className="text-sm">
-                            ({stepCounts[step] || 0} fields)
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <FieldArray name="fields">
-                {({ remove, move }) => (
-                  <div className="space-y-6">
-                    {/* For multi-step forms, show all steps */}
-                    {isMultiStep ? (
-                      [1, 2, 3].map(step => {
-                        const stepFields = fieldsByStep[step] || [];
-                        const isCollapsed = collapsedSteps.includes(step);
-                        const isActive = activeStep === step;
-
-                        return (
-                          <div 
-                            key={step}
-                            className={`border rounded-lg bg-white overflow-hidden transition-all duration-300 ${
-                              isActive ? 'ring-2 ring-blue-500' : ''
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Step {step}</span>
+                            <span className="text-sm text-gray-500">
+                              ({stepFields.length} fields)
+                            </span>
+                          </div>
+                          <ChevronDownIcon 
+                            className={`w-5 h-5 text-gray-400 transform transition-transform ${
+                              isActive ? 'rotate-180' : ''
                             }`}
-                          >
-                            <div 
-                              className="flex items-center justify-between p-4 bg-gray-50 cursor-pointer"
-                              onClick={() => toggleStep(step)}
-                            >
-                              <h2 className="text-lg font-semibold flex items-center space-x-2">
-                                <span>Step {step}</span>
-                                <span className="text-sm text-gray-500">
-                                  ({stepFields.length} fields)
-                                </span>
-                              </h2>
-                              <button 
-                                type="button"
-                                className="text-gray-500 hover:text-gray-700"
-                              >
-                                {isCollapsed ? '▼' : '▲'}
-                              </button>
-                            </div>
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <FieldArray
+                  name="fields"
+                  render={arrayHelpers => (
+                    <>
+                      <div className="space-y-4">
+                        {isMultiStep ? (
+                          [1, 2, 3].map(step => {
+                            if (activeStep !== step) return null;
+
+                            const stepFields = fieldsByStep[step] || [];
                             
-                            <div className={`transition-all duration-300 ${
-                              isCollapsed ? 'h-0' : 'h-auto'
-                            }`}>
-                              <div className={`p-4 space-y-4 ${
-                                isCollapsed ? 'hidden' : 'block'
-                              }`}>
-                                {stepFields.map((field: any) => (
-                                  <FieldEditor
-                                    key={field.id || field.originalIndex}
-                                    index={field.originalIndex}
-                                    remove={() => remove(field.originalIndex)}
-                                    moveUp={() => field.originalIndex > 0 && move(field.originalIndex, field.originalIndex - 1)}
-                                    moveDown={() => field.originalIndex < values.fields.length - 1 && move(field.originalIndex, field.originalIndex + 1)}
-                                  />
+                            return (
+                              <div key={step} className="space-y-4">
+                                {stepFields.map(({ originalIndex, ...field }, idx) => (
+                                  <div 
+                                    key={field.id} 
+                                    className="bg-white shadow rounded-lg p-6 relative"
+                                    ref={el => errorRefs.current[originalIndex] = el}
+                                  >
+                                    <div className="absolute right-4 top-4 flex items-center space-x-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => originalIndex > 0 && arrayHelpers.move(originalIndex, originalIndex - 1)}
+                                        disabled={originalIndex === 0}
+                                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                                        title="Move Up"
+                                      >
+                                        <ChevronUpIcon className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => originalIndex < values.fields.length - 1 && arrayHelpers.move(originalIndex, originalIndex + 1)}
+                                        disabled={originalIndex === values.fields.length - 1}
+                                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                                        title="Move Down"
+                                      >
+                                        <ChevronDownIcon className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => arrayHelpers.remove(originalIndex)}
+                                        className="p-1 text-red-400 hover:text-red-600"
+                                        title="Delete Field"
+                                      >
+                                        &times;
+                                      </button>
+                                    </div>
+
+                                    <FieldEditor
+                                      field={field}
+                                      index={originalIndex}
+                                      isMultiStep={isMultiStep}
+                                      error={validationErrors && validationErrors[originalIndex]}
+                                      onChange={(updatedField: FieldDef) => {
+                                        setFieldValue(`fields.${originalIndex}`, updatedField);
+                                      }}
+                                    />
+                                  </div>
                                 ))}
                                 {stepFields.length === 0 && (
-                                  <p className="text-gray-500 text-center py-4">
+                                  <p className="text-gray-500 text-center py-4 bg-white rounded-lg shadow-sm">
                                     No fields in this step. Add a field or move existing fields here.
                                   </p>
                                 )}
                               </div>
+                            );
+                          })
+                        ) : (
+                          values.fields.map((field, index) => (
+                            <div 
+                              key={field.id} 
+                              className="bg-white shadow rounded-lg p-6 relative"
+                              ref={el => errorRefs.current[index] = el}
+                            >
+                              <div className="absolute right-4 top-4 flex items-center space-x-2">
+                                <button
+                                  type="button"
+                                  onClick={() => index > 0 && arrayHelpers.move(index, index - 1)}
+                                  disabled={index === 0}
+                                  className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                                  title="Move Up"
+                                >
+                                  <ChevronUpIcon className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => index < values.fields.length - 1 && arrayHelpers.move(index, index + 1)}
+                                  disabled={index === values.fields.length - 1}
+                                  className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                                  title="Move Down"
+                                >
+                                  <ChevronDownIcon className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => arrayHelpers.remove(index)}
+                                  className="p-1 text-red-400 hover:text-red-600"
+                                  title="Delete Field"
+                                >
+                                  &times;
+                                </button>
+                              </div>
+
+                              <FieldEditor
+                                field={field}
+                                index={index}
+                                isMultiStep={isMultiStep}
+                                error={validationErrors && validationErrors[index]}
+                                onChange={(updatedField: FieldDef) => {
+                                  setFieldValue(`fields.${index}`, updatedField);
+                                }}
+                              />
                             </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      // For single-step forms, show all fields in one section
-                      <div className="border rounded-lg bg-white p-4 space-y-4">
-                        {values.fields.map((field, index) => (
-                          <FieldEditor
-                            key={field.id || index}
-                            index={index}
-                            remove={() => remove(index)}
-                            moveUp={() => index > 0 && move(index, index - 1)}
-                            moveDown={() => index < values.fields.length - 1 && move(index, index + 1)}
-                          />
-                        ))}
-                        {values.fields.length === 0 && (
-                          <p className="text-gray-500 text-center py-4">
-                            No fields yet. Click "Add Field" to start building your form.
-                          </p>
+                          ))
                         )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newFieldStep = isMultiStep ? (activeStep || 1) : 1;
+                            const newField = { ...defaultNewField, step: newFieldStep, id: `field_${Date.now()}` };
+                            arrayHelpers.push(newField);
+                            setTimeout(() => {
+                              lastFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }, 100);
+                          }}
+                          className="fixed bottom-8 right-8 flex items-center justify-center w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                          <PlusIcon className="w-6 h-6" />
+                          <span className="sr-only">Add Field</span>
+                        </button>
                       </div>
-                    )}
-                  </div>
-                )}
-              </FieldArray>
-            </Form>
+                    </>
+                  )}
+                />
+              </Form>
+
+              <ConfirmationModal
+                isOpen={showPublishConfirm}
+                onClose={() => {
+                  setShowPublishConfirm(false);
+                  setPendingFormValues(null);
+                }}
+                onConfirm={handleConfirmSave}
+                title="Publish Form Version"
+                message={
+                  status === 'published' 
+                    ? `This will create a new version based on version ${version} and publish it. The current version will remain published until the new version is ready.`
+                    : `Are you sure you want to publish version ${version} of "${formName}"? This will make it live and accessible to users.`
+                }
+                confirmText="Publish"
+                cancelText="Cancel"
+              />
+
+              <ConfirmationModal
+                isOpen={showSaveConfirm}
+                onClose={() => {
+                  setShowSaveConfirm(false);
+                  setPendingFormValues(null);
+                }}
+                onConfirm={handleConfirmSave}
+                title="Save Form Changes"
+                message={
+                  status === 'published'
+                    ? `This will create a new draft version based on version ${version}. The current version will remain published.`
+                    : `This will update version ${version} of "${formName}" as a draft.`
+                }
+                confirmText="Save"
+                cancelText="Cancel"
+              />
+            </>
           );
         }}
       </Formik>
