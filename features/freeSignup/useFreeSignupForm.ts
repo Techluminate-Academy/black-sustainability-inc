@@ -1,5 +1,7 @@
 // features/freeSignup/useFreeSignupForm.ts
 
+"use strict";
+
 import { useState, useEffect } from "react";
 import {
   FreeFormData,
@@ -28,6 +30,7 @@ export function useFreeSignupForm() {
       photo: null,
       logo: null,
       form: "",
+      membershipStatusNotes: "Free"
     },
     errors: [],
     isDirty: false,

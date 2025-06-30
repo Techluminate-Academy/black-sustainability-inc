@@ -7,23 +7,26 @@ import type { JSONSchema7 } from "json-schema";
 import Validator from "@rjsf/validator-ajv8";
 import Bootstrap4Theme from "@rjsf/bootstrap-4";
 
-import type { FieldDef } from "../pages/schema-editor/[version]";
+import type { FieldDef } from "@/types/schema-editor";
+import type { FieldType } from "@/models/field";
 
 const Form = withTheme(Bootstrap4Theme as any);
 
 // user-friendly labels for field types
-const TYPE_OPTIONS: Array<{ value: FieldDef["type"]; label: string }> = [
-  { value: "string",   label: "Text"        },
+const TYPE_OPTIONS: Array<{ value: FieldType; label: string }> = [
+  { value: "text",     label: "Text"        },
   { value: "textarea", label: "Textarea"    },
-  { value: "number",   label: "Number"      },
-  { value: "boolean",  label: "Checkbox"    },
-  { value: "select",   label: "Dropdown"    },
+  { value: "email",    label: "Email"       },
+  { value: "dropdown", label: "Dropdown"    },
+  { value: "checkbox", label: "Checkbox"    },
   { value: "file",     label: "File Upload" },
+  { value: "phone",    label: "Phone"       },
+  { value: "address",  label: "Address"     }
 ];
 
 type Step = {
   title: string;
-  fieldKeys: string[];
+  fieldNames: string[];
 };
 
 interface Props {
@@ -44,17 +47,16 @@ export default function FormSchemaEditor({ initialFields, version }: Props) {
     fields.forEach((f) => {
       const s = f.step ?? 1;
       if (!byStep[s]) byStep[s] = [];
-      byStep[s].push(f.key);
+      byStep[s].push(f.name);
     });
     return [1, 2, 3].map((n) => ({
       title: `Step ${n}`,
-      fieldKeys: byStep[n] || [],
+      fieldNames: byStep[n] || [],
     }));
   }, [fields]);
 
   // collapse state
   const [openAll, setOpenAll] = useState(true);
-  // —— fixed: only one `=` here
   const [openSteps, setOpenSteps] = useState(() => steps.map(() => true));
 
   // keep openSteps in sync if `steps` length changes
@@ -74,33 +76,36 @@ export default function FormSchemaEditor({ initialFields, version }: Props) {
   const fullSchema = useMemo<JSONSchema7>(
     () => ({
       type: "object",
-      required: fields.filter((f) => f.required).map((f) => f.key),
+      required: fields.filter((f) => f.required).map((f) => f.name),
       properties: fields.reduce((acc, f) => {
         const p: any = { title: f.label };
         switch (f.type) {
-          case "string":
+          case "text":
+          case "email":
+          case "url":
+          case "phone":
             p.type = "string";
             break;
           case "textarea":
             p.type = "string";
             p.widget = "textarea";
             break;
-          case "number":
-            p.type = "number";
-            break;
-          case "boolean":
-            p.type = "boolean";
-            break;
-          case "select":
+          case "dropdown":
             p.type = "string";
             p.enum = f.options.map((o) => o.value);
+            break;
+          case "checkbox":
+            p.type = "boolean";
             break;
           case "file":
             p.type = "string";
             p.format = "data-url";
             break;
+          case "address":
+            p.type = "string";
+            break;
         }
-        acc[f.key] = p;
+        acc[f.name] = p;
         return acc;
       }, {} as Record<string, any>),
     }),
@@ -110,7 +115,7 @@ export default function FormSchemaEditor({ initialFields, version }: Props) {
   const fullUiSchema = useMemo(
     () =>
       fields.reduce((ui, f) => {
-        if (f.type === "textarea") ui[f.key] = { "ui:widget": "textarea" };
+        if (f.type === "textarea") ui[f.name] = { "ui:widget": "textarea" };
         return ui;
       }, {} as Record<string, any>),
     [fields]
@@ -118,22 +123,22 @@ export default function FormSchemaEditor({ initialFields, version }: Props) {
 
   // per-step schema/ui
   const stepSchema = useMemo<JSONSchema7>(() => {
-    const chosen = steps[activeStep].fieldKeys
-      .map((k) => fields.find((f) => f.key === k))
+    const chosen = steps[activeStep].fieldNames
+      .map((name) => fields.find((f) => f.name === name))
       .filter(Boolean) as FieldDef[];
     return {
       type: "object",
-      required: chosen.filter((f) => f.required).map((f) => f.key),
+      required: chosen.filter((f) => f.required).map((f) => f.name),
       properties: chosen.reduce((acc, f) => {
-        acc[f.key] = fullSchema.properties![f.key];
+        acc[f.name] = fullSchema.properties![f.name];
         return acc;
       }, {} as Record<string, any>),
     };
   }, [activeStep, steps, fields, fullSchema.properties]);
 
   const stepUiSchema = useMemo(() => {
-    return steps[activeStep].fieldKeys.reduce((ui, key) => {
-      if (fullUiSchema[key]) ui[key] = fullUiSchema[key];
+    return steps[activeStep].fieldNames.reduce((ui, name) => {
+      if (fullUiSchema[name]) ui[name] = fullUiSchema[name];
       return ui;
     }, {} as Record<string, any>);
   }, [activeStep, steps, fullUiSchema]);
@@ -145,11 +150,25 @@ export default function FormSchemaEditor({ initialFields, version }: Props) {
     copy.splice(to, 0, m);
     return copy;
   };
-  const addField = () =>
+
+  const addField = () => {
+    const newId = `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     setFields((fs) => [
       ...fs,
-      { key: `field${fs.length + 1}`, label: "New Field", type: "string", required: false, options: [], step: 1 },
+      { 
+        id: newId,
+        name: `field${fs.length + 1}`,
+        label: "New Field",
+        type: "text",
+        required: false,
+        options: [],
+        step: 1,
+        description: "",
+        placeholder: ""
+      },
     ]);
+  };
+
   const updateField = (i: number, upd: Partial<FieldDef>) =>
     setFields((fs) => fs.map((f, idx) => (idx === i ? { ...f, ...upd } : f)));
   const removeField = (i: number) => setFields((fs) => fs.filter((_, idx) => idx !== i));
@@ -159,12 +178,12 @@ export default function FormSchemaEditor({ initialFields, version }: Props) {
   // field handlers
   const onLabelChange = (i: number, e: ChangeEvent<HTMLInputElement>) =>
     updateField(i, { label: e.target.value });
-  const onKeyChange = (i: number, e: ChangeEvent<HTMLInputElement>) =>
-    updateField(i, { key: e.target.value });
+  const onNameChange = (i: number, e: ChangeEvent<HTMLInputElement>) =>
+    updateField(i, { name: e.target.value });
   const onTypeChange = (i: number, e: ChangeEvent<HTMLSelectElement>) =>
     updateField(i, {
-      type: e.target.value as FieldDef["type"],
-      options: e.target.value === "select" ? [{ label: "", value: "" }] : [],
+      type: e.target.value as FieldType,
+      options: e.target.value === "dropdown" ? [{ label: "", value: "" }] : [],
     });
   const onRequiredChange = (i: number, e: ChangeEvent<HTMLInputElement>) =>
     updateField(i, { required: e.target.checked });
@@ -255,11 +274,11 @@ export default function FormSchemaEditor({ initialFields, version }: Props) {
                   </div>
                   {openSteps[si] && (
                     <div className="p-3">
-                      {step.fieldKeys.map((key) => {
-                        const idx = fields.findIndex((f) => f.key === key);
+                      {step.fieldNames.map((name) => {
+                        const idx = fields.findIndex((f) => f.name === name);
                         const f = fields[idx];
                         return (
-                          <div key={key} className="border-bottom mb-3 pb-3">
+                          <div key={name} className="border-bottom mb-3 pb-3">
                             {/* Label */}
                             <div className="mb-2">
                               <label className="form-label small">Label</label>
@@ -269,13 +288,13 @@ export default function FormSchemaEditor({ initialFields, version }: Props) {
                                 onChange={(e) => onLabelChange(idx, e)}
                               />
                             </div>
-                            {/* Key */}
+                            {/* Name */}
                             <div className="mb-2">
-                              <label className="form-label small">Key</label>
+                              <label className="form-label small">Name</label>
                               <input
                                 className="form-control form-control-sm"
-                                value={f.key}
-                                onChange={(e) => onKeyChange(idx, e)}
+                                value={f.name}
+                                onChange={(e) => onNameChange(idx, e)}
                               />
                             </div>
                             {/* Type */}
@@ -304,7 +323,7 @@ export default function FormSchemaEditor({ initialFields, version }: Props) {
                               <label className="form-check-label small">Required</label>
                             </div>
                             {/* Options for dropdowns */}
-                            {f.type === "select" && (
+                            {f.type === "dropdown" && (
                               <div className="mb-2">
                                 <label className="form-label small">
                                   Options <small>(label|value,…)</small>

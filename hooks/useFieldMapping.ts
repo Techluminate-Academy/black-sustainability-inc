@@ -2,6 +2,16 @@ import { useState, useEffect } from "react";
 import { FieldDefinition } from "@/models/fieldDefinition";
 import AirtableUtils from "@/pages/api/submitForm";
 
+interface AirtableFieldMetadata {
+  fieldName: string;
+  fieldType: string;
+  options?: Array<{
+    id: string;
+    name: string;
+    icon: string | null;
+  }>;
+}
+
 export function useFieldMapping(fields: FieldDefinition[] | null) {
   const [nameToAirtable, setNameToAirtable] = useState<Record<string,string>>({});
   const [typeMap, setTypeMap] = useState<Record<string,string>>({});
@@ -9,11 +19,11 @@ export function useFieldMapping(fields: FieldDefinition[] | null) {
 
   useEffect(() => {
     if (!fields) return;
-    AirtableUtils.fetchTableMetadata().then((meta) => {
+    AirtableUtils.fetchTableMetadata().then((meta: AirtableFieldMetadata[]) => {
       const fn: Record<string,string> = {};
       const ft: Record<string,string> = {};
       const fo: Record<string,{id:string,name:string}[]> = {};
-      meta.forEach(m => {
+      meta.forEach((m: AirtableFieldMetadata) => {
         const cfg = fields.find(f => f.label.toLowerCase() === m.fieldName.toLowerCase());
         if (!cfg) return;
         fn[cfg.name] = m.fieldName;

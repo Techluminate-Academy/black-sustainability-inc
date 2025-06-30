@@ -1,7 +1,7 @@
 // pages/schema-editor/[version].tsx
 import { GetServerSideProps } from "next";
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { Formik, Form, FieldArray } from 'formik';
+import { Formik, Form, FieldArray, FormikErrors } from 'formik';
 import { Toaster, toast } from 'react-hot-toast';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -71,9 +71,9 @@ export default function SchemaEditorPage({ version, formName, isMultiStep, initi
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [pendingFormValues, setPendingFormValues] = useState<{ fields: FieldDef[] } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<any>(null);
+  const [validationErrors, setValidationErrors] = useState<FormikErrors<FieldDef>[] | null>(null);
   const lastFieldRef = useRef<HTMLDivElement>(null);
-  const errorRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const errorRefs = useRef<Array<HTMLDivElement | null>>([]);
 
   const handleCreateNewVersion = async () => {
     setIsSaving(true);
@@ -324,9 +324,10 @@ export default function SchemaEditorPage({ version, formName, isMultiStep, initi
             setTouched(touchObj, true);
             const errors = await validateForm();
             if (Object.keys(errors).length > 0) {
-              setValidationErrors(errors.fields || {});
+              const fieldErrors = errors.fields as FormikErrors<FieldDef>[];
+              setValidationErrors(fieldErrors || []);
               // Scroll to first error
-              const firstErrorIdx = (errors.fields || []).findIndex((f: any) => f && Object.keys(f).length > 0);
+              const firstErrorIdx = fieldErrors?.findIndex((f) => f && Object.keys(f).length > 0) ?? -1;
               if (firstErrorIdx >= 0 && errorRefs.current[firstErrorIdx]) {
                 errorRefs.current[firstErrorIdx]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }
@@ -438,7 +439,7 @@ export default function SchemaEditorPage({ version, formName, isMultiStep, initi
                                   <div 
                                     key={field.id} 
                                     className="bg-white shadow rounded-lg p-6 relative"
-                                    ref={el => errorRefs.current[originalIndex] = el}
+                                    ref={(el) => { errorRefs.current[originalIndex] = el; }}
                                   >
                                     <div className="absolute right-4 top-4 flex items-center space-x-2">
                                       <button
@@ -473,7 +474,6 @@ export default function SchemaEditorPage({ version, formName, isMultiStep, initi
                                       field={field}
                                       index={originalIndex}
                                       isMultiStep={isMultiStep}
-                                      error={validationErrors && validationErrors[originalIndex]}
                                       onChange={(updatedField: FieldDef) => {
                                         setFieldValue(`fields.${originalIndex}`, updatedField);
                                       }}
@@ -493,7 +493,7 @@ export default function SchemaEditorPage({ version, formName, isMultiStep, initi
                             <div 
                               key={field.id} 
                               className="bg-white shadow rounded-lg p-6 relative"
-                              ref={el => errorRefs.current[index] = el}
+                              ref={(el) => { errorRefs.current[index] = el; }}
                             >
                               <div className="absolute right-4 top-4 flex items-center space-x-2">
                                 <button
@@ -527,8 +527,7 @@ export default function SchemaEditorPage({ version, formName, isMultiStep, initi
                               <FieldEditor
                                 field={field}
                                 index={index}
-                                isMultiStep={isMultiStep}
-                                error={validationErrors && validationErrors[index]}
+                                isMultiStep={false}
                                 onChange={(updatedField: FieldDef) => {
                                   setFieldValue(`fields.${index}`, updatedField);
                                 }}
