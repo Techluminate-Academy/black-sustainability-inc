@@ -1,4 +1,4 @@
-import { connectToDatabase } from '@/lib/mongodb';
+import { connectToDatabase } from '../lib/mongodb';
 import type { Collection } from 'mongodb';
 import type { FormVersion } from '@/models/formVersion';
 import { FieldType } from '@/models/field';
@@ -47,7 +47,10 @@ async function setupMasterForms() {
         type: 'file' as FieldType,
         required: true,
         step: 1,
-        description: 'Upload a clear photo of yourself'
+        description: 'Upload a clear photo of yourself',
+        accept: 'image/*',
+        maxSize: 5242880, // 5MB in bytes
+        multiple: false
       },
       {
         id: 'logo',
@@ -56,7 +59,20 @@ async function setupMasterForms() {
         type: 'file' as FieldType,
         required: false,
         step: 1,
-        description: "Optional: Upload your organization's logo if applicable"
+        description: "Optional: Upload your organization's logo if applicable",
+        accept: 'image/*',
+        maxSize: 5242880, // 5MB in bytes
+        multiple: false
+      },
+      {
+        id: 'phone',
+        name: 'phone',
+        label: 'Phone Number',
+        type: 'phone' as FieldType,
+        required: false,
+        step: 1,
+        placeholder: 'Enter your phone number',
+        description: 'Please enter your phone number with country code'
       },
       {
         id: 'address',
@@ -116,7 +132,7 @@ async function setupMasterForms() {
     version: 1001,
     master: true,
     fields: [
-      // Step 1: Basic Information
+      // Step 1: Basic Information (order matches bsn-registration)
       {
         id: 'email',
         name: 'email',
@@ -145,12 +161,46 @@ async function setupMasterForms() {
         placeholder: 'Enter your last name'
       },
       {
-        id: 'memberLevel',
-        name: 'memberLevel',
-        label: 'Membership Level',
-        type: 'dropdown' as FieldType,
+        id: 'photo',
+        name: 'photo',
+        label: 'Photo',
+        type: 'file' as FieldType,
         required: true,
         step: 1,
+        description: 'Share your headshot and/or logo to complete your profile.',
+        accept: 'image/*',
+        maxSize: 5242880, // 5MB in bytes
+        multiple: false
+      },
+      {
+        id: 'logo',
+        name: 'logo',
+        label: 'Logo',
+        type: 'file' as FieldType,
+        required: false,
+        step: 1,
+        description: "Drop files here",
+        accept: 'image/*',
+        maxSize: 5242880,
+        multiple: false
+      },
+      {
+        id: 'phone',
+        name: 'phone',
+        label: 'Phone Number',
+        type: 'phone' as FieldType,
+        required: false,
+        step: 1,
+        placeholder: 'Enter your phone number'
+      },
+      {
+        id: 'memberLevel',
+        name: 'memberLevel',
+        label: 'Member Level',
+        type: 'dropdown' as FieldType,
+        required: true,
+        step: 2,
+        placeholder: 'Select your membership level',
         options: [
           { value: '🥋 Expert - Experienced Professional', label: '🥋 Expert - Experienced Professional' },
           { value: '👓 Enthusiast -Excited to Learn', label: '👓 Enthusiast -Excited to Learn' },
@@ -159,28 +209,39 @@ async function setupMasterForms() {
         ]
       },
       {
-        id: 'affiliatedEntity',
-        name: 'affiliatedEntity',
-        label: 'Affiliated Entity',
+        id: 'bio',
+        name: 'bio',
+        label: 'Bio (250 words or less)',
+        type: 'textarea' as FieldType,
+        required: true,
+        step: 2,
+        placeholder: 'Tell us about yourself and/or your organization.',
+        description: 'Word Count: 0 / 250'
+      },
+      {
+        id: 'organizationName',
+        name: 'organizationName',
+        label: 'Organization Name (if Applicable)',
         type: 'text' as FieldType,
         required: false,
-        step: 1,
-        placeholder: 'Enter your affiliated entity'
+        step: 2,
+        placeholder: 'Enter organization name'
       },
       {
         id: 'identification',
         name: 'identification',
         label: 'Identification',
         type: 'dropdown' as FieldType,
-        required: false,
-        step: 1,
+        required: true,
+        step: 2,
+        placeholder: 'Select your identification',
         options: [
-            { value: 'African/Afrikan', label: 'African/Afrikan' },
-            { value: 'Black/African-American', label: 'Black/African-American' },
-            { value: 'Black/Afro-Diasporic', label: 'Black/Afro-Diasporic' },
-            { value: 'African-American/Black', label: 'African-American/Black' },
-            { value: 'Afro-diasporic (Afro-Caribbean, Afro-Cubano, Black/African-American, Afro-Brazilian, etc.)', label: 'Afro-diasporic (Afro-Caribbean, Afro-Cubano, Black/African-American, Afro-Brazilian, etc.)' },
-            { value: 'Of African Descent (Afro-Caribbean, Afro-Cuban, Afro-Colombian, etc.)', label: 'Of African Descent (Afro-Caribbean, Afro-Cuban, Afro-Colombian, etc.)' }
+          { value: 'African/Afrikan', label: 'African/Afrikan' },
+          { value: 'Black/African-American', label: 'Black/African-American' },
+          { value: 'Black/Afro-Diasporic', label: 'Black/Afro-Diasporic' },
+          { value: 'African-American/Black', label: 'African-American/Black' },
+          { value: 'Afro-diasporic', label: 'Afro-diasporic (Afro-Caribbean, Afro-Cubano, Black/African-American, Afro-Brazilian, etc.)' },
+          { value: 'Of African Descent', label: 'Of African Descent (Afro-Caribbean, Afro-Cuban, Afro-Colombian, etc.)' }
         ]
       },
       {
@@ -188,17 +249,16 @@ async function setupMasterForms() {
         name: 'gender',
         label: 'Gender',
         type: 'dropdown' as FieldType,
-        required: false,
-        step: 1,
+        required: true,
+        step: 2,
+        placeholder: 'Select your gender',
         options: [
-          { label: 'Male', value: 'male' },
-          { label: 'Female', value: 'female' },
-          { label: 'Non-binary', value: 'non-binary' },
-          { label: 'Prefer not to say', value: 'prefer_not_to_say' }
+          { value: 'Female', label: 'Female' },
+          { value: 'Male', label: 'Male' },
+          { value: 'Non-Binary', label: 'Non-Binary' },
+          { value: 'Prefer not to say', label: 'Prefer not to say' }
         ]
       },
-
-      // Step 2: Contact & Focus Areas
       {
         id: 'website',
         name: 'website',
@@ -209,84 +269,174 @@ async function setupMasterForms() {
         placeholder: 'Enter your website URL'
       },
       {
-        id: 'phone',
-        name: 'phone',
-        label: 'Phone Number',
-        type: 'phone' as FieldType,
-        required: false,
-        step: 2
+        id: 'primaryIndustry',
+        name: 'primaryIndustry',
+        label: 'Primary Industry House',
+        type: 'dropdown' as FieldType,
+        required: true,
+        step: 2,
+        placeholder: 'Select your primary industry',
+        options: [
+          { value: 'Agriculture', label: '🌾 Agriculture/Sustainable Food Production / Land Management' },
+          { value: 'Alternative Energy', label: '☀️ Alternative Energy' },
+          { value: 'Community Development', label: '🏘 Community Development' },
+          { value: 'Education', label: '🧑🏾‍🏫 Education & Cultural Preservation' },
+          { value: 'Green Building', label: '🏗️ Green Building' },
+          { value: 'Waste Management', label: '♻️ Waste Management' },
+          { value: 'Water', label: '💧 Water' },
+          { value: 'Wholistic', label: '🌍 Wholistic' }
+        ]
       },
       {
         id: 'additionalFocus',
         name: 'additionalFocus',
-        label: 'Additional Focus Areas',
-        type: 'dropdown' as FieldType,
+        label: 'Additional Industry Houses',
+        type: 'multiselect' as FieldType,
         required: false,
         step: 2,
+        placeholder: 'Select additional industries',
         options: [
-          { label: 'Agriculture', value: 'agriculture' },
-          { label: 'Alternative Energy', value: 'alternative_energy' },
-          { label: 'Community Development', value: 'community_development' },
-          { label: 'Education', value: 'education' },
-          { label: 'Green Building', value: 'green_building' },
-          { label: 'Waste Management', value: 'waste_management' },
-          { label: 'Water', value: 'water' },
-          { label: 'Wholistic', value: 'wholistic' }
+          { value: 'Agriculture', label: '🌾 Agriculture/Sustainable Food Production / Land Management' },
+          { value: 'Alternative Energy', label: '☀️ Alternative Energy' },
+          { value: 'Community Development', label: '🏘 Community Development' },
+          { value: 'Education', label: '🧑🏾‍🏫 Education & Cultural Preservation' },
+          { value: 'Green Building', label: '🏗️ Green Building' },
+          { value: 'Waste Management', label: '♻️ Waste Management' },
+          { value: 'Water', label: '💧 Water' },
+          { value: 'Wholistic', label: '🌍 Wholistic' }
         ]
+      },
+      {
+        id: 'address',
+        name: 'address',
+        label: 'Address (Drop your pin on the map!)',
+        type: 'address' as FieldType,
+        required: true,
+        step: 3,
+        placeholder: 'Start typing your full address...'
       },
       {
         id: 'zipCode',
         name: 'zipCode',
-        label: 'ZIP Code',
+        label: 'Zip/Postal Code',
         type: 'text' as FieldType,
         required: false,
-        step: 2,
-        placeholder: 'Enter your ZIP code'
+        step: 3,
+        placeholder: 'e.g., 60628'
       },
-
-      // Step 3: Additional Information
       {
         id: 'youtube',
         name: 'youtube',
-        label: 'YouTube Channel',
+        label: 'YouTube',
         type: 'url' as FieldType,
         required: false,
         step: 3,
-        placeholder: 'Enter your YouTube channel URL'
+        placeholder: 'Enter YouTube link'
       },
       {
         id: 'nearestCity',
         name: 'nearestCity',
-        label: 'Nearest City',
+        label: 'Location (Nearest City)',
         type: 'text' as FieldType,
         required: false,
         step: 3,
-        placeholder: 'Enter the nearest major city'
+        placeholder: 'Enter nearest city'
+      },
+      {
+        id: 'locationName',
+        name: 'locationName',
+        label: 'Name (from Location)',
+        type: 'dropdown' as FieldType,
+        required: false,
+        step: 3,
+        placeholder: 'Find an option',
+        options: [
+          { value: 'MEX', label: 'MEX' },
+          { value: 'USA', label: 'USA' },
+          { value: 'LR', label: 'LR' },
+          { value: 'SEN', label: 'SEN' },
+          { value: 'UK', label: 'UK' },
+          { value: 'BRB', label: 'BRB' },
+          { value: 'GHA', label: 'GHA' },
+          { value: 'NIG', label: 'NIG' },
+          { value: 'ZA', label: 'ZA' },
+          { value: 'Portsmouth', label: 'Portsmouth' },
+          { value: 'JAM', label: 'JAM' },
+          { value: 'GBR', label: 'GBR' },
+          { value: 'RWA', label: 'RWA' },
+          { value: 'VIR', label: 'VIR' },
+          { value: 'UGA', label: 'UGA' },
+          { value: 'HTI', label: 'HTI' },
+          { value: 'CAN', label: 'CAN' },
+          { value: 'GUY', label: 'GUY' },
+          { value: 'BEL', label: 'BEL' },
+          { value: 'MW', label: 'MW' },
+          { value: 'Gam', label: 'Gam' },
+          { value: 'TZA', label: 'TZA' },
+          { value: 'PR', label: 'PR' },
+          { value: 'CM', label: 'CM' },
+          { value: 'ETH', label: 'ETH' },
+          { value: 'COL', label: 'COL' },
+          { value: 'Caribbean', label: 'Caribbean' },
+          { value: 'BW', label: 'BW' },
+          { value: 'NOR', label: 'NOR' },
+          { value: 'CG', label: 'CG' },
+          { value: 'SL', label: 'SL' },
+          { value: 'VU', label: 'VU' },
+          { value: 'BH', label: 'BH' },
+          { value: 'ZWA', label: 'ZWA' }
+        ]
       },
       {
         id: 'fundingGoal',
         name: 'fundingGoal',
         label: 'Funding Goal',
-        type: 'text' as FieldType,
+        type: 'textarea' as FieldType,
         required: false,
         step: 3,
-        placeholder: 'Enter your funding goal'
+        placeholder: 'Any project that needs funding...'
       },
       {
-        id: 'naicsCode',
-        name: 'naicsCode',
-        label: 'NAICS Code',
-        type: 'text' as FieldType,
+        id: 'similarCategories',
+        name: 'similarCategories',
+        label: 'Similar Categories',
+        type: 'multiselect' as FieldType,
         required: false,
         step: 3,
-        placeholder: 'Enter your NAICS code'
+        placeholder: 'Select similar categories',
+        options: [
+          { value: 'Astrology,Author', label: 'Astrology,Author' },
+          { value: 'Community Development', label: '🏘 Community Development' },
+          { value: 'Green Lifestyle', label: '♻️ Green Lifestyle' },
+          { value: 'Agriculture/Sustainable Food Production / Land Management', label: '🌾 Agriculture/Sustainable Food Production / Land Management' },
+          { value: 'Alternative Energy', label: '☀️ Alternative Energy' },
+          { value: 'Environmental Justice', label: '⚖️ Environmental Justice' },
+          { value: 'Education & Cultural Preservation', label: '🧑🏾‍🏫 Education & Cultural Preservation' },
+          { value: 'Alternative Economics', label: '💰 Alternative Economics' },
+          { value: 'Water', label: '💧 Water' },
+          { value: 'Waste Management', label: '🗑️ Waste Management' },
+          { value: 'Climate Preparedness', label: '🌡️ Climate Preparedness' },
+          { value: 'Wholistic Health', label: '🧘🏾‍♀️ Wholistic Health' },
+          { value: 'Author', label: '📚 Author' },
+          { value: 'Eco-Friendly Products', label: '🌿 Eco-Friendly Products' },
+          { value: 'Sustainability Consulting', label: '💼 Sustainability Consulting' },
+          { value: 'Environmental Education', label: '🎓 Environmental Education' },
+          { value: 'Renewable Energy', label: '🔋 Renewable Energy' },
+          { value: 'Sustainable Fashion', label: '👗 Sustainable Fashion' },
+          { value: 'Zero Waste', label: '♾️ Zero Waste' },
+          { value: 'Urban Farming', label: '🌱 Urban Farming' },
+          { value: 'Sustainable Transportation', label: '🚲 Sustainable Transportation' },
+          { value: 'Environmental Policy', label: '📜 Environmental Policy' },
+          { value: 'Green Building', label: '🏗️ Green Building' },
+          { value: 'Sustainable Tourism', label: '🌍 Sustainable Tourism' }
+        ]
       },
       {
         id: 'includeOnMap',
         name: 'includeOnMap',
-        label: 'Include on Map',
+        label: 'Include me on Global BSN Map',
         type: 'checkbox' as FieldType,
-        required: true,
+        required: false,
         step: 3
       }
     ],

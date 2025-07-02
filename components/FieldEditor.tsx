@@ -100,6 +100,7 @@ export default function FieldEditor({ field, index, onChange, isMultiStep = fals
             <option value="url">URL</option>
             <option value="textarea">Text Area</option>
             <option value="dropdown">Dropdown</option>
+            <option value="multiselect">Multi-Select</option>
             <option value="checkbox">Checkbox</option>
             <option value="file">File Upload</option>
             <option value="phone">Phone Number</option>
@@ -175,8 +176,8 @@ export default function FieldEditor({ field, index, onChange, isMultiStep = fals
         />
       </div>
 
-      {/* Options for dropdown fields */}
-      {field.type === 'dropdown' && (
+      {/* Options for dropdown and multiselect fields */}
+      {(field.type === 'dropdown' || field.type === 'multiselect') && (
         <div>
           <label htmlFor={`${field.id}-options`} className="block text-sm font-medium text-gray-700">
             Options (one per line, format: value|label)
@@ -191,6 +192,7 @@ export default function FieldEditor({ field, index, onChange, isMultiStep = fals
           />
           <p className="mt-1 text-sm text-gray-500">
             Enter each option on a new line. Use | to separate value and label (optional).
+            {field.type === 'multiselect' && ' Users can select multiple options.'}
           </p>
           {/* Option preview with icons */}
           {field.options && field.options.length > 0 && (

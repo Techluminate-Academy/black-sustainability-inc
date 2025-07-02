@@ -39,7 +39,7 @@ export const getServerSideProps: GetServerSideProps<SchemaEditorProps> = async (
     label: f.label || '',
     type: (() => {
       const t = typeof f.type === 'string' ? f.type.toLowerCase() : 'text';
-      const valid: FieldType[] = ['text','email','url','textarea','dropdown','checkbox','file','phone','address'];
+      const valid: FieldType[] = ['text','email','url','textarea','dropdown','checkbox','file','phone','address','multiselect'];
       return (valid.includes(t as FieldType) ? t : 'text') as FieldType;
     })(),
     required: Boolean(f.required),
@@ -313,8 +313,9 @@ export default function SchemaEditorPage({ version, formName, isMultiStep, initi
       >
         {({ values, isSubmitting, submitForm, validateForm, setTouched, setFieldValue }) => {
           const handleTriggerSubmit = async (publish: boolean) => {
+            // Clear options for fields that shouldn't have them, but preserve for dropdown and multiselect
             await Promise.all(values.fields.map(async (field, index) => {
-              if (field.type !== 'dropdown' && Array.isArray(field.options) && field.options.length > 0) {
+              if (!['dropdown', 'multiselect'].includes(field.type) && Array.isArray(field.options) && field.options.length > 0) {
                 await setFieldValue(`fields.${index}.options`, []);
               }
             }));
@@ -338,7 +339,7 @@ export default function SchemaEditorPage({ version, formName, isMultiStep, initi
             }
             const cleanedFields = values.fields.map(field => ({
               ...field,
-              options: field.type === 'dropdown' ? field.options : [],
+              options: ['dropdown', 'multiselect'].includes(field.type) ? field.options : [],
               step: isMultiStep ? field.step : 1
             }));
             setPendingFormValues({ fields: cleanedFields });

@@ -20,10 +20,10 @@ export interface FieldDef {
   originalIndex?: number;  // Added for step organization
 }
 
-// Get array of valid field types from FieldType
+// Get array of valid field types from FieldType - now includes multiselect
 const validFieldTypes: FieldType[] = [
   'text', 'email', 'url', 'textarea', 'dropdown', 
-  'checkbox', 'file', 'phone', 'address'
+  'checkbox', 'file', 'phone', 'address', 'multiselect'
 ];
 
 // Validation schema for a single field
@@ -39,13 +39,13 @@ export const fieldDefValidation = Yup.object().shape({
   required: Yup.boolean().default(false),
   step: Yup.number().min(1).max(3).required('Step is required'),
   options: Yup.array().when('type', {
-    is: (val: string) => val === 'dropdown',
+    is: (val: string) => ['dropdown', 'multiselect'].includes(val),
     then: () => Yup.array().of(
       Yup.object().shape({
         label: Yup.string().required('Option label is required'),
         value: Yup.string().required('Option value is required')
       })
-    ).min(1, 'Dropdown fields must have at least one option'),
+    ).min(1, 'Dropdown and multiselect fields must have at least one option'),
     otherwise: () => Yup.array().max(0)
   }),
   description: Yup.string().nullable(),
