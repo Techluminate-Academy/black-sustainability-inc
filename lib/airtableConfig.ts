@@ -6,13 +6,14 @@ interface AirtableConfig {
 }
 
 export default async function getAirtableConfig(): Promise<AirtableConfig> {
-  // TEMPORARY: Forcing production variables for testing
-  const apiKey = "pat38lz8MgA9be0dR.216dd36a6aefde7f3ac3063e11cb0ea1d645131195be277237b6e776d8f8c88f";
-  const baseId = "appixDz0HieCrwdUq";
-  const tableName = "tblYq1mA17iTZ5DRb";
+  // Use environment variables for security
+  const apiKey = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
+  const baseId = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
+  const tableName = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
 
   if (!apiKey || !baseId || !tableName) {
-    throw new Error(`Missing required Airtable configuration for production environment`);
+    throw new Error(`Missing required Airtable configuration. Please check your environment variables:
+      NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN, NEXT_PUBLIC_AIRTABLE_BASE_ID, NEXT_PUBLIC_AIRTABLE_TABLE_NAME`);
   }
 
   return {

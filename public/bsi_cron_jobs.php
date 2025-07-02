@@ -62,12 +62,14 @@ function fetchData()
 {
 
   $offset_string = empty( $GLOBALS['offset'] ) ? '' : '&offset=' . $GLOBALS['offset'];
-  // URL of the API endpoint
-  $baseId = 'appixDz0HieCrwdUq';
-  $tableId = 'tblYq1mA17iTZ5DRb';
-  $viewId = 'viwxRN601DuNgGIhU';
+  
+  // Use environment variables for security
+  $baseId = getenv('AIRTABLE_BASE_ID') ?: die('AIRTABLE_BASE_ID environment variable not set');
+  $tableId = getenv('AIRTABLE_TABLE_ID') ?: die('AIRTABLE_TABLE_ID environment variable not set');
+  $viewId = getenv('AIRTABLE_VIEW_ID') ?: 'viwxRN601DuNgGIhU';
+  $authToken = getenv('AIRTABLE_ACCESS_TOKEN') ?: die('AIRTABLE_ACCESS_TOKEN environment variable not set');
+  
   $apiUrl = "https://api.airtable.com/v0/{$baseId}/{$tableId}?view={$viewId}{$offset_string}";
-  $authToken = 'pats6B5hiVXCRbkLp.1dfbd1d4e76c89ba0cbccaf5b88147d18532d144de4ee0c0192fa45fe2de25a4';
 
   // Set up HTTP headers
   $options = [
