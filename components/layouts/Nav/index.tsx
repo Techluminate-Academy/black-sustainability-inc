@@ -10,9 +10,10 @@ import { useRouter } from "next/router";
 interface IProps {
   isAuthenticated: boolean;
   authenticatedUser: any;
+  startTour?: () => void;
 }
 
-const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
+const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }) => {
   const pathname = usePathname();
   const [isMobileNavOpen, setMobileNavOpen] = useState(false);
   const router = useRouter();
@@ -70,6 +71,15 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
                 }
               >
                 Login
+              </button>
+            )}
+
+            {startTour && (
+              <button
+                onClick={startTour}
+                className="p-[13px] bg-[#FFBF23] rounded-md capitalize font-semibold hover:bg-yellow-500 transition-colors"
+              >
+                🎯 Take a Tour
               </button>
             )}
 
@@ -131,6 +141,18 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser }) => {
                       }}
                     >
                       Login
+                    </button>
+                  )}
+
+                  {startTour && (
+                    <button
+                      onClick={() => {
+                        toggleMobileNav();
+                        startTour();
+                      }}
+                      className="p-[13px] bg-[#FFBF23] rounded-md capitalize font-semibold hover:bg-yellow-500 transition-colors"
+                    >
+                      🎯 Take a Tour
                     </button>
                   )}
 

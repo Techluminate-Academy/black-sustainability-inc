@@ -2,7 +2,7 @@
 import Nav from "@/components/layouts/Nav";
 import Footer from "@/components/layouts/Footer";
 import Sidebar from "@/components/layouts/Sidebar";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { customStyles } from "@/components/common/CustomSelect";
 import Select from "react-select";
 import { Head } from "next/document";
@@ -36,6 +36,7 @@ export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isPopUpActive, setIsPopUpActive] = useState(false);
+  const [popupDismissed, setPopupDismissed] = useState(false); // Track if popup has been dismissed
   const [preloaderMap, setPreloaderMap] = useState(true);
   const [hasSearched, setHasSearched] = useState(false);
   const [lazyLoaded, setLazyLoaded] = useState(false);
@@ -46,6 +47,7 @@ export default function Home() {
   const [stepIndex, setStepIndex] = useState(0);
   const [tourKey, setTourKey] = useState(0); // Key to force remount if needed
   const [isMounted, setIsMounted] = useState(false); // Track if component is mounted
+  const [isTourActive, setIsTourActive] = useState(false); // Track if tour is currently active
 
   const [preloaderSidebar, setPreloaderSidebar] = useState(true);
   const [loadedData, setLoadedData] = useState<any>([]);
@@ -67,11 +69,12 @@ export default function Home() {
   const route = useRouter();
   const [showBackToTop, setShowBackToTop] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const mapInitializedRef = useRef(false); // Track if map has been initialized
 
   // Guided Tour Steps Configuration
   const tourSteps = [
     {
-      target: '.mapbox-map, .leaflet-container, [data-tour="map-container"]',
+      target: '[data-tour="map-container"]',
       content: (
         <div>
           <h3 style={{ marginBottom: '10px', color: '#2D3748' }}>Welcome to BSN Member Map! 🗺️</h3>
@@ -83,6 +86,7 @@ export default function Home() {
       ),
       placement: 'center' as const,
       disableBeacon: true,
+      showCloseButton: true,
       styles: {
         options: {
           primaryColor: '#FFBF23',
@@ -105,6 +109,10 @@ export default function Home() {
           color: '#718096',
           fontSize: '14px',
         },
+        buttonClose: {
+          color: '#718096',
+          fontSize: '14px',
+        },
       },
     },
     // Prepared for future tour steps
@@ -120,6 +128,7 @@ export default function Home() {
         </div>
       ),
       placement: 'bottom' as const,
+      showCloseButton: true,
       styles: {
         options: {
           primaryColor: '#FFBF23',
@@ -127,6 +136,10 @@ export default function Home() {
         tooltip: {
           borderRadius: '12px',
           padding: '20px',
+        },
+        buttonClose: {
+          color: '#718096',
+          fontSize: '14px',
         },
       },
     },
@@ -142,6 +155,7 @@ export default function Home() {
         </div>
       ),
       placement: 'left' as const,
+      showCloseButton: true,
       styles: {
         options: {
           primaryColor: '#FFBF23',
@@ -149,6 +163,10 @@ export default function Home() {
         tooltip: {
           borderRadius: '12px',
           padding: '20px',
+        },
+        buttonClose: {
+          color: '#718096',
+          fontSize: '14px',
         },
       },
     },
@@ -204,36 +222,18 @@ export default function Home() {
     }
   }, []);
 
-  // Guided Tour Initialization
-  useEffect(() => {
-    // Only run on client side and after component is mounted
-    if (!isMounted) return;
-
-    // Check if user has already seen the tour in this session
-    const hasSeenTour = sessionStorage.getItem('bsn-tour-completed');
-    
-    // Only start tour if:
-    // 1. User hasn't seen it this session
-    // 2. Map is loaded (not showing preloader)
-    // 3. We have some data loaded
-    if (!hasSeenTour && !preloaderMap && loadedData.length > 0) {
-      // Small delay to ensure DOM elements are ready
-      const timer = setTimeout(() => {
-        setRunTour(true);
-      }, 1000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [isMounted, preloaderMap, loadedData.length]);
+  // Guided Tour Initialization - Removed automatic trigger
+  // Tour will now only be triggered manually by user clicking the menu option
 
   // Handle tour callback events
   const handleJoyrideCallback = (data: any) => {
     const { status, type, index, action } = data;
 
-    if (status === 'finished' || status === 'skipped') {
-      sessionStorage.setItem('bsn-tour-completed', 'true');
+    // Handle close actions (X button, clicking outside, etc.)
+    if (status === 'finished' || status === 'skipped' || action === 'close') {
       setRunTour(false);
       setStepIndex(0);
+      setIsTourActive(false);
       return;
     }
 
@@ -242,15 +242,33 @@ export default function Home() {
       if (action === 'next') setStepIndex(index + 1);
       if (action === 'prev') setStepIndex(index - 1);
     }
+
+    // Track when tour starts
+    if (type === 'step:before' && index === 0) {
+      setIsTourActive(true);
+    }
   };
 
-  // Manual tour trigger (useful for testing or if user wants to see tour again)
+  // Function to close tour manually
+  const closeTour = () => {
+    setRunTour(false);
+    setStepIndex(0);
+    setIsTourActive(false);
+  };
+
+  // Manual tour trigger - now the only way to start the tour
   const startTour = () => {
     if (!isMounted) return;
-    sessionStorage.removeItem('bsn-tour-completed');
     setStepIndex(0);
     setRunTour(true);
+    setIsTourActive(true);
   };
+
+  // Memoized popup close handler to prevent unnecessary re-renders
+  const handlePopupClose = useCallback(() => {
+    setIsPopUpActive(false);
+    setPopupDismissed(true);
+  }, []);
 
   const scrollToTop = () => {
     if (sidebarRef.current) {
@@ -571,7 +589,7 @@ export default function Home() {
 
   useEffect(() => {
     // only non-logged-in users should ever see it
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !popupDismissed) {
       // once all chunks are loaded...
       if (
         loadedData.length > 0 &&
@@ -585,7 +603,26 @@ export default function Home() {
         return () => clearTimeout(timer);
       }
     }
-  }, [isAuthenticated, loadedData.length, filteredData.length]);
+  }, [isAuthenticated, loadedData.length, filteredData.length, popupDismissed]);
+
+  // Memoize map data to prevent unnecessary re-renders
+  const mapData = useMemo(() => ({
+    isAuthenticated,
+    loadedData,
+    hideCounter,
+    filteredData: searchQuery === "" && selectedIndustry === "" ? mapLocations : filteredData
+  }), [isAuthenticated, loadedData, hideCounter, searchQuery, selectedIndustry, mapLocations, filteredData]);
+
+  // Memoized map component to prevent re-renders from popup state changes
+  const MemoizedBsiMap = useMemo(() => (
+    <BsiMap
+      isAuthenticated={mapData.isAuthenticated}
+      loadedData={mapData.loadedData}
+      hideCounter={mapData.hideCounter}
+      onMarkerHover={() => { }}
+      filteredData={mapData.filteredData}
+    />
+  ), [mapData]);
 
   return (
     <div className="relative h-screen w-full">
@@ -599,7 +636,8 @@ export default function Home() {
           showProgress
           showSkipButton
           scrollToFirstStep
-          disableOverlayClose
+          disableOverlayClose={false}
+          disableCloseOnEsc={false}
           callback={handleJoyrideCallback}
           styles={{
             options: {
@@ -626,18 +664,8 @@ export default function Home() {
       <Nav
         isAuthenticated={isAuthenticated}
         authenticatedUser={authenticatedUser}
+        startTour={startTour}
       />
-
-      {/* Show the Take a Tour button only after the welcome popup is closed */}
-      {!isPopUpActive && isMounted && (
-        <button
-          onClick={startTour}
-          className="fixed top-32 right-4 z-50 bg-[#FFBF23] text-black px-3 py-2 rounded-lg text-sm font-semibold shadow-lg hover:bg-yellow-500 transition-colors"
-          title="Take a Tour"
-        >
-          🎯 Take a Tour
-        </button>
-      )}
 
       <div className="mt-[110px]">
         <div className="flex sm:flex-row flex-col bg-[#FFF8E5]">
@@ -677,14 +705,26 @@ export default function Home() {
                 </div>
               </div>
             ) : (
-              <BsiMap
-                isAuthenticated={isAuthenticated}
-                loadedData={loadedData}
-                hideCounter={hideCounter}
-                onMarkerHover={() => { }}
-                filteredData={searchQuery === "" && selectedIndustry === "" ? mapLocations : filteredData}
-
-              />
+              <div className="relative w-full h-screen">
+                {/* Always render the map, but hide it during tour */}
+                <div className={isTourActive ? 'hidden' : 'block'}>
+                  {MemoizedBsiMap}
+                </div>
+                
+                {/* Show static background during tour */}
+                {isTourActive && (
+                  <div className="absolute inset-0">
+                    <Image
+                      src="/png/mapbg2.1920.png"
+                      width={1920}
+                      height={Math.round((3451 / 6134) * 1920)}
+                      unoptimized
+                      alt="map background"
+                      className="w-full h-auto"
+                    />
+                  </div>
+                )}
+              </div>
             )}
           </div>
           <div
@@ -758,12 +798,18 @@ export default function Home() {
       </div>
 
       {isPopUpActive && (
-        <div className="fixed w-full h-screen bg-filter left-0 -top-0 z-[9999]">
-          <div className="h-full flex justify-center items-center">
+        <div 
+          className="fixed w-full h-screen bg-filter left-0 -top-0 z-[9999]"
+          onClick={handlePopupClose}
+        >
+          <div 
+            className="h-full flex justify-center items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="bg-white rounded-xl md:px-10 px-2 py-7 mx-4 relative">
               <div
                 className="text-lg rounded-full p-2 flex h-fit items-center cursor-pointer justify-center bg-[#EB4335] font-bold absolute right-4 top-5"
-                onClick={() => setIsPopUpActive(false)}
+                onClick={handlePopupClose}
               >
                 <icons.close />
               </div>
