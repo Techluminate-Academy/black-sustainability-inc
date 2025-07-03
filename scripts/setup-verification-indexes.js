@@ -5,10 +5,10 @@ const { MongoClient } = require('mongodb');
 
 async function setupIndexes() {
   const MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI;
-  
-  if (!MONGODB_URI) {
-    console.log('⚠️  MONGODB_URI not set. Please add NEXT_PUBLIC_MONGODB_URI to your .env.local file');
-    console.log('   Example: NEXT_PUBLIC_MONGODB_URI=mongodb://localhost:27017/members');
+
+if (!MONGODB_URI) {
+  console.log('⚠️  MONGODB_URI not set. Please add NEXT_PUBLIC_MONGODB_URI to your .env.local file');
+  console.log('   Example: NEXT_PUBLIC_MONGODB_URI=mongodb://localhost:27017/members');
     return;
   }
 
