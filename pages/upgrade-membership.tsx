@@ -894,7 +894,7 @@ export default function TestBSNRegistration({ formConfig }: TestBSNRegistrationP
       <div className={`mx-auto transition-all duration-300 ${isSubmitted ? 'max-w-5xl' : 'max-w-3xl'}`}>
         {/* Logo */}
         <div className="flex justify-center mb-8">
-          <Image src={logo} alt="BSN Logo" width={200} height={100} priority className="h-auto" />
+          <Image src={logo} alt="BSN Logo" width={300} height={150} priority className="h-auto" />
         </div>
         
         {/* Main heading and info */}
