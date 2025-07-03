@@ -5,12 +5,15 @@ async function verifyConfig() {
   
   if (!uri) {
     console.error('Error: MONGODB_URI environment variable is not set');
+    console.error('Please add MONGODB_URI to your .env.local file');
+    console.error('Example: MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/database');
     process.exit(1);
   }
   
   const client = new MongoClient(uri);
 
   try {
+    console.log('Connecting to MongoDB...');
     await client.connect();
     const db = client.db('members');
     const formVersions = db.collection('formVersions');
