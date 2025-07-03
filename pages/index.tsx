@@ -2,7 +2,7 @@
 import Nav from "@/components/layouts/Nav";
 import Footer from "@/components/layouts/Footer";
 import Sidebar from "@/components/layouts/Sidebar";
-import { useEffect, useLayoutEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { customStyles } from "@/components/common/CustomSelect";
 import Select from "react-select";
 import { Head } from "next/document";
@@ -16,6 +16,10 @@ import { getAllRecordsFromAirtable } from "@/utils/airtable";
 import Loader from "@/components/common/loader";
 import { LatLngBounds } from "leaflet";
 
+// Dynamic import for Joyride to prevent SSR issues
+const Joyride = dynamic(() => import('react-joyride'), {
+  ssr: false,
+});
 
 export default function Home() {
   // const BsiMap = dynamic(() => import("@/components/common/LeafletMap"), {
@@ -37,7 +41,11 @@ export default function Home() {
   const [lazyLoaded, setLazyLoaded] = useState(false);
   const [mapLocations, setMapLocations] = useState([]);
 
-
+  // Guided Tour State
+  const [runTour, setRunTour] = useState(false);
+  const [stepIndex, setStepIndex] = useState(0);
+  const [tourKey, setTourKey] = useState(0); // Key to force remount if needed
+  const [isMounted, setIsMounted] = useState(false); // Track if component is mounted
 
   const [preloaderSidebar, setPreloaderSidebar] = useState(true);
   const [loadedData, setLoadedData] = useState<any>([]);
@@ -59,6 +67,98 @@ export default function Home() {
   const route = useRouter();
   const [showBackToTop, setShowBackToTop] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+
+  // Guided Tour Steps Configuration
+  const tourSteps = [
+    {
+      target: '.mapbox-map, .leaflet-container, [data-tour="map-container"]',
+      content: (
+        <div>
+          <h3 style={{ marginBottom: '10px', color: '#2D3748' }}>Welcome to BSN Member Map! 🗺️</h3>
+          <p style={{ margin: 0, lineHeight: '1.5' }}>
+            This is our interactive member map. Use it to explore organizations by location. 
+            Zoom or drag to explore more members around the world.
+          </p>
+        </div>
+      ),
+      placement: 'center' as const,
+      disableBeacon: true,
+      styles: {
+        options: {
+          primaryColor: '#FFBF23',
+        },
+        tooltip: {
+          borderRadius: '12px',
+          padding: '20px',
+        },
+        tooltipContent: {
+          color: '#2D3748',
+          fontSize: '16px',
+        },
+        buttonNext: {
+          backgroundColor: '#FFBF23',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '600',
+        },
+        buttonSkip: {
+          color: '#718096',
+          fontSize: '14px',
+        },
+      },
+    },
+    // Prepared for future tour steps
+    {
+      target: '[data-tour="search-input"]',
+      content: (
+        <div>
+          <h3 style={{ marginBottom: '10px', color: '#2D3748' }}>Search & Filter 🔍</h3>
+          <p style={{ margin: 0, lineHeight: '1.5' }}>
+            Use the search bar to find members by name, location, organization, or keywords. 
+            You can also filter by industry using the dropdown above.
+          </p>
+        </div>
+      ),
+      placement: 'bottom' as const,
+      styles: {
+        options: {
+          primaryColor: '#FFBF23',
+        },
+        tooltip: {
+          borderRadius: '12px',
+          padding: '20px',
+        },
+      },
+    },
+    {
+      target: '[data-tour="sidebar"]',
+      content: (
+        <div>
+          <h3 style={{ marginBottom: '10px', color: '#2D3748' }}>Member Directory 📋</h3>
+          <p style={{ margin: 0, lineHeight: '1.5' }}>
+            Browse through all BSN members in this sidebar. Click on any member card to view their profile 
+            and learn more about their work in sustainability.
+          </p>
+        </div>
+      ),
+      placement: 'left' as const,
+      styles: {
+        options: {
+          primaryColor: '#FFBF23',
+        },
+        tooltip: {
+          borderRadius: '12px',
+          padding: '20px',
+        },
+      },
+    },
+  ];
+
+  // Track component mount status to prevent hydration issues
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   // --- NEW: Monitor scroll position to show/hide the back-to-top button ---
   useEffect(() => {
     const sidebar = sidebarRef.current;
@@ -104,6 +204,53 @@ export default function Home() {
     }
   }, []);
 
+  // Guided Tour Initialization
+  useEffect(() => {
+    // Only run on client side and after component is mounted
+    if (!isMounted) return;
+
+    // Check if user has already seen the tour in this session
+    const hasSeenTour = sessionStorage.getItem('bsn-tour-completed');
+    
+    // Only start tour if:
+    // 1. User hasn't seen it this session
+    // 2. Map is loaded (not showing preloader)
+    // 3. We have some data loaded
+    if (!hasSeenTour && !preloaderMap && loadedData.length > 0) {
+      // Small delay to ensure DOM elements are ready
+      const timer = setTimeout(() => {
+        setRunTour(true);
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isMounted, preloaderMap, loadedData.length]);
+
+  // Handle tour callback events
+  const handleJoyrideCallback = (data: any) => {
+    const { status, type, index, action } = data;
+
+    if (status === 'finished' || status === 'skipped') {
+      sessionStorage.setItem('bsn-tour-completed', 'true');
+      setRunTour(false);
+      setStepIndex(0);
+      return;
+    }
+
+    // Handle next/back navigation
+    if (type === 'step:after') {
+      if (action === 'next') setStepIndex(index + 1);
+      if (action === 'prev') setStepIndex(index - 1);
+    }
+  };
+
+  // Manual tour trigger (useful for testing or if user wants to see tour again)
+  const startTour = () => {
+    if (!isMounted) return;
+    sessionStorage.removeItem('bsn-tour-completed');
+    setStepIndex(0);
+    setRunTour(true);
+  };
 
   const scrollToTop = () => {
     if (sidebarRef.current) {
@@ -128,7 +275,7 @@ export default function Home() {
   // --------------------------------------------------------------------
   // 1. Initial Data Fetch for Map & Sidebar
   // --------------------------------------------------------------------
-  useLayoutEffect(() => {
+  useEffect(() => {
     const fetchData = async () => {
       performance.mark("mapFetchStart");
       setLoading(true);
@@ -442,14 +589,59 @@ export default function Home() {
 
   return (
     <div className="relative h-screen w-full">
+      {/* Guided Tour Component - Only render on client side */}
+      {isMounted && runTour && (
+        <Joyride
+          steps={tourSteps}
+          run={runTour}
+          stepIndex={stepIndex}
+          continuous
+          showProgress
+          showSkipButton
+          scrollToFirstStep
+          disableOverlayClose
+          callback={handleJoyrideCallback}
+          styles={{
+            options: {
+              arrowColor: '#fff',
+              backgroundColor: '#fff',
+              overlayColor: 'rgba(0, 0, 0, 0.4)',
+              primaryColor: '#FFBF23',
+              textColor: '#2D3748',
+              width: 320,
+              zIndex: 10000,
+            }
+          }}
+          locale={{
+            back: 'Back',
+            close: 'Close',
+            last: 'Finish Tour',
+            next: 'Next',
+            open: 'Open the dialog',
+            skip: 'Skip Tour',
+          }}
+        />
+      )}
+
       <Nav
         isAuthenticated={isAuthenticated}
         authenticatedUser={authenticatedUser}
       />
 
+      {/* Show the Take a Tour button only after the welcome popup is closed */}
+      {!isPopUpActive && isMounted && (
+        <button
+          onClick={startTour}
+          className="fixed top-32 right-4 z-50 bg-[#FFBF23] text-black px-3 py-2 rounded-lg text-sm font-semibold shadow-lg hover:bg-yellow-500 transition-colors"
+          title="Take a Tour"
+        >
+          🎯 Take a Tour
+        </button>
+      )}
+
       <div className="mt-[110px]">
         <div className="flex sm:flex-row flex-col bg-[#FFF8E5]">
-          <div className="sm:w-3/5 w-full sm:p-0 p-3 h-screen">
+          <div className="sm:w-3/5 w-full sm:p-0 p-3 h-screen" data-tour="map-container">
             {preloaderMap ? (
               <div className="relative w-full h-screen">
                 <Image
@@ -497,7 +689,9 @@ export default function Home() {
           </div>
           <div
             ref={sidebarRef}
-            className="sm:w-2/5 w-full pb-4 flex flex-col justify-start items-center h-screen overflow-scroll">
+            className="sm:w-2/5 w-full pb-4 flex flex-col justify-start items-center h-screen overflow-scroll"
+            data-tour="sidebar"
+          >
             <div className="bg-[#FFF8E5] py-2 sticky left-0 top-0 w-full flex flex-col items-center justify-center z-10">
               <div className="w-[95%]">
                 <Select
@@ -511,6 +705,7 @@ export default function Home() {
               </div>
               <div className="w-[95%] relative">
                 <input
+                  data-tour="search-input"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="bg-white border outline-none w-full px-5 py-2 rounded-full text-sm placeholder:capitalize placeholder:text-xs"
