@@ -250,6 +250,18 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
 
 
             fetchedLocations.forEach((data: any) => {
+              // Defensive check for valid coordinates
+              if (
+                !data.location ||
+                !Array.isArray(data.location.coordinates) ||
+                data.location.coordinates.length < 2 ||
+                isNaN(parseFloat(data.location.coordinates[0])) ||
+                isNaN(parseFloat(data.location.coordinates[1]))
+              ) {
+                // Optionally log or handle skipped record
+                return; // Skip this record
+              }
+
               // 1️⃣ Create the custom marker element
               const markerEl = createMarkerElement(data, isAuthenticated);
             
@@ -303,12 +315,8 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
               // 5️⃣ Create the marker and attach the popup
               const marker = new mapboxgl.Marker({ element: markerEl })
                 .setLngLat({
-                  lng:
-                    parseFloat(data.location.coordinates[0]) ||
-                    mapCenter[0],
-                  lat:
-                    parseFloat(data.location.coordinates[1]) ||
-                    mapCenter[1],
+                  lng: parseFloat(data.location.coordinates[0]) || mapCenter[0],
+                  lat: parseFloat(data.location.coordinates[1]) || mapCenter[1],
                 })
                 .setPopup(popup)
                 .addTo(mapRef.current!);

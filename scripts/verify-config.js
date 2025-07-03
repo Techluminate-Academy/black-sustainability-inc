@@ -1,7 +1,13 @@
 const { MongoClient } = require('mongodb');
 
 async function verifyConfig() {
-  const uri = "mongodb+srv://jbony:6ctSL5CbDZBhWexM@members.rvmjn.mongodb.net/?retryWrites=true&w=majority&appName=members";
+  const uri = process.env.MONGODB_URI;
+  
+  if (!uri) {
+    console.error('Error: MONGODB_URI environment variable is not set');
+    process.exit(1);
+  }
+  
   const client = new MongoClient(uri);
 
   try {
