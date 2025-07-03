@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { Formik, Form } from "formik";
 import DynamicForm from "@/components/DynamicForm/DynamicForm";
 import type { FieldDefinition } from "@/models/fieldDefinition";
 
@@ -34,10 +35,23 @@ export default function OnboardingPage() {
   return (
     <div className="p-8">
       <h1 className="text-2xl font-bold mb-4">Member Onboarding</h1>
-      <DynamicForm 
-        fields={fields}
-        values={formValues}
-      />
+      {fields.length > 0 && Object.keys(formValues).length > 0 && (
+        <Formik
+          initialValues={formValues}
+          onSubmit={(values) => {
+            // handle form submission
+            console.log(values);
+          }}
+          enableReinitialize
+        >
+          <Form>
+            <DynamicForm fields={fields} values={formValues} />
+            <button type="submit" className="mt-4 px-4 py-2 bg-blue-600 text-white rounded">
+              Submit
+            </button>
+          </Form>
+        </Formik>
+      )}
     </div>
   );
 }

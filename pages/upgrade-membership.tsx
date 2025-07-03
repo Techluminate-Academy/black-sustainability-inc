@@ -132,6 +132,8 @@ export default function TestBSNRegistration({ formConfig }: TestBSNRegistrationP
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [phoneCountryCode, setPhoneCountryCode] = useState('+1-us');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [skippedVerification, setSkippedVerification] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   const [initialValues, setInitialValues] = useState(() =>
     formConfig.fields.reduce((acc, field) => {
@@ -263,6 +265,35 @@ export default function TestBSNRegistration({ formConfig }: TestBSNRegistrationP
       return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
     }
     return phoneNumber;
+  };
+
+  const handleSkipVerification = () => {
+    setSkippedVerification(true);
+    setIsNewUser(true);
+    setFormReady(true);
+    // Reset to empty initial values for new user
+    setInitialValues(formConfig.fields.reduce((acc, field) => {
+      if (field.type === 'address') {
+        acc[field.name] = '';
+        acc[`${field.name}PlaceId`] = '';
+        acc['latitude'] = null;
+        acc['longitude'] = null;
+      } else if (field.type === 'checkbox') {
+        acc[field.name] = false;
+      } else if (field.type === 'phone') {
+        acc[field.name] = '';
+        acc['phoneCountryCode'] = '+1-us';
+      } else if (field.type === 'multiselect') {
+        acc[field.name] = [];
+      } else if (field.type === 'file') {
+        acc[field.name] = null;
+        acc[`${field.name}Url`] = '';
+        acc[`${field.name}Preview`] = '';
+      } else {
+        acc[field.name] = '';
+      }
+      return acc;
+    }, {} as Record<string, any>));
   };
 
   const sendVerificationEmail = async () => {
@@ -524,30 +555,38 @@ export default function TestBSNRegistration({ formConfig }: TestBSNRegistrationP
       // Transform form data to match Airtable field names
       const airtableFields = transformFormDataToAirtableFields(values as FormData);
 
-      // First, try to find existing record by email
-      const searchResponse = await fetch(`/api/airtable/get-user?email=${encodeURIComponent(values.email)}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('profileAccessToken')}`
-        }
-      });
-
-      if (!searchResponse.ok) {
-        throw new Error('Failed to check existing record');
-      }
-
-      const searchData = await searchResponse.json();
-      
       let result;
-      if (searchData.data) {
-        // Record exists, update it using AirtableUtils
-        const recordId = searchData.data.id;
-        result = await AirtableUtils.updateRecord(recordId, airtableFields);
-      } else {
-        // No existing record, create new one using AirtableUtils
+      
+      if (isNewUser || skippedVerification) {
+        // For new users or those who skipped verification, always create a new record
         result = await AirtableUtils.submitToAirtable(airtableFields);
+        toast.success('Registration completed successfully!');
+      } else {
+        // For returning users, check if record exists and update/create accordingly
+        const searchResponse = await fetch(`/api/airtable/get-user?email=${encodeURIComponent(values.email)}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('profileAccessToken')}`
+          }
+        });
+
+        if (!searchResponse.ok) {
+          throw new Error('Failed to check existing record');
+        }
+
+        const searchData = await searchResponse.json();
+        
+        if (searchData.data) {
+          // Record exists, update it using AirtableUtils
+          const recordId = searchData.data.id;
+          result = await AirtableUtils.updateRecord(recordId, airtableFields);
+          toast.success('Profile updated successfully!');
+        } else {
+          // No existing record, create new one using AirtableUtils
+          result = await AirtableUtils.submitToAirtable(airtableFields);
+          toast.success('Registration completed successfully!');
+        }
       }
 
-      toast.success('Form submitted successfully!');
       console.log('Submission result:', result);
       setIsSubmitted(true);
     } catch (error) {
@@ -677,6 +716,8 @@ export default function TestBSNRegistration({ formConfig }: TestBSNRegistrationP
     setError(null);
     setUserNotFound(false);
     setUserName('');
+    setSkippedVerification(false);
+    setIsNewUser(false);
   };
 
   // Add a function to handle image preview
@@ -751,6 +792,17 @@ export default function TestBSNRegistration({ formConfig }: TestBSNRegistrationP
                   >
                     {loading ? 'Sending...' : 'Send Verification Code'}
                   </button>
+                  
+                  {/* Skip verification option for new users */}
+                  <div className="mt-4 text-center">
+                    <button
+                      type="button"
+                      onClick={handleSkipVerification}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium underline"
+                    >
+                      New user? Skip email verification and fill out the full form
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div>
@@ -823,7 +875,7 @@ export default function TestBSNRegistration({ formConfig }: TestBSNRegistrationP
                           disabled={isSubmitting}
                           className="px-6 py-2 text-base font-medium text-white bg-green-600 border border-transparent rounded-lg shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
                         >
-                          {isSubmitting ? 'Submitting...' : 'Update Profile'}
+                          {isSubmitting ? 'Submitting...' : (skippedVerification ? 'Complete Registration' : 'Update Profile')}
                         </button>
                       )}
                     </div>
@@ -852,7 +904,12 @@ export default function TestBSNRegistration({ formConfig }: TestBSNRegistrationP
         {formReady && !isSubmitted && (
           <div className="bg-green-50 border border-green-200 text-green-800 rounded-lg px-6 py-3 mb-6 text-center flex items-center justify-center gap-2">
             <span className="text-xl">✅</span>
-            <span>Profile accessed successfully for: <span className="font-semibold">{email}</span></span>
+            <span>
+              {skippedVerification 
+                ? 'New user registration - please fill out your information below'
+                : `Profile accessed successfully for: ${email}`
+              }
+            </span>
           </div>
         )}
 
@@ -895,7 +952,7 @@ export default function TestBSNRegistration({ formConfig }: TestBSNRegistrationP
                         disabled={isSubmitting}
                         className="px-6 py-2 text-base font-medium text-white bg-green-600 border border-transparent rounded-lg shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
                       >
-                        {isSubmitting ? 'Submitting...' : 'Update Profile'}
+                        {isSubmitting ? 'Submitting...' : (skippedVerification ? 'Complete Registration' : 'Update Profile')}
                       </button>
                     )}
                   </div>
@@ -908,7 +965,12 @@ export default function TestBSNRegistration({ formConfig }: TestBSNRegistrationP
         {/* Submission success display */}
         {isSubmitted && (
           <div className="bg-green-50 p-6 rounded-lg text-center">
-            <p className="text-green-800 text-lg font-semibold">Thank you! Your profile has been updated successfully.</p>
+            <p className="text-green-800 text-lg font-semibold">
+              {skippedVerification 
+                ? 'Thank you! Your registration has been completed successfully.'
+                : 'Thank you! Your profile has been updated successfully.'
+              }
+            </p>
           </div>
         )}
 
