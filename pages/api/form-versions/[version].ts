@@ -3,11 +3,34 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from "@/lib/mongodb";
 import type { FormVersion } from "@/models/formVersion";
 import type { Collection } from "mongodb";
+import jwt from 'jsonwebtoken';
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  // Check admin access from JWT token
+  const authHeader = req.headers.authorization;
+  let isAdmin = false;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+      isAdmin = true;
+    } catch (error) {
+      console.error('JWT verification failed:', error);
+    }
+  }
+
+  // If not admin, return access denied
+  if (!isAdmin) {
+    return res.status(403).json({ 
+      error: 'Access denied. Admin privileges required.',
+      code: 'ADMIN_REQUIRED'
+    });
+  }
+
   const { version: queryVersion } = req.query;
 
   try {

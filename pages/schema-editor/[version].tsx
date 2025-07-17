@@ -13,6 +13,7 @@ import { FieldDef, formValidationSchema } from '@/types/schema-editor';
 import { FieldType } from '@/models/field';
 import ConfirmationModal from "@/components/common/ConfirmationModal";
 import { EyeIcon, PlusIcon, ChevronUpIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import AdminLayout from '@/components/admin/AdminLayout';
 
 interface SchemaEditorProps {
   version: number;
@@ -78,9 +79,13 @@ export default function SchemaEditorPage({ version, formName, isMultiStep, initi
   const handleCreateNewVersion = async () => {
     setIsSaving(true);
     try {
+      const token = localStorage.getItem('adminToken');
       const res = await fetch('/api/form-versions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           masterVersion: version,
           name: formName,
@@ -121,9 +126,13 @@ export default function SchemaEditorPage({ version, formName, isMultiStep, initi
     };
 
     try {
+      const token = localStorage.getItem('adminToken');
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(payload)
       });
 
@@ -165,8 +174,12 @@ export default function SchemaEditorPage({ version, formName, isMultiStep, initi
 
     try {
       setIsSaving(true);
+      const token = localStorage.getItem('adminToken');
       await fetch(`/api/form-versions/${version}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       toast.success('Version deleted successfully');
       router.push('/form-versions');
@@ -201,12 +214,21 @@ export default function SchemaEditorPage({ version, formName, isMultiStep, initi
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <AdminLayout>
       <Toaster position="top-right" />
       
       <div className="bg-white shadow-sm rounded-lg p-6 mb-8">
         <div className="flex justify-between items-center mb-4">
           <div>
+            <Link 
+              href="/admin/dashboard"
+              className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-2"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Admin Dashboard
+            </Link>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-gray-900">{formName}</h1>
               <div className="flex items-center gap-2">
@@ -595,6 +617,6 @@ export default function SchemaEditorPage({ version, formName, isMultiStep, initi
           );
         }}
       </Formik>
-    </div>
+    </AdminLayout>
   );
 }

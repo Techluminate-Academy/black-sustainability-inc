@@ -14,19 +14,25 @@ export const authOptions = {
   providers: [
     EmailProvider({
       server: {
-        host: process.env.NEXTAUTH_EMAIL_SERVER_HOST,
-        port: Number(process.env.NEXTAUTH_EMAIL_SERVER_PORT),
+        host: process.env.EMAIL_SERVER_HOST || "smtp.gmail.com",
+        port: Number(process.env.EMAIL_SERVER_PORT) || 587,
         auth: {
-          user: process.env.NEXTAUTH_EMAIL_SERVER_USER,
-          pass: process.env.NEXTAUTH_EMAIL_SERVER_PASSWORD,
+          user: process.env.EMAIL_SERVER_USER,
+          pass: process.env.EMAIL_SERVER_PASSWORD,
         },
+        secure: false, // Use TLS
+        tls: {
+          rejectUnauthorized: false
+        }
       },
-      from: process.env.NEXTAUTH_EMAIL_FROM,
+      from: process.env.EMAIL_FROM || "noreply@blacksustainability.org",
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: "/signin", // Custom sign-in page
+    verifyRequest: "/auth/verify-request", // Custom verify request page
+    error: "/auth/error", // Custom error page
   },
   callbacks: {
     async session({ session, user }) {
@@ -36,6 +42,11 @@ export const authOptions = {
       session.user.firstName = user.firstName;       // Attach first name
       session.user.lastName = user.lastName;         // Attach last name
       return session;
+    },
+    async signIn({ user, account, profile, email, credentials }) {
+      // Custom validation logic can go here
+      // For now, allow all email sign-ins
+      return true;
     },
   },
   debug: process.env.NODE_ENV === "development",

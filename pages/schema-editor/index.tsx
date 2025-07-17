@@ -3,7 +3,6 @@
 import useSWR from "swr";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import ConfirmationModal from "@/components/common/ConfirmationModal";
 import { useRouter } from "next/router";
 
 interface FormVersion {
@@ -25,9 +24,7 @@ interface AdminUser {
   isActive: boolean;
 }
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
-
-export default function FormVersionsPage() {
+export default function SchemaEditorPage() {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
@@ -70,7 +67,7 @@ export default function FormVersionsPage() {
     checkAdminStatus();
   }, []);
 
-  const { data, error, mutate } = useSWR<FormVersion[]>(
+  const { data, error } = useSWR<FormVersion[]>(
     isAdmin ? "/api/form-versions?all=true" : null,
     async (url: string) => {
       const token = localStorage.getItem('adminToken');
@@ -85,39 +82,6 @@ export default function FormVersionsPage() {
       return response.json();
     }
   );
-
-  const [deleteVersion, setDeleteVersion] = useState<FormVersion | null>(null);
-
-  const handleDelete = async () => {
-    if (!deleteVersion) return;
-
-    try {
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch(`/api/form-versions/${deleteVersion.version}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to delete version');
-      }
-
-      // Show success message (you can add a toast notification here)
-      console.log(result.message);
-      
-      // Refresh the versions list
-      mutate();
-    } catch (error) {
-      console.error('Error deleting version:', error);
-      // Show error message (you can add a toast notification here)
-    }
-
-    setDeleteVersion(null);
-  };
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
@@ -147,7 +111,7 @@ export default function FormVersionsPage() {
         <div className="text-center">
           <h1 className="text-3xl font-extrabold mb-4 text-red-600">Access Denied</h1>
           <p className="text-gray-600 mb-4">
-            You don't have permission to access the Form Versions system.
+            You don't have permission to access the Schema Editor.
           </p>
           <p className="text-sm text-gray-500 mb-4">
             Please log in to the admin portal to access this page.
@@ -183,7 +147,8 @@ export default function FormVersionsPage() {
             </svg>
             Back to Admin Portal
           </Link>
-          <h1 className="text-3xl font-extrabold">Form Versions</h1>
+          <h1 className="text-3xl font-extrabold">Schema Editor</h1>
+          <p className="text-gray-600 mt-2">Select a form version to edit its schema</p>
         </div>
         <div className="flex items-center space-x-4">
           <div className="text-sm text-gray-500">
@@ -260,32 +225,14 @@ export default function FormVersionsPage() {
                       ? 'bg-purple-600 text-white hover:bg-purple-700'
                       : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}>
-                    Load
+                    Edit Schema
                   </p>
                 </Link>
-                {!isMaster && !isLive && (
-                  <button
-                    onClick={() => setDeleteVersion(v)}
-                    className="font-medium px-4 py-2 rounded-md transition-colors bg-red-100 text-red-700 hover:bg-red-200"
-                  >
-                    Delete
-                  </button>
-                )}
               </div>
             </div>
           );
         })}
       </div>
-
-      <ConfirmationModal
-        isOpen={!!deleteVersion}
-        onClose={() => setDeleteVersion(null)}
-        onConfirm={handleDelete}
-        title="Delete Form Version"
-        message={`Are you sure you want to delete version ${deleteVersion?.version} of "${deleteVersion?.name}"? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-      />
     </div>
   );
-}
+} 
