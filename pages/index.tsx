@@ -47,7 +47,6 @@ export default function Home() {
   const [stepIndex, setStepIndex] = useState(0);
   const [tourKey, setTourKey] = useState(0); // Key to force remount if needed
   const [isMounted, setIsMounted] = useState(false); // Track if component is mounted
-  const [isTourActive, setIsTourActive] = useState(false); // Track if tour is currently active
 
   const [preloaderSidebar, setPreloaderSidebar] = useState(true);
   const [loadedData, setLoadedData] = useState<any>([]);
@@ -115,7 +114,36 @@ export default function Home() {
         },
       },
     },
-    // Prepared for future tour steps
+    {
+      target: '[data-tour="map-side-info"]',
+      content: (
+        <div>
+          <h3 style={{ marginBottom: '10px', color: '#2D3748' }}>Member Markers & Controls 📍</h3>
+          <p style={{ margin: 0, lineHeight: '1.5' }}>
+            Each marker represents a BSN member. Click on any marker to view their profile details. 
+            Use the zoom controls to explore different areas, and notice how markers cluster together 
+            when many members are in the same region.
+          </p>
+        </div>
+      ),
+      placement: 'right' as const,
+      disableBeacon: true,
+      showCloseButton: true,
+      styles: {
+        options: {
+          primaryColor: '#FFBF23',
+        },
+        tooltip: {
+          borderRadius: '12px',
+          padding: '20px',
+          maxWidth: '300px',
+        },
+        buttonClose: {
+          color: '#718096',
+          fontSize: '14px',
+        },
+      },
+    },
     {
       target: '[data-tour="search-input"]',
       content: (
@@ -233,7 +261,6 @@ export default function Home() {
     if (status === 'finished' || status === 'skipped' || action === 'close') {
       setRunTour(false);
       setStepIndex(0);
-      setIsTourActive(false);
       return;
     }
 
@@ -243,9 +270,9 @@ export default function Home() {
       if (action === 'prev') setStepIndex(index - 1);
     }
 
-    // Track when tour starts
+    // Track when tour starts - removed map hiding logic
     if (type === 'step:before' && index === 0) {
-      setIsTourActive(true);
+      // Tour started - no need to hide map anymore
     }
   };
 
@@ -253,7 +280,6 @@ export default function Home() {
   const closeTour = () => {
     setRunTour(false);
     setStepIndex(0);
-    setIsTourActive(false);
   };
 
   // Manual tour trigger - now the only way to start the tour
@@ -261,7 +287,6 @@ export default function Home() {
     if (!isMounted) return;
     setStepIndex(0);
     setRunTour(true);
-    setIsTourActive(true);
   };
 
   // Memoized popup close handler to prevent unnecessary re-renders
@@ -706,24 +731,23 @@ export default function Home() {
               </div>
             ) : (
               <div className="relative w-full h-screen">
-                {/* Always render the map, but hide it during tour */}
-                <div className={isTourActive ? 'hidden' : 'block'}>
+                {/* Always render the map */}
+                <div data-tour="map-markers">
                   {MemoizedBsiMap}
                 </div>
-                
-                {/* Show static background during tour */}
-                {isTourActive && (
-                  <div className="absolute inset-0">
-                    <Image
-                      src="/png/mapbg2.1920.png"
-                      width={1920}
-                      height={Math.round((3451 / 6134) * 1920)}
-                      unoptimized
-                      alt="map background"
-                      className="w-full h-auto"
-                    />
-                  </div>
-                )}
+                {/* Side target for tour */}
+                <div 
+                  data-tour="map-side-info"
+                  style={{
+                    position: 'absolute',
+                    left: '45%',
+                    top: '35%',
+                    width: '10px',
+                    height: '10px',
+                    pointerEvents: 'none',
+                    zIndex: 1000,
+                  }}
+                />
               </div>
             )}
           </div>

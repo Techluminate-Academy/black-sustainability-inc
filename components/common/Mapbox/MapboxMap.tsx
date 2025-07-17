@@ -267,29 +267,55 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
             
               // 2️⃣ Prepare the Mapbox popup
               const popup = new mapboxgl.Popup({
-                offset: 25,
+                offset: {
+                  'top': [0, 0],
+                  'top-left': [0, 0],
+                  'top-right': [0, 0],
+                  'bottom': [0, 0],
+                  'bottom-left': [0, 0],
+                  'bottom-right': [0, 0],
+                  'left': [0, 0],
+                  'right': [0, 0]
+                },
                 closeButton: false,
                 className: "custom-popup",
+                anchor: 'left',
               });
             
               // 3️⃣ Create a real DOM container and mount InfoCard into it
               const popupContainer = document.createElement("div");
               createRoot(popupContainer).render(
-                <div className="popup-wrapper">
+                <div className="popup-wrapper" style={{
+                  maxWidth: "280px",
+                  minWidth: "250px",
+                  backgroundColor: "white",
+                  borderRadius: "8px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  padding: "12px",
+                  position: "relative",
+                }}>
                   <button
                     className="close-popup-btn"
                     style={{
                       position: "absolute",
-                      right: "-160px",
+                      right: "10px",
                       top: "10px",
                       border: "none",
                       fontSize: "13px",
                       outline: "none",
                       cursor: "pointer",
+                      backgroundColor: "rgba(0,0,0,0.1)",
+                      borderRadius: "50%",
+                      width: "20px",
+                      height: "20px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      zIndex: 1000,
                     }}
                     onClick={() => popup.remove()}
                   >
-                    X
+                    ×
                   </button>
                   <InfoCard
                     imgUrl={
@@ -390,7 +416,11 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
           <div className="loader">Loading locations...</div>
         </div>
       )}
-      <div ref={mapContainerRef} style={{ height: "100%", width: "100%" }} />
+      <div 
+        ref={mapContainerRef} 
+        style={{ height: "100%", width: "100%" }}
+        data-tour="map-markers"
+      />
     </div>
   );
 };

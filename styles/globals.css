@@ -22,6 +22,15 @@ html {
   display: none !important;
 }
 
+/* Side popup positioning for Mapbox */
+.mapboxgl-popup.custom-popup {
+  margin-left: 10px !important;
+}
+
+.mapboxgl-popup.custom-popup .mapboxgl-popup-content {
+  margin: 0 !important;
+}
+
 /* .popup-wrapper {
   background-color: white;
   border-radius: 1rem; 

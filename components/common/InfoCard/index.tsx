@@ -23,9 +23,9 @@ interface UserProps {
 
 const InfoCard: React.FC<UserProps> = ({ isAuthenticated, ...UserProps }) => {
   return (
-    <div className="popup-info-card">
-      <div className="flex gap-x-5 items-start ">
-        <div className="relative w-[40%] h-[133px] rounded-md overflow-hidden">
+    <div className="popup-info-card" style={{ maxWidth: "280px", minWidth: "250px" }}>
+      <div className="flex gap-x-3 items-start ">
+        <div className="relative w-[35%] h-[100px] rounded-md overflow-hidden">
           {!isAuthenticated ? (
             <img
               src={UserProps.imgUrl}
@@ -39,7 +39,7 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, ...UserProps }) => {
             <img src={UserProps.imgUrl} />
           )}
         </div>
-        <div className="w-[60%] flex flex-col justify-between gap-y-0.5 h-[133px] p-1 ">
+        <div className="w-[65%] flex flex-col justify-between gap-y-0.5 h-[100px] p-1 ">
           <div className="flex items-center gap-x-5">
             <icons.profile />
             {isAuthenticated ? (
@@ -92,14 +92,14 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, ...UserProps }) => {
           </div>
         </div>
       </div>
-      <div className="mt-3.5 text-xs leading-5 flex flex-col gap-y-0.5">
+      <div className="mt-2 text-xs leading-4 flex flex-col gap-y-0.5">
         {isAuthenticated && (
           <BioWithReadMore
             isAuthenticated={isAuthenticated}
             bio={UserProps.BIO || "bio unavailable"}
           />
         )}
-        <div className="h-[1px] bg-black w-full my-2.5"></div>
+        <div className="h-[1px] bg-black w-full my-1.5"></div>
         <p className={`text-xs`}>
           <span className="font-bold">Member Level </span>{" "}
           {UserProps.MEMBER_LEVEL == "recgWTcJQnfOQW0Dm" &&
@@ -113,7 +113,7 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, ...UserProps }) => {
         <a
           href={UserProps.WEBSITE}
           target="_blank"
-          className=" mt-2.5 text-xs flex items-center space-x-1 border-none outline-none"
+          className=" mt-1.5 text-xs flex items-center space-x-1 border-none outline-none"
         >
           <icons.web_link />
           {isAuthenticated ? (
