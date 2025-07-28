@@ -18,6 +18,25 @@ export default function Document() {
           href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap"
           rel="stylesheet"
         />
+        {/* Google Analytics */}
+        <script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-ZYR26KHS8R"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){ dataLayer.push(arguments); }
+              gtag('js', new Date());
+              
+              gtag('config', 'G-ZYR26KHS8R', {
+                cookie_domain: 'blacksustainability.org',
+                page_path: window.location.pathname
+              });
+            `,
+          }}
+        />
       </Head>
       <body>
         <Main />
