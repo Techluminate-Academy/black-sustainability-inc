@@ -18,6 +18,7 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
   const [isMobileNavOpen, setMobileNavOpen] = useState(false);
   const router = useRouter();
   const toggleMobileNav = () => setMobileNavOpen(!isMobileNavOpen);
+  
   const parsedUser = authenticatedUser || "";
 
   const greenBtn = "py-2 px-4 bg-green-500 text-white rounded-md font-semibold uppercase text-xs transition hover:bg-green-600";
@@ -54,11 +55,10 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                 </Link>
                 <div className="flex space-x-2">
                   <div className="relative w-7 h-7">
-                    <Image
-                      src={parsedUser?.profile?.profilePhoto?.url}
+                    <img
+                      src={parsedUser?.fields?.PHOTO?.[0]?.url || "/png/default.png"}
                       alt="user"
-                      fill
-                      className="rounded-full"
+                      className="w-full h-full rounded-full object-cover"
                     />
                   </div>
                 </div>
@@ -123,11 +123,10 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                       </Link>
                       <div className="flex space-x-2">
                         <div className="relative w-4 h-4">
-                          <Image
-                            src={parsedUser?.profile?.profilePhoto?.url}
+                          <img
+                            src={parsedUser?.fields?.PHOTO?.[0]?.url || "/png/default.png"}
                             alt="user"
-                            fill
-                            className="rounded-full"
+                            className="w-full h-full rounded-full object-cover"
                           />
                         </div>
                       </div>

@@ -233,7 +233,6 @@ export default function Home() {
 
     const raw = getCookie('bsn_user_data');
     if (!raw) {
-      // no cookie, handle unauthenticated state if needed
       setIsAuthenticated(false);
       setAuthenticatedUser(null);
       return;
@@ -244,7 +243,6 @@ export default function Home() {
       setAuthenticatedUser(userObj);
       setIsAuthenticated(true);
     } catch (err) {
-      console.error('Failed to parse bsn_user_data cookie:', err);
       setIsAuthenticated(false);
       setAuthenticatedUser(null);
     }
