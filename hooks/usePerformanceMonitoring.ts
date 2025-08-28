@@ -112,9 +112,11 @@ const usePerformanceMonitoring = () => {
 
     // Create a PerformanceObserver for First Input Delay
     const fidObserver = new PerformanceObserver((entryList) => {
-      const firstInput = entryList.getEntries()[0];
+      const firstInput = entryList.getEntries()[0] as PerformanceEventTiming;
       const metrics = getPerformanceMetrics();
-      metrics.fid = firstInput.processingStart - firstInput.startTime;
+      if (firstInput && 'processingStart' in firstInput) {
+        metrics.fid = firstInput.processingStart - firstInput.startTime;
+      }
       logMetrics(metrics);
     });
 
