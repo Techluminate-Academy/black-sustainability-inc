@@ -19,7 +19,15 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
   const router = useRouter();
   const toggleMobileNav = () => setMobileNavOpen(!isMobileNavOpen);
   
-  const parsedUser = authenticatedUser || "";
+  console.log('Auth User Data:', authenticatedUser);
+  const parsedUser = authenticatedUser || null;
+  
+  // Debug the full photo data structure
+  console.log('Nav Component - Full Photo Data:', {
+    hasPhoto: Boolean(parsedUser?.profile?.profilePhoto),
+    encodedPhotoUrl: parsedUser?.profile?.profilePhoto?.url,
+    decodedPhotoUrl: parsedUser?.profile?.profilePhoto?.url ? decodeURIComponent(parsedUser.profile.profilePhoto.url) : null
+  });
 
   const greenBtn = "py-2 px-4 bg-green-500 text-white rounded-md font-semibold uppercase text-xs transition hover:bg-green-600";
 
@@ -55,10 +63,11 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                 </Link>
                 <div className="flex space-x-2">
                   <div className="relative w-7 h-7">
-                    <img
-                      src={parsedUser?.fields?.PHOTO?.[0]?.url || "/png/default.png"}
+                    <Image
+                      src={parsedUser?.profile?.profilePhoto?.url ? decodeURIComponent(parsedUser.profile.profilePhoto.url) : "/png/default.png"}
                       alt="user"
-                      className="w-full h-full rounded-full object-cover"
+                      fill
+                      className="rounded-full object-cover"
                     />
                   </div>
                 </div>
@@ -123,10 +132,11 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                       </Link>
                       <div className="flex space-x-2">
                         <div className="relative w-4 h-4">
-                          <img
-                            src={parsedUser?.fields?.PHOTO?.[0]?.url || "/png/default.png"}
+                          <Image
+                            src={parsedUser?.profile?.profilePhoto?.url ? decodeURIComponent(parsedUser.profile.profilePhoto.url) : "/png/default.png"}
                             alt="user"
-                            className="w-full h-full rounded-full object-cover"
+                            fill
+                            className="rounded-full object-cover"
                           />
                         </div>
                       </div>

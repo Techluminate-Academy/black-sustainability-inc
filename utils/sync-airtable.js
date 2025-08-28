@@ -155,13 +155,29 @@ const syncAirtableToMongoDB = async () => {
     const collection = db.collection(COLLECTION_NAME);
 
     // Prepare bulk operations: upsert each record based on a unique identifier (Airtable's record id)
-    const bulkOps = records.map((record) => ({
-      updateOne: {
-        filter: { airtableId: record.id },
-        update: { $set: record },
-        upsert: true,
-      },
-    }));
+    const bulkOps = records.map((record) => {
+      // Process photo URLs to ensure they're in the correct format
+      if (record.fields && record.fields.PHOTO && Array.isArray(record.fields.PHOTO)) {
+        record.fields.PHOTO = record.fields.PHOTO.map(photo => {
+          if (photo.url && photo.url.includes('airtableusercontent.com')) {
+            // Get the authenticated URL from Airtable's response
+            return {
+              ...photo,
+              url: photo.url // The URL from Airtable's response should already be authenticated
+            };
+          }
+          return photo;
+        });
+      }
+
+      return {
+        updateOne: {
+          filter: { airtableId: record.id },
+          update: { $set: record },
+          upsert: true,
+        },
+      };
+    });
 
     if (bulkOps.length > 0) {
       const result = await collection.bulkWrite(bulkOps);

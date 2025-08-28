@@ -240,9 +240,11 @@ export default function Home() {
 
     try {
       const userObj = JSON.parse(raw);
+      console.log('Parsed user object:', userObj);
       setAuthenticatedUser(userObj);
       setIsAuthenticated(true);
     } catch (err) {
+      console.error('Error parsing user data:', err);
       setIsAuthenticated(false);
       setAuthenticatedUser(null);
     }

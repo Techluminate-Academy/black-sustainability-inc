@@ -74,10 +74,14 @@ const CustomIconContent: React.FC<CustomIconContentProps> = ({ record }) => {
           <Image
            src={
             Array.isArray(fields?.PHOTO) && fields.PHOTO.length > 0
-              ? fields.PHOTO[0].url || "/png/default.png"  // If it's an array, use the first item's URL
+              ? fields.PHOTO[0].thumbnails?.full?.url || 
+                fields.PHOTO[0].thumbnails?.large?.url ||
+                fields.PHOTO[0].thumbnails?.small?.url ||
+                fields.PHOTO[0].url ||
+                "/png/default.png"
               : typeof fields?.PHOTO === 'string'
-              ? fields.PHOTO  // If it's a string, use the string directly
-              : "/png/default.png"  // Fallback if PHOTO is not available or doesn't match any case
+              ? fields.PHOTO
+              : "/png/default.png"
           }
           
             alt="member"

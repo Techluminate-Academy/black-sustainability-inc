@@ -42,12 +42,23 @@ export default async function handler(req, res) {
     });
     
     const cacheStart = Date.now();
-    // const cachedData = await redis.get(cacheKey);
+    const cachedData = await redis.get(cacheKey);
 
-    // if (cachedData) {
-    //   // console.log("✅ Serving from Cache");
-    //   return res.status(200).json(JSON.parse(cachedData));
-    // }
+    if (cachedData) {
+      const parsedCache = JSON.parse(cachedData);
+      console.log("✅ Serving from Redis Cache");
+      console.log("Redis Cache - Photo Data:", parsedCache.data.map(record => ({
+        email: record.fields?.['EMAIL ADDRESS'],
+        hasPhoto: Boolean(record.fields?.PHOTO?.[0]),
+        hasThumbnails: Boolean(record.fields?.PHOTO?.[0]?.thumbnails),
+        thumbnailUrls: record.fields?.PHOTO?.[0]?.thumbnails ? {
+          small: record.fields.PHOTO[0].thumbnails.small?.url,
+          large: record.fields.PHOTO[0].thumbnails.large?.url,
+          full: record.fields.PHOTO[0].thumbnails.full?.url
+        } : null
+      })));
+      return res.status(200).json(parsedCache);
+    }
 
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
