@@ -7,7 +7,14 @@ interface CustomIconContentProps {
     isAuthenticated: boolean;
     fields: {
       "PRIMARY INDUSTRY HOUSE"?: string;
-      PHOTO?: { url: string }[] | string;
+      PHOTO?: { 
+        url: string;
+        thumbnails?: {
+          full?: { url: string };
+          large?: { url: string };
+          small?: { url: string };
+        };
+      }[] | string;
     };
   };
 }
