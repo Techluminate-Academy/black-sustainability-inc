@@ -1,6 +1,11 @@
 import { useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 
+interface LayoutShift extends PerformanceEntry {
+  value: number;
+  hadRecentInput: boolean;
+}
+
 export interface PerformanceMetrics {
   pageUrl: string;
   loadTime: number;
@@ -124,8 +129,9 @@ const usePerformanceMonitoring = () => {
     const clsObserver = new PerformanceObserver((entryList) => {
       let clsValue = 0;
       for (const entry of entryList.getEntries()) {
-        if (!entry.hadRecentInput) {
-          clsValue += (entry as any).value;
+        const layoutShift = entry as LayoutShift;
+        if (!layoutShift.hadRecentInput) {
+          clsValue += layoutShift.value;
         }
       }
       const metrics = getPerformanceMetrics();
