@@ -84,12 +84,32 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
             )}
 
             {startTour && (
-              <button
-                onClick={startTour}
-                className="p-[13px] bg-[#FFBF23] rounded-md capitalize font-semibold hover:bg-yellow-500 transition-colors"
-              >
-                🎯 Take a Tour
-              </button>
+              <div className="relative group">
+                <button
+                  onClick={startTour}
+                  className="p-[13px] bg-[#FFBF23] rounded-md capitalize font-semibold hover:bg-yellow-500 transition-colors"
+                  aria-label="Take a guided tour of the map features"
+                >
+                  🎯 Take a Tour
+                </button>
+                {/* Tooltip */}
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 p-3 bg-black text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 shadow-lg">
+                  <div className="text-left space-y-2">
+                    <p className="font-semibold">Map Tour Guide:</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      <li>Click to start an interactive tour</li>
+                      <li>Learn about map features & navigation</li>
+                      <li>Discover how to find & add locations</li>
+                      <li>Use arrow keys or click Next/Back</li>
+                    </ul>
+                    <p className="text-[#FFBF23] mt-2">Hover here for guide, click button to start!</p>
+                  </div>
+                  {/* Arrow */}
+                  <div className="absolute left-1/2 bottom-0 transform -translate-x-1/2 translate-y-full">
+                    <div className="border-8 border-transparent border-t-black"></div>
+                  </div>
+                </div>
+              </div>
             )}
 
             <Link
@@ -154,15 +174,31 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                   )}
 
                   {startTour && (
-                    <button
-                      onClick={() => {
-                        toggleMobileNav();
-                        startTour();
-                      }}
-                      className="p-[13px] bg-[#FFBF23] rounded-md capitalize font-semibold hover:bg-yellow-500 transition-colors"
-                    >
-                      🎯 Take a Tour
-                    </button>
+                    <div className="relative group">
+                      <button
+                        onClick={() => {
+                          toggleMobileNav();
+                          startTour();
+                        }}
+                        className="p-[13px] bg-[#FFBF23] rounded-md capitalize font-semibold hover:bg-yellow-500 transition-colors"
+                        aria-label="Take a guided tour of the map features"
+                      >
+                        🎯 Take a Tour
+                      </button>
+                      {/* Mobile Tooltip */}
+                      <div className="absolute top-full left-0 mt-2 w-64 p-3 bg-black text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 shadow-lg">
+                        <div className="text-left space-y-2">
+                          <p className="font-semibold">Map Tour Guide:</p>
+                          <ul className="list-disc pl-4 space-y-1">
+                            <li>Tap to start an interactive tour</li>
+                            <li>Learn about map features & navigation</li>
+                            <li>Discover how to find & add locations</li>
+                            <li>Use Next/Back buttons to navigate</li>
+                          </ul>
+                          <p className="text-[#FFBF23] mt-2">Tap button to begin!</p>
+                        </div>
+                      </div>
+                    </div>
                   )}
 
                   <Link

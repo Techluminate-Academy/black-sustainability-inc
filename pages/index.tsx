@@ -872,7 +872,7 @@ export default function Home() {
           </div>
         </div>
       )}
-      <Footer />
+      <Footer startTour={startTour} />
     </div>
   );
 }
