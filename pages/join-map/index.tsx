@@ -1,9 +1,9 @@
-// pages/free-signup.tsx
+// pages/join-map/index.tsx
 
 import React from "react";
 import FreeSignupFormContainer from "@/features/freeSignup/FreeSignupFormContainer";
 
-const FreeSignupPage: React.FC = () => {
+const JoinMapPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-100 py-12">
       <FreeSignupFormContainer />
@@ -11,4 +11,4 @@ const FreeSignupPage: React.FC = () => {
   );
 };
 
-export default FreeSignupPage;
+export default JoinMapPage;

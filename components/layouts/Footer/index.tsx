@@ -68,13 +68,13 @@ const Footer = memo(() => {
               {/* Column 2 */}
               <div className="flex flex-col space-y-4">
                 <Link
-                  href="/free-signup"
+                  href="/join-map"
                   className="text-base font-normal hover:underline transition-colors"
                 >
                   JOIN MAP
                 </Link>
                 <Link
-                  href="https://www.blacksustainability.org"
+                  href="https://www.blacksustainability.org/join-our-network"
                   target="_blank"
                   className="text-base font-normal hover:underline transition-colors"
                 >

@@ -27,5 +27,14 @@ module.exports = {
       }
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/free-signup',
+        destination: '/join-map',
+        permanent: true,
+      },
+    ];
+  },
   // ...other config options
 }; 
