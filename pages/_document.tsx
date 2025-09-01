@@ -1,47 +1,51 @@
-import { Html, Head, Main, NextScript } from "next/document";
+import Document, { Html, Head, Main, NextScript } from 'next/document'
+import { GA_TRACKING_ID } from '../lib/gtag'
 
-export default function Document() {
-  return (
-    <Html lang="en">
-      <Head>
-        <title> Black Sustainability Inc</title>
-        <meta
-          name="description"
-          content="The Black Sustainability Network is founded on the traditional principles of ubuntu & cooperative work, while connecting frontline solution providers to resources & like-minds through membership."
-        ></meta>
-        <link
-          rel="icon"
-          href="https://static.wixstatic.com/media/af8b67_353e724b0ed341bd95192b2eea97c664%7Emv2.jpg/v1/fill/w_32%2Ch_32%2Clg_1%2Cusm_0.66_1.00_0.01/af8b67_353e724b0ed341bd95192b2eea97c664%7Emv2.jpg"
-          sizes="any"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap"
-          rel="stylesheet"
-        />
-        {/* Google Analytics */}
-        <script
-          async
-          src="https://www.googletagmanager.com/gtag/js?id=G-ZYR26KHS8R"
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){ dataLayer.push(arguments); }
-              gtag('js', new Date());
-              
-              gtag('config', 'G-ZYR26KHS8R', {
-                cookie_domain: 'blacksustainability.org',
-                page_path: window.location.pathname
-              });
-            `,
-          }}
-        />
-      </Head>
-      <body>
-        <Main />
-        <NextScript />
-      </body>
-    </Html>
-  );
+class MyDocument extends Document {
+  render() {
+    return (
+      <Html>
+        <Head>
+          {/* Global Site Tag (gtag.js) - Google Analytics */}
+          <script
+            async
+            src={`https://www.googletagmanager.com/gtag/js?id=${GA_TRACKING_ID}`}
+          />
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${GA_TRACKING_ID}', {
+                  page_path: window.location.pathname,
+                });
+              `,
+            }}
+          />
+          {/* Google Analytics Embedding API */}
+          <script async src="https://www.google.com/jsapi"></script>
+          <script async src="https://www.gstatic.com/charts/loader.js"></script>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function(w,d,s,g,js,fs){
+                  g=w.gapi||(w.gapi={});g.analytics={q:[],ready:function(f){this.q.push(f);}};
+                  js=d.createElement(s);fs=d.getElementsByTagName(s)[0];
+                  js.src='https://apis.google.com/js/platform.js';
+                  fs.parentNode.insertBefore(js,fs);js.onload=function(){g.load('analytics');};
+                }(window,document,'script'));
+              `
+            }}
+          />
+        </Head>
+        <body>
+          <Main />
+          <NextScript />
+        </body>
+      </Html>
+    )
+  }
 }
+
+export default MyDocument
