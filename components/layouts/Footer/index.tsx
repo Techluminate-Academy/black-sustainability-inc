@@ -16,7 +16,7 @@ const Footer = memo(() => {
       {/* Floating Button - Always visible on mobile */}
       <button
         onClick={toggleFooter}
-        className="fixed bottom-4 right-4 bg-[#FFBF23] text-black px-4 py-2 rounded-full shadow-lg flex items-center gap-2 md:hidden z-50 hover:bg-[#e6ac1f] transition-colors"
+        className="fixed bottom-4 right-4 bg-[#FFBF23] text-black px-4 py-2 rounded-full shadow-lg flex items-center gap-2 md:hidden z-[9999] hover:bg-[#e6ac1f] transition-colors"
       >
         <span className="font-medium">Quick Links</span>
         <svg 
@@ -33,16 +33,16 @@ const Footer = memo(() => {
       <div 
         className={`bg-[#FFBF23] transition-transform duration-300 ease-in-out ${
           isExpanded 
-            ? 'fixed bottom-0 left-0 right-0 z-40 transform translate-y-0 shadow-lg md:relative md:shadow-none md:transform-none' 
+            ? 'fixed bottom-0 left-0 right-0 z-[9998] transform translate-y-0 shadow-lg md:relative md:shadow-none md:transform-none' 
             : 'fixed bottom-0 left-0 right-0 transform translate-y-full md:relative md:transform-none'
         }`}
       >
-        <footer className="max-container text-black py-12">
+        <footer className="max-container text-black py-4 md:py-12">
           <div className="flex flex-col items-center">
             {/* Navigation Links */}
-            <nav className="grid grid-cols-2 gap-x-12 gap-y-4 mb-12">
+            <nav className="grid grid-cols-2 gap-x-8 md:gap-x-12 gap-y-1 md:gap-y-4 mb-4 md:mb-12 w-full md:w-auto md:max-w-none md:mx-0 text-center md:text-left">
               {/* Column 1 */}
-              <div className="flex flex-col space-y-4">
+              <div className="flex flex-col space-y-1.5 md:space-y-4 items-center md:items-start">
                 <Link
                   href="https://www.blacksustainability.org"
                   target="_blank"
@@ -66,7 +66,7 @@ const Footer = memo(() => {
                 </Link>
               </div>
               {/* Column 2 */}
-              <div className="flex flex-col space-y-4">
+              <div className="flex flex-col space-y-1.5 md:space-y-4 items-center md:items-start">
                 <Link
                   href="/join-map"
                   className="text-base font-normal hover:underline transition-colors"
@@ -91,7 +91,18 @@ const Footer = memo(() => {
             </nav>
 
             {/* Social Media Links */}
-            <div className="flex items-center justify-center gap-8 mb-8">
+            <div className="flex items-center justify-center gap-4 md:gap-8 mb-3 md:mb-8">
+              {/* Facebook */}
+              <Link
+                href="https://www.facebook.com/BlackSustainabilitySummit/"
+                target="_blank"
+                className="text-black hover:opacity-70 transition-opacity"
+                aria-label="Facebook"
+              >
+                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
+              </Link>
               <Link
                 href="https://www.youtube.com/c/BlackSustainabilitySummit"
                 target="_blank"
@@ -136,7 +147,7 @@ const Footer = memo(() => {
 
             {/* Logo */}
             <Link href="https://www.blacksustainability.org" target="_blank">
-              <div className="relative h-12 w-[219px] mb-8">
+              <div className="relative h-8 md:h-12 w-[140px] md:w-[219px] mb-3 md:mb-8">
                 <Image
                   src="/png/LOGO.png"
                   alt="Black Sustainability Logo"
@@ -151,12 +162,12 @@ const Footer = memo(() => {
         </footer>
 
         {/* Copyright Section */}
-        <div className="w-full bg-black text-white py-4 text-[6px]">
+        <div className="w-full bg-black text-white py-2 md:py-4 text-[6px]">
           <div className="max-container text-center">
             © 2025 by Black Sustainability, Inc. All Rights Reserved. | Site design by NDO
           </div>
         </div>
-        <div className="w-full bg-[#FFBF23] pb-12"></div>
+        <div className="w-full bg-[#FFBF23] pb-3 md:pb-12"></div>
       </div>
     </>
   );
