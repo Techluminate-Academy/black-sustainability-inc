@@ -1,5 +1,5 @@
 // lib/gtag.ts
-export const GA_TRACKING_ID = 'G-ZYR26KHS8R' // GA4 Measurement ID
+export const GA_TRACKING_ID = 'G-JX6FC5NBGF' // GA4 Measurement ID
 
 // https://developers.google.com/analytics/devguides/collection/gtagjs/pages
 export const pageview = (url: string) => {
