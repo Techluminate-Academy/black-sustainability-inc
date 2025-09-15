@@ -13,103 +13,103 @@ export default function AnalyticsDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const initAnalytics = () => {
-      if (!window.gapi || !window.gapi.analytics) {
-        setTimeout(initAnalytics, 100);
-        return;
-      }
+  const initAnalytics = () => {
+    if (!window.gapi || !window.gapi.analytics) {
+      setTimeout(initAnalytics, 100);
+      return;
+    }
 
-      window.gapi.analytics.ready(() => {
-        try {
-          // Authorize with client ID
-          window.gapi.analytics.auth.authorize({
-            container: 'auth-button',
-            clientid: '880364425500-compute@developer.gserviceaccount.com'
-          });
+    window.gapi.analytics.ready(() => {
+      try {
+        // Authorize with client ID
+        window.gapi.analytics.auth.authorize({
+          container: 'auth-button',
+          clientid: '880364425500-compute@developer.gserviceaccount.com'
+        });
 
-          // Create a ViewSelector instance
-          const viewSelector = new window.gapi.analytics.ViewSelector({
-            container: 'view-selector'
-          });
+        // Create a ViewSelector instance
+        const viewSelector = new window.gapi.analytics.ViewSelector({
+          container: 'view-selector'
+        });
 
-          // Create the charts
-          const activeUsersChart = new window.gapi.analytics.googleCharts.DataChart({
-            query: {
-              metrics: 'ga:activeUsers',
-              dimensions: 'ga:date',
-              'start-date': '28daysAgo',
-              'end-date': 'today'
-            },
-            chart: {
-              container: 'active-users-chart',
-              type: 'LINE',
-              options: {
-                title: 'Active Users Over Time'
-              }
+        // Create the charts
+        const activeUsersChart = new window.gapi.analytics.googleCharts.DataChart({
+          query: {
+            metrics: 'ga:activeUsers',
+            dimensions: 'ga:date',
+            'start-date': '28daysAgo',
+            'end-date': 'today'
+          },
+          chart: {
+            container: 'active-users-chart',
+            type: 'LINE',
+            options: {
+              title: 'Active Users Over Time'
             }
-          });
+          }
+        });
 
-          const channelChart = new window.gapi.analytics.googleCharts.DataChart({
-            query: {
-              metrics: 'ga:sessions',
-              dimensions: 'ga:channelGrouping',
-              'start-date': '28daysAgo',
-              'end-date': 'today',
-              'sort': '-ga:sessions'
-            },
-            chart: {
-              container: 'channel-chart',
-              type: 'BAR',
-              options: {
-                title: 'Sessions by Channel'
-              }
+        const channelChart = new window.gapi.analytics.googleCharts.DataChart({
+          query: {
+            metrics: 'ga:sessions',
+            dimensions: 'ga:channelGrouping',
+            'start-date': '28daysAgo',
+            'end-date': 'today',
+            'sort': '-ga:sessions'
+          },
+          chart: {
+            container: 'channel-chart',
+            type: 'BAR',
+            options: {
+              title: 'Sessions by Channel'
             }
-          });
+          }
+        });
 
-          // Real-time active users
-          const realtimeUsers = new window.gapi.analytics.googleCharts.DataChart({
-            query: {
-              metrics: 'rt:activeUsers',
-              dimensions: 'rt:medium'
-            },
-            chart: {
-              container: 'realtime-users',
-              type: 'NUMBER',
-              options: {
-                title: 'Active Users Right Now'
-              }
+        // Real-time active users
+        const realtimeUsers = new window.gapi.analytics.googleCharts.DataChart({
+          query: {
+            metrics: 'rt:activeUsers',
+            dimensions: 'rt:medium'
+          },
+          chart: {
+            container: 'realtime-users',
+            type: 'NUMBER',
+            options: {
+              title: 'Active Users Right Now'
             }
-          });
+          }
+        });
 
-          // Use your existing GA4 view ID
-          const viewId = 'ga:' + '6058662380';  // Your GA4 property ID
-          
-          // Execute the charts directly with the view ID
-          const newIds = { ids: viewId };
+        // Use your existing GA4 view ID
+        const viewId = 'ga:' + '6058662380';  // Your GA4 property ID
+        
+        // Execute the charts directly with the view ID
+        const newIds = { ids: viewId };
+        activeUsersChart.set(newIds).execute();
+        channelChart.set(newIds).execute();
+        realtimeUsers.set(newIds).execute();
+
+        // Hook up the charts to the view selector
+        viewSelector.on('change', function(ids: string) {
+          const newIds = { ids };
           activeUsersChart.set(newIds).execute();
           channelChart.set(newIds).execute();
           realtimeUsers.set(newIds).execute();
+        });
 
-          // Hook up the charts to the view selector
-          viewSelector.on('change', function(ids: string) {
-            const newIds = { ids };
-            activeUsersChart.set(newIds).execute();
-            channelChart.set(newIds).execute();
-            realtimeUsers.set(newIds).execute();
-          });
+        // Render the view selector
+        viewSelector.execute();
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Analytics initialization error:', error);
+        setError('Failed to initialize analytics');
+        setIsLoading(false);
+      }
+    });
+  };
 
-          // Render the view selector
-          viewSelector.execute();
-          setIsLoading(false);
-        } catch (error) {
-          console.error('Analytics initialization error:', error);
-          setError('Failed to initialize analytics');
-          setIsLoading(false);
-        }
-      });
-    };
-
+  useEffect(() => {
     // Start initialization
     initAnalytics();
   }, []);
