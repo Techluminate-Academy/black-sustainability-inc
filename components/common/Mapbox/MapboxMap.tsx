@@ -5,6 +5,7 @@ import ReactDOM from "react-dom";
 import ReactDOMServer from "react-dom/server";
 import mapboxgl from "mapbox-gl";  
 import CustomIconContent from "./CustomIconContent";
+
 import InfoCard from "../InfoCard";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { LatLngBounds } from "leaflet";
