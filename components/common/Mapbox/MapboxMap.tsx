@@ -68,12 +68,326 @@ const createMarkerElement = (record: any, isAuthenticated: boolean): HTMLElement
   return el.firstElementChild as HTMLElement;
 };
 
+// Climate layer management functions
+const addClimateHeatmapLayer = async (
+  map: mapboxgl.Map, 
+  layerId: string,
+  loadingClimateLayers: Set<string>,
+  setLoadingClimateLayers: React.Dispatch<React.SetStateAction<Set<string>>>,
+  setActiveClimateLayers: React.Dispatch<React.SetStateAction<Set<string>>>
+) => {
+  if (!map || loadingClimateLayers.has(layerId)) return;
+  
+  setLoadingClimateLayers(prev => new Set(prev).add(layerId));
+  
+  try {
+    const bounds = map.getBounds();
+    if (!bounds) return;
+    
+    const boundsStr = JSON.stringify({
+      north: bounds.getNorth(),
+      south: bounds.getSouth(),
+      east: bounds.getEast(),
+      west: bounds.getWest()
+    });
+    
+    console.log(`🌍 Fetching climate data for bounds:`, JSON.parse(boundsStr));
+    const response = await fetch(`/api/climate-data?layerType=${layerId}&bounds=${encodeURIComponent(boundsStr)}&zoom=${Math.floor(map.getZoom())}`);
+    const data = await response.json();
+    console.log(`📊 Received ${data.features.length} climate data points for ${layerId} layer`);
+
+    // Remove existing layer if it exists
+    if (map.getLayer(`climate-heatmap-${layerId}`)) {
+      map.removeLayer(`climate-heatmap-${layerId}`);
+    }
+    if (map.getSource(`climate-heatmap-${layerId}`)) {
+      map.removeSource(`climate-heatmap-${layerId}`);
+    }
+
+    // Add source
+    map.addSource(`climate-heatmap-${layerId}`, {
+      type: 'geojson',
+      data: data
+    });
+
+    // Add heatmap layer - positioned UNDER existing markers
+    const layerConfig = getClimateLayerConfig(layerId);
+    
+    try {
+      map.addLayer({
+        id: `climate-heatmap-${layerId}`,
+        type: 'heatmap',
+        source: `climate-heatmap-${layerId}`,
+        maxzoom: 22, // Allow at all zoom levels
+        paint: {
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'intensity'], 0, 0, 1, 1] as any,
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 2, 15, 8] as any, // Higher intensity
+          'heatmap-color': layerConfig.color as any,
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 5, 15, 50] as any, // Larger radius
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 0, 1, 15, 0.8] as any // Higher opacity
+        }
+      });
+
+      // Ensure heatmap layers are below marker layers
+      if (map.getLayer('clusters')) {
+        map.moveLayer(`climate-heatmap-${layerId}`, 'clusters');
+      }
+      
+      // Also add a simple circle layer as backup visualization
+      map.addLayer({
+        id: `climate-circles-${layerId}`,
+        type: 'circle',
+        source: `climate-heatmap-${layerId}`,
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['get', 'intensity'], 0, 2, 1, 10] as any,
+          'circle-color': getCircleColor(layerId),
+          'circle-opacity': 0.3 as any
+        }
+      });
+      
+      // Move circle layer below markers too
+      if (map.getLayer('clusters')) {
+        map.moveLayer(`climate-circles-${layerId}`, 'clusters');
+      }
+      
+      // Add click handler for climate data
+      map.on('click', `climate-circles-${layerId}`, (e) => {
+        const features = e.features;
+        if (features && features.length > 0) {
+          const feature = features[0];
+          const properties = feature.properties;
+          
+          // Create popup content
+          const popupContent = createClimatePopupContent(layerId, properties);
+          
+          new mapboxgl.Popup()
+            .setLngLat(e.lngLat)
+            .setHTML(popupContent)
+            .addTo(map);
+        }
+      });
+      
+      // Change cursor on hover
+      map.on('mouseenter', `climate-circles-${layerId}`, () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      
+      map.on('mouseleave', `climate-circles-${layerId}`, () => {
+        map.getCanvas().style.cursor = '';
+      });
+      
+      console.log(`✅ Successfully added ${layerId} heatmap and circle layers to map with click interaction`);
+    } catch (layerError) {
+      console.error(`❌ Error adding heatmap layer:`, layerError);
+      throw layerError;
+    }
+
+    setActiveClimateLayers(prev => new Set(prev).add(layerId));
+  } catch (error) {
+    console.error(`Error loading climate layer ${layerId}:`, error);
+  } finally {
+    setLoadingClimateLayers(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(layerId);
+      return newSet;
+    });
+  }
+};
+
+const removeClimateHeatmapLayer = (
+  map: mapboxgl.Map, 
+  layerId: string,
+  setActiveClimateLayers: React.Dispatch<React.SetStateAction<Set<string>>>
+) => {
+  if (!map) return;
+  
+  const heatmapLayerName = `climate-heatmap-${layerId}`;
+  const circleLayerName = `climate-circles-${layerId}`;
+  const sourceName = `climate-heatmap-${layerId}`;
+  
+  // Remove event listeners first (Mapbox will clean up automatically when layer is removed)
+  
+  // Remove both heatmap and circle layers
+  if (map.getLayer(heatmapLayerName)) {
+    map.removeLayer(heatmapLayerName);
+  }
+  if (map.getLayer(circleLayerName)) {
+    map.removeLayer(circleLayerName);
+  }
+  if (map.getSource(sourceName)) {
+    map.removeSource(sourceName);
+  }
+  
+  setActiveClimateLayers(prev => {
+    const newSet = new Set(prev);
+    newSet.delete(layerId);
+    return newSet;
+  });
+};
+
+const getClimateLayerConfig = (layerId: string) => {
+  const configs = {
+    temperature: {
+      color: [
+        'interpolate', ['linear'], ['heatmap-density'],
+        0, 'rgba(0,0,255,0)',     // Cold (blue)
+        0.2, 'rgb(0,255,255)',    // Cool (cyan)
+        0.4, 'rgb(0,255,0)',      // Mild (green)
+        0.6, 'rgb(255,255,0)',    // Warm (yellow)
+        0.8, 'rgb(255,165,0)',    // Hot (orange)
+        1, 'rgb(255,0,0)'         // Extreme (red)
+      ],
+      radius: ['interpolate', ['linear'], ['zoom'], 0, 3, 15, 25],
+      intensity: ['interpolate', ['linear'], ['zoom'], 0, 1, 15, 3]
+    },
+    precipitation: {
+      color: [
+        'interpolate', ['linear'], ['heatmap-density'],
+        0, 'rgba(255,255,255,0)', // Dry (transparent)
+        0.2, 'rgb(173,216,230)',  // Light (light blue)
+        0.4, 'rgb(135,206,235)',  // Moderate (sky blue)
+        0.6, 'rgb(70,130,180)',   // Heavy (steel blue)
+        0.8, 'rgb(25,25,112)',    // Very heavy (midnight blue)
+        1, 'rgb(0,0,139)'         // Extreme (dark blue)
+      ],
+      radius: ['interpolate', ['linear'], ['zoom'], 0, 2, 15, 30],
+      intensity: ['interpolate', ['linear'], ['zoom'], 0, 1, 15, 4]
+    },
+    wind: {
+      color: [
+        'interpolate', ['linear'], ['heatmap-density'],
+        0, 'rgba(255,255,255,0)', // Calm (transparent)
+        0.3, 'rgb(144,238,144)',  // Light (light green)
+        0.5, 'rgb(255,255,0)',    // Moderate (yellow)
+        0.7, 'rgb(255,165,0)',    // Strong (orange)
+        0.9, 'rgb(255,69,0)',     // Very strong (red-orange)
+        1, 'rgb(255,0,0)'         // Extreme (red)
+      ],
+      radius: ['interpolate', ['linear'], ['zoom'], 0, 4, 15, 35],
+      intensity: ['interpolate', ['linear'], ['zoom'], 0, 1, 15, 3]
+    }
+  };
+  
+  return configs[layerId as keyof typeof configs] || configs.temperature;
+};
+
+const getCircleColor = (layerId: string): string => {
+  switch (layerId) {
+    case 'temperature':
+      return '#ff6b6b'; // Red for temperature
+    case 'precipitation':
+      return '#4ecdc4'; // Teal for precipitation  
+    case 'wind':
+      return '#ff9f43'; // Orange for wind
+    default:
+      return '#666666'; // Gray default
+  }
+};
+
+const createClimatePopupContent = (layerId: string, properties: any): string => {
+  const { temperature, precipitation, wind_speed, intensity, station_id, date } = properties;
+  
+  let content = `
+    <div style="padding: 12px; min-width: 200px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <h3 style="margin: 0 0 8px 0; color: #333; font-size: 16px; font-weight: 600;">
+        ${getLayerTitle(layerId)} Data
+      </h3>
+      <div style="margin-bottom: 8px;">
+        <strong>Station ID:</strong> ${station_id}
+      </div>
+      <div style="margin-bottom: 8px;">
+        <strong>Date:</strong> ${new Date(date).toLocaleDateString()}
+      </div>
+  `;
+  
+  // Add specific data based on layer type
+  if (layerId === 'temperature') {
+    content += `
+      <div style="margin-bottom: 8px;">
+        <strong>Temperature:</strong> ${temperature.toFixed(1)}°C (${(temperature * 9/5 + 32).toFixed(1)}°F)
+      </div>
+      <div style="margin-bottom: 8px;">
+        <strong>Intensity:</strong> ${(intensity * 100).toFixed(1)}%
+      </div>
+    `;
+  } else if (layerId === 'precipitation') {
+    content += `
+      <div style="margin-bottom: 8px;">
+        <strong>Precipitation:</strong> ${precipitation.toFixed(2)} inches
+      </div>
+      <div style="margin-bottom: 8px;">
+        <strong>Intensity:</strong> ${(intensity * 100).toFixed(1)}%
+      </div>
+    `;
+  } else if (layerId === 'wind') {
+    content += `
+      <div style="margin-bottom: 8px;">
+        <strong>Wind Speed:</strong> ${wind_speed.toFixed(1)} mph
+      </div>
+      <div style="margin-bottom: 8px;">
+        <strong>Intensity:</strong> ${(intensity * 100).toFixed(1)}%
+      </div>
+    `;
+  }
+  
+  // Add all available data
+  content += `
+      <div style="border-top: 1px solid #eee; margin-top: 12px; padding-top: 8px; font-size: 12px; color: #666;">
+        <div><strong>All Data:</strong></div>
+        <div>Temperature: ${temperature.toFixed(1)}°C</div>
+        <div>Precipitation: ${precipitation.toFixed(2)} inches</div>
+        <div>Wind Speed: ${wind_speed.toFixed(1)} mph</div>
+      </div>
+    </div>
+  `;
+  
+  return content;
+};
+
+const getLayerTitle = (layerId: string): string => {
+  switch (layerId) {
+    case 'temperature':
+      return '🌡️ Temperature';
+    case 'precipitation':
+      return '🌧️ Precipitation';
+    case 'wind':
+      return '💨 Wind Speed';
+    default:
+      return '📊 Climate';
+  }
+};
+
 const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, filteredData }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<MarkerWithId[]>([]);
   const mapCenter: [number, number] = [-84.3877, 33.7488];
   const [loading, setLoading] = useState(true); // <-- loading state
+  
+  // Climate overlay state
+  const [activeClimateLayers, setActiveClimateLayers] = useState<Set<string>>(new Set());
+  const [loadingClimateLayers, setLoadingClimateLayers] = useState<Set<string>>(new Set());
+
+  // Climate layer toggle functions
+  const toggleClimateLayer = async (layerId: string) => {
+    if (!mapRef.current) return;
+    
+    console.log(`🌡️ Toggling climate layer: ${layerId}`);
+    
+    if (activeClimateLayers.has(layerId)) {
+      console.log(`🗑️ Removing climate layer: ${layerId}`);
+      removeClimateHeatmapLayer(mapRef.current, layerId, setActiveClimateLayers);
+    } else {
+      console.log(`➕ Adding climate layer: ${layerId}`);
+      await addClimateHeatmapLayer(
+        mapRef.current, 
+        layerId, 
+        loadingClimateLayers,
+        setLoadingClimateLayers, 
+        setActiveClimateLayers
+      );
+    }
+  };
 
   useEffect(() => {
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API_TOKEN || "";
@@ -416,6 +730,75 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
           <div className="loader">Loading locations...</div>
         </div>
       )}
+      
+      {/* Climate Layer Controls Overlay */}
+      <div style={{
+        position: "absolute",
+        top: "10px",
+        right: "10px",
+        zIndex: 1000,
+        background: "white",
+        padding: "15px",
+        borderRadius: "8px",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+        minWidth: "200px",
+        maxWidth: "250px"
+      }}>
+        <h3 style={{ 
+          margin: "0 0 10px 0", 
+          fontSize: "16px", 
+          fontWeight: "bold",
+          color: "#333"
+        }}>
+          🌡️ Climate Data Layers
+        </h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {[
+            { id: 'temperature', name: 'Temperature', color: '#ff6b6b', icon: '🌡️' },
+            { id: 'precipitation', name: 'Precipitation', color: '#4ecdc4', icon: '🌧️' },
+            { id: 'wind', name: 'Wind Speed', color: '#ff9f43', icon: '💨' }
+          ].map(layer => (
+            <button
+              key={layer.id}
+              onClick={() => toggleClimateLayer(layer.id)}
+              disabled={loadingClimateLayers.has(layer.id)}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                backgroundColor: activeClimateLayers.has(layer.id) ? layer.color : "#f8f9fa",
+                color: activeClimateLayers.has(layer.id) ? "white" : "#333",
+                border: "1px solid #ddd",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "500",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                transition: "all 0.2s ease"
+              }}
+            >
+              <span>{layer.icon} {layer.name}</span>
+              {loadingClimateLayers.has(layer.id) && (
+                <span style={{ fontSize: "12px" }}>Loading...</span>
+              )}
+              {activeClimateLayers.has(layer.id) && !loadingClimateLayers.has(layer.id) && (
+                <span style={{ fontSize: "12px" }}>✓</span>
+              )}
+            </button>
+          ))}
+        </div>
+        <div style={{ 
+          fontSize: "11px", 
+          color: "#666", 
+          marginTop: "10px",
+          lineHeight: "1.3"
+        }}>
+          Toggle climate data overlays underneath member markers<br/>
+          <span style={{ color: "#888", fontSize: "10px" }}>💡 Click on colored areas for detailed data</span>
+        </div>
+      </div>
+
       <div 
         ref={mapContainerRef} 
         style={{ height: "100%", width: "100%" }}
