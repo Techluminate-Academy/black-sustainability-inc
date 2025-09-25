@@ -2,6 +2,7 @@ import { GetServerSideProps } from 'next';
 import { useState, useEffect } from 'react';
 import { Formik, Form } from 'formik';
 import Image from 'next/image';
+import Head from 'next/head';
 import { connectToDatabase } from '@/lib/mongodb';
 import type { Collection } from 'mongodb';
 import type { FormVersion } from '@/models/formVersion';
@@ -890,7 +891,27 @@ export default function TestBSNRegistration({ formConfig }: TestBSNRegistrationP
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <>
+      <Head>
+        <title>Upgrade Membership - Black Sustainability Network</title>
+        <meta name="description" content="Access more features and support our mission by upgrading your membership." />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href="https://maps.blacksustainability.org/upgrade-membership" />
+        
+        {/* Open Graph */}
+        <meta property="og:title" content="Upgrade Membership - Black Sustainability Network" />
+        <meta property="og:description" content="Access more features and support our mission by upgrading your membership." />
+        <meta property="og:image" content="https://maps.blacksustainability.org/default-logo.png" />
+        <meta property="og:url" content="https://maps.blacksustainability.org/upgrade-membership" />
+        <meta property="og:type" content="website" />
+        
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Upgrade Membership - Black Sustainability Network" />
+        <meta name="twitter:description" content="Access more features and support our mission by upgrading your membership." />
+        <meta name="twitter:image" content="https://maps.blacksustainability.org/default-logo.png" />
+      </Head>
+      <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className={`mx-auto transition-all duration-300 ${isSubmitted ? 'max-w-5xl' : 'max-w-3xl'}`}>
         {/* Logo */}
         <div className="flex justify-center mb-8">
@@ -981,6 +1002,7 @@ export default function TestBSNRegistration({ formConfig }: TestBSNRegistrationP
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 } 

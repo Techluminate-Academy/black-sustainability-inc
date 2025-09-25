@@ -2,6 +2,7 @@ import { GetServerSideProps } from 'next';
 import { useState, useEffect } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import Image from 'next/image';
+import Head from 'next/head';
 import { useRouter } from 'next/navigation';
 import { connectToDatabase } from '@/lib/mongodb';
 import type { Collection } from 'mongodb';
@@ -282,7 +283,27 @@ export default function TestFreeSignup({ formConfig }: TestFreeSignupProps) {
   }
 
   return (
-    <div className="w-full px-4 py-6 sm:px-6 lg:px-8 bg-gray-100">
+    <>
+      <Head>
+        <title>Free Registration - Black Sustainability Network</title>
+        <meta name="description" content="Get listed and join the movement. Register for free today." />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href="https://maps.blacksustainability.org/register-free" />
+        
+        {/* Open Graph */}
+        <meta property="og:title" content="Free Registration - Black Sustainability Network" />
+        <meta property="og:description" content="Get listed and join the movement. Register for free today." />
+        <meta property="og:image" content="https://maps.blacksustainability.org/default-logo.png" />
+        <meta property="og:url" content="https://maps.blacksustainability.org/register-free" />
+        <meta property="og:type" content="website" />
+        
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Free Registration - Black Sustainability Network" />
+        <meta name="twitter:description" content="Get listed and join the movement. Register for free today." />
+        <meta name="twitter:image" content="https://maps.blacksustainability.org/default-logo.png" />
+      </Head>
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8 bg-gray-100">
       <div className="w-full sm:w-1/2 mx-auto bg-white p-4 sm:p-6 rounded-lg shadow-lg max-w-xl">
         {/* Logo & Header */}
         <div className="flex flex-col items-center mb-4 sm:mb-6">
@@ -510,6 +531,7 @@ export default function TestFreeSignup({ formConfig }: TestFreeSignupProps) {
           }}
         </Formik>
       </div>
-    </div>
+      </div>
+    </>
   );
 } 

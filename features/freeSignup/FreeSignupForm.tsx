@@ -570,6 +570,42 @@ const FreeSignupForm: React.FC<FreeSignupFormProps> = ({
             </div>
           </div>
 
+          {/* Affiliated Entity */}
+          <div className="form-field">
+            <label 
+              htmlFor="affiliatedEntity"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Affiliated Entity (optional)
+            </label>
+            <p className="text-xs text-gray-500 mb-2">
+              If you were referred by another organization to use this map, list the name of the organization you are affiliated with. 
+              This is SEPARATE from the organization you are representing.
+            </p>
+            <input
+              id="affiliatedEntity"
+              type="text"
+              value={formData.affiliatedEntity}
+              onChange={(e) => onFieldChange("affiliatedEntity", e.target.value)}
+              className="
+                w-full
+                px-4
+                py-3
+                text-base
+                border
+                rounded-lg
+                focus:ring-2
+                focus:ring-blue-500
+                focus:ring-offset-1
+                border-gray-300
+                focus:ring-blue-200
+                transition-colors
+                duration-200
+              "
+              placeholder="Enter affiliated organization name"
+            />
+          </div>
+
           {/* Submit Button */}
           <div className="pt-4 sm:pt-6">
             <button

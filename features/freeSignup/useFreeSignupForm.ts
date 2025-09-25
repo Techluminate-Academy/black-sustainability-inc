@@ -30,7 +30,8 @@ export function useFreeSignupForm() {
       photo: null,
       logo: null,
       form: "",
-      membershipStatusNotes: "Free"
+      membershipStatusNotes: "Free",
+      affiliatedEntity: ""
     },
     errors: [],
     isDirty: false,

@@ -16,7 +16,6 @@ export async function sendToAirtable(data: FreeSubmissionPayload): Promise<void>
     Address: data.address,
     Latitude: data.latitude !== undefined && data.latitude !== null ? data.latitude.toString() : undefined,
     Longitude: data.longitude !== undefined && data.longitude !== null ? data.longitude.toString() : undefined,
-    "MembershipType": "Free",
   };
 
   // Only add primaryIndustry if it's not empty
@@ -35,6 +34,9 @@ export async function sendToAirtable(data: FreeSubmissionPayload): Promise<void>
   }
   if (data.logoUrl) {
     airtableFields["LOGO"] = [{ url: data.logoUrl }];
+  }
+  if (data.affiliatedEntity && data.affiliatedEntity.trim() !== "") {
+    airtableFields["AFFILIATED ENTITY"] = data.affiliatedEntity;
   }
   
   airtableFields["Membership Status Notes"] = "Free";

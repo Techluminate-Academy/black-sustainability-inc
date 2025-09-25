@@ -5,7 +5,7 @@ import Sidebar from "@/components/layouts/Sidebar";
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { customStyles } from "@/components/common/CustomSelect";
 import Select from "react-select";
-import { Head } from "next/document";
+import Head from "next/head";
 import { IndustryHouses } from "@/utils/IndustryDetails";
 import dynamic from "next/dynamic";
 import icons from "@/icons";
@@ -650,7 +650,27 @@ export default function Home() {
   ), [mapData]);
 
   return (
-    <div className="relative h-screen w-full">
+    <>
+      <Head>
+        <title>Black Sustainability Network</title>
+        <meta name="description" content="Explore and connect with Black sustainability leaders across the globe." />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href="https://maps.blacksustainability.org/" />
+        
+        {/* Open Graph */}
+        <meta property="og:title" content="Black Sustainability Network" />
+        <meta property="og:description" content="Explore and connect with Black sustainability leaders across the globe." />
+        <meta property="og:image" content="https://maps.blacksustainability.org/default-logo.png" />
+        <meta property="og:url" content="https://maps.blacksustainability.org/" />
+        <meta property="og:type" content="website" />
+        
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Black Sustainability Network" />
+        <meta name="twitter:description" content="Explore and connect with Black sustainability leaders across the globe." />
+        <meta name="twitter:image" content="https://maps.blacksustainability.org/default-logo.png" />
+      </Head>
+      <div className="relative h-screen w-full">
       {/* Guided Tour Component - Only render on client side */}
       {isMounted && runTour && (
         <Joyride
@@ -873,6 +893,7 @@ export default function Home() {
         </div>
       )}
       <Footer />
-    </div>
+      </div>
+    </>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Head from "next/head";
 import axios from "axios";
 import GooglePlacesAutocomplete, {
   geocodeByPlaceId,
@@ -1193,7 +1194,27 @@ const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) 
   }
 
   return (
-    <div className="bg-white p-8 rounded-lg shadow-md max-w-2xl mx-auto">
+    <>
+      <Head>
+        <title>BSN Registration - Black Sustainability Network</title>
+        <meta name="description" content="Official registration for Black Sustainability Network initiatives and campaigns." />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href="https://maps.blacksustainability.org/bsn-registration" />
+        
+        {/* Open Graph */}
+        <meta property="og:title" content="BSN Registration - Black Sustainability Network" />
+        <meta property="og:description" content="Official registration for Black Sustainability Network initiatives and campaigns." />
+        <meta property="og:image" content="https://maps.blacksustainability.org/default-logo.png" />
+        <meta property="og:url" content="https://maps.blacksustainability.org/bsn-registration" />
+        <meta property="og:type" content="website" />
+        
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="BSN Registration - Black Sustainability Network" />
+        <meta name="twitter:description" content="Official registration for Black Sustainability Network initiatives and campaigns." />
+        <meta name="twitter:image" content="https://maps.blacksustainability.org/default-logo.png" />
+      </Head>
+      <div className="bg-white p-8 rounded-lg shadow-md max-w-2xl mx-auto">
       <div className="text-center mb-8">
         <Image
           src={logo}
@@ -1308,7 +1329,8 @@ const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) 
           {submissionError}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 };
 
