@@ -67,8 +67,78 @@ export default function Home() {
   console.log(filteredData, 'filtered data')
   const route = useRouter();
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [showScrollButtons, setShowScrollButtons] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const mapInitializedRef = useRef(false); // Track if map has been initialized
+
+  // Scroll functions for mobile navigation
+  const scrollUp = () => {
+    console.log('Scrolling up...');
+    try {
+      // First try simple scrollBy
+      window.scrollBy(0, -200);
+      
+      // Then try the more complex method
+      const currentScroll = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
+      const scrollAmount = 200; // Scroll amount
+      const newScroll = Math.max(0, currentScroll - scrollAmount);
+      
+      console.log('Current scroll:', currentScroll, 'New scroll:', newScroll);
+      
+      // Try multiple scroll methods
+      window.scrollTo({ top: newScroll, behavior: 'smooth' });
+      document.documentElement.scrollTop = newScroll;
+      document.body.scrollTop = newScroll;
+    } catch (error) {
+      console.error('Scroll up error:', error);
+    }
+  };
+
+  const scrollDown = () => {
+    console.log('Scrolling down...');
+    try {
+      // First try simple scrollBy
+      window.scrollBy(0, 200);
+      
+      // Then try the more complex method
+      const currentScroll = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
+      const scrollAmount = 200; // Scroll amount
+      const maxScroll = Math.max(
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight
+      ) - window.innerHeight;
+      const newScroll = Math.min(maxScroll, currentScroll + scrollAmount);
+      
+      console.log('Current scroll:', currentScroll, 'New scroll:', newScroll, 'Max scroll:', maxScroll);
+      
+      // Try multiple scroll methods
+      window.scrollTo({ top: newScroll, behavior: 'smooth' });
+      document.documentElement.scrollTop = newScroll;
+      document.body.scrollTop = newScroll;
+    } catch (error) {
+      console.error('Scroll down error:', error);
+    }
+  };
+
+  const scrollToMapSection = () => {
+    console.log('Scrolling to map section...');
+    const mapElement = document.querySelector('[data-tour="map-container"]');
+    if (mapElement) {
+      mapElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      console.log('Map element not found');
+    }
+  };
+
+  const scrollToSidebarSection = () => {
+    console.log('Scrolling to sidebar section...');
+    const sidebarElement = document.querySelector('[data-tour="sidebar"]');
+    if (sidebarElement) {
+      sidebarElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      console.log('Sidebar element not found');
+    }
+  };
 
   // Guided Tour Steps Configuration
   const tourSteps = [
@@ -670,7 +740,7 @@ export default function Home() {
         <meta name="twitter:description" content="Explore and connect with Black sustainability leaders across the globe." />
         <meta name="twitter:image" content="https://maps.blacksustainability.org/default-logo.png" />
       </Head>
-      <div className="relative h-screen w-full">
+      <div className="relative min-h-screen w-full overflow-y-auto touch-pan-y overscroll-contain mobile-scroll">
       {/* Guided Tour Component - Only render on client side */}
       {isMounted && runTour && (
         <Joyride
@@ -893,6 +963,70 @@ export default function Home() {
         </div>
       )}
       <Footer />
+      
+      {/* Scroll Navigation Buttons */}
+      <div className="fixed right-4 bottom-20 z-50 flex flex-col gap-2">
+        <button
+          onClick={(e) => {
+            console.log('Scroll up button clicked!');
+            // Add visual feedback
+            const button = e.currentTarget as HTMLElement;
+            button.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+              button.style.transform = 'scale(1)';
+            }, 150);
+            
+            scrollUp();
+          }}
+          className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full shadow-xl transition-all duration-200 active:scale-95 border-2 border-white"
+          title="Scroll Up"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          </svg>
+        </button>
+        
+        <button
+          onClick={scrollToMapSection}
+          className="bg-green-500 hover:bg-green-600 text-white p-4 rounded-full shadow-xl transition-all duration-200 active:scale-95 border-2 border-white"
+          title="Go to Map"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
+        
+        <button
+          onClick={scrollToSidebarSection}
+          className="bg-purple-500 hover:bg-purple-600 text-white p-4 rounded-full shadow-xl transition-all duration-200 active:scale-95 border-2 border-white"
+          title="Go to Results"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+        </button>
+        
+        <button
+          onClick={(e) => {
+            console.log('Scroll down button clicked!');
+            // Add visual feedback
+            const button = e.currentTarget as HTMLElement;
+            button.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+              button.style.transform = 'scale(1)';
+            }, 150);
+            
+            scrollDown();
+          }}
+          className="bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-full shadow-xl transition-all duration-200 active:scale-95 border-2 border-white"
+          title="Scroll Down"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+          </svg>
+        </button>
+      </div>
       </div>
     </>
   );

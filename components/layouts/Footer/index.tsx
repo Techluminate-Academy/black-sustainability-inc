@@ -16,7 +16,7 @@ const Footer = memo(() => {
       {/* Floating Button - Always visible on mobile */}
       <button
         onClick={toggleFooter}
-        className="fixed bottom-4 right-4 bg-[#FFBF23] text-black px-4 py-2 rounded-full shadow-lg flex items-center gap-2 md:hidden z-[9999] hover:bg-[#e6ac1f] transition-colors"
+        className="fixed bottom-4 left-4 bg-[#FFBF23] text-black px-4 py-2 rounded-full shadow-lg flex items-center gap-2 md:hidden z-[9999] hover:bg-[#e6ac1f] transition-colors"
       >
         <span className="font-medium">Quick Links</span>
         <svg 

@@ -7,6 +7,33 @@
 html {
   font-family: "Work Sans", sans-seri;
 }
+
+/* Mobile touch scrolling improvements */
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Ensure proper mobile scrolling on main containers */
+.mobile-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
 /* Reset Mapbox popup styles */
 .mapboxgl-popup.custom-popup .mapboxgl-popup-content {
   padding: 0 !important;

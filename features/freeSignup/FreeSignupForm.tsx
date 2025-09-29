@@ -65,7 +65,7 @@ const FreeSignupForm: React.FC<FreeSignupFormProps> = ({
   const formError = errors.form;
 
   return (
-    <div className="w-full px-4 py-6 sm:px-6 lg:px-8 bg-gray-100">
+    <div className="w-full px-4 py-6 sm:px-6 lg:px-8 bg-gray-100 min-h-screen overflow-y-auto touch-pan-y">
       <div className="w-full sm:w-1/2 mx-auto bg-white p-4 sm:p-6 rounded-lg shadow-lg max-w-xl">
         {/* Logo & Header */}
         <div className="flex flex-col items-center mb-4 sm:mb-6">
@@ -97,7 +97,7 @@ const FreeSignupForm: React.FC<FreeSignupFormProps> = ({
             e.preventDefault();
             onSubmit();
           }}
-          className="space-y-4 sm:space-y-5"
+          className="space-y-4 sm:space-y-5 touch-pan-y"
         >
           {/* First Name */}
           <div className="form-field">
