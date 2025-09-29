@@ -964,8 +964,8 @@ export default function Home() {
       )}
       <Footer />
       
-      {/* Scroll Navigation Buttons */}
-      <div className="fixed right-4 bottom-20 z-50 flex flex-col gap-2">
+      {/* Scroll Navigation Buttons - Mobile Only */}
+      <div className="fixed right-4 bottom-20 z-50 flex flex-col gap-2 md:hidden">
         <button
           onClick={(e) => {
             console.log('Scroll up button clicked!');
