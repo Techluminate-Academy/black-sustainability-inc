@@ -32,48 +32,31 @@ export default async function handler(req, res) {
       const isNumeric = !isNaN(parseInt(queryParams.q));
       console.log('🔍 API: Is numeric search term?', isNumeric, 'Parsed as:', parseInt(queryParams.q));
       
-      // Check if this looks like an organization search (contains common org keywords or is all caps)
-      const isOrgSearch = /inc|llc|corp|company|organization|foundation|institute|center|group|association/i.test(queryParams.q) || 
-                         (queryParams.q === queryParams.q.toUpperCase() && queryParams.q.length > 3);
-      console.log('🔍 API: Looks like organization search?', isOrgSearch);
-      
-      if (isOrgSearch) {
-        // For organization searches, focus on organization and affiliation fields only
-        query.$or = [
-          { "fields.ORGANIZATION NAME": searchRegex },
-          { "fields.AFFILIATED ENTITY": searchRegex },
-          // Still include basic name fields for people
-          { "fields.FIRST NAME": searchRegex },
-          { "fields.LAST NAME": searchRegex },
-          { "fields.FULL NAME": searchRegex }
-        ];
-      } else {
-        // For general searches, include all fields
-        query.$or = [
-          { "fields.FIRST NAME": searchRegex },
-          { "fields.LAST NAME": searchRegex },
-          { "fields.FULL NAME": searchRegex },
-          { "fields.PRIMARY INDUSTRY HOUSE": searchRegex },
-          // Add location fields that exist in some documents
-          { "fields.Location (Nearest City)": searchRegex },
-          { "fields.State": searchRegex },
-          { "fields.State/Province": searchRegex },
-          { "fields.Country": searchRegex },
-          // Add postal code search - handle both string and number
-          { "fields.Zip/Postal Code": { $regex: searchRegex.source, $options: "i" } },
-          { "fields.Zip/Postal Code": parseInt(queryParams.q) },
-          // Add other fields that might exist
-          { "fields.BIO": searchRegex },
-          { "fields.AFFILIATED ENTITY": searchRegex },
-          { "fields.WEBSITE": searchRegex },
-          { "fields.Name (from Location)": searchRegex },
-          { "fields.ADDITIONAL FOCUS AREAS": searchRegex },
-          { "fields.Similar Categories": searchRegex },
-          { "fields.NAICS Code": searchRegex },
-          // Add organization name search
-          { "fields.ORGANIZATION NAME": searchRegex },
-        ];
-      }
+      // Search all fields - let the results speak for themselves
+      query.$or = [
+        { "fields.FIRST NAME": searchRegex },
+        { "fields.LAST NAME": searchRegex },
+        { "fields.FULL NAME": searchRegex },
+        { "fields.PRIMARY INDUSTRY HOUSE": searchRegex },
+        // Add location fields that exist in some documents
+        { "fields.Location (Nearest City)": searchRegex },
+        { "fields.State": searchRegex },
+        { "fields.State/Province": searchRegex },
+        { "fields.Country": searchRegex },
+        // Add postal code search - handle both string and number
+        { "fields.Zip/Postal Code": { $regex: searchRegex.source, $options: "i" } },
+        { "fields.Zip/Postal Code": parseInt(queryParams.q) },
+        // Add other fields that might exist
+        { "fields.BIO": searchRegex },
+        { "fields.AFFILIATED ENTITY": searchRegex },
+        { "fields.WEBSITE": searchRegex },
+        { "fields.Name (from Location)": searchRegex },
+        { "fields.ADDITIONAL FOCUS AREAS": searchRegex },
+        { "fields.Similar Categories": searchRegex },
+        { "fields.NAICS Code": searchRegex },
+        // Add organization name search
+        { "fields.ORGANIZATION NAME": searchRegex },
+      ];
     }
     
     if (queryParams.timeZone)
