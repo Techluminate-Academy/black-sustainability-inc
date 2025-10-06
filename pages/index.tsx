@@ -510,20 +510,25 @@ export default function Home() {
   const DEBOUNCE_DELAY = 500; // Adjust debounce delay as needed
 
   useEffect(() => {
+    console.log("🔍 Frontend: Search useEffect triggered, searchQuery:", searchQuery);
     const handler = setTimeout(() => {
+      console.log("🔍 Frontend: Debounce timeout triggered, searchQuery:", searchQuery);
       if (searchQuery.trim() !== "") {
+        console.log("🔍 Frontend: Starting search for:", searchQuery);
         setLoading(true);
         setPreloaderSidebar(true);
 
-        fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}`)
+        console.log("🔍 Frontend: Searching for:", searchQuery);
+        fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}&_t=${Date.now()}`)
           .then((response) => response.json())
           .then((result) => {
+            console.log("🔍 Frontend: Search API response:", result);
             if (result.success && Array.isArray(result.data)) {
-              // console.log("Search API returned:", result.data.length, "records");
+              console.log("🔍 Frontend: Search API returned:", result.data.length, "records");
               setFilteredData(result.data);
 
             } else {
-              console.error("Search API did not return valid data", result);
+              console.error("🔍 Frontend: Search API did not return valid data", result);
               setFilteredData([]); // Ensure we clear data on error
             }
           })
@@ -536,6 +541,7 @@ export default function Home() {
             setPreloaderSidebar(false);
           });
       } else {
+        console.log("🔍 Frontend: Search query is empty, resetting to original data");
         // If search query is empty, reset to original data
         setFilteredData(OriginalData);
       }
