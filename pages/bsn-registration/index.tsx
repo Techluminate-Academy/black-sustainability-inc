@@ -774,25 +774,25 @@ const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) 
   const [isFormSubmitted, setIsFormSubmitted] = useState(false);
 
   const defaultFormData: FormData = {
-    email: "test@example.com",
-    firstName: "John",
-    lastName: "Doe",
-    memberLevel: "rectzSiMASJ9OcN52",
-    bio: "I am passionate about sustainability and environmental justice.",
-    organizationName: "Green Solutions Inc",
+    email: "",
+    firstName: "",
+    lastName: "",
+    memberLevel: "",
+    bio: "",
+    organizationName: "",
     affiliatedEntity: "",
     photo: null,
     logo: null,
-    identification: "selr9tieJBEX3COne", // Black/African-American
-    gender: "", // Will be selected from dropdown
-    website: "https://example.com",
+    identification: "",
+    gender: "",
+    website: "",
     phoneCountryCode: "+1-us",
-    phone: "+1 (555) 123-4567",
+    phone: "",
     additionalFocus: [],
-    primaryIndustry: "", // Will be selected from dropdown
+    primaryIndustry: "",
     address: "",
     zipCode: 0,
-    youtube: "https://youtube.com/@example",
+    youtube: "",
     nearestCity: "",
     nameFromLocation: "",
     fundingGoal: "",
