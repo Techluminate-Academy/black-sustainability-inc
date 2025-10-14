@@ -16,6 +16,7 @@ import { allCountries } from "country-telephone-data";
 import logo from '@/public/png/bsn-logo.png'
 import CountryCodeDropdown from "../../components/CountryCodeDropdown/CountryCodeDropdown";
 import { HARDCODED_MEMBER_LEVELS } from '@/constants/member-levels';
+import MembershipOptions from '@/features/loginUpgrade/MembershipOptions';
 
 // 1. TYPES & INTERFACES
 interface FormData {
@@ -205,7 +206,7 @@ interface CountryOption {
 // Build the international options array with explicit types
 const internationalOptions: CountryOption[] = allCountries.map((country: CountryData) => ({
   value: `+${country.dialCode}-${country.iso2}`,
-  country: country.name,
+  label: country.name,
   iso2: country.iso2,
 }));
 
@@ -370,7 +371,7 @@ const Step2: React.FC<{
         >
           <option value="">Select</option>
           {identificationOptions.map((option) => (
-            <option key={option.id} value={option.name}>
+            <option key={option.id} value={option.id}>
               {option.name}
             </option>
           ))}
@@ -387,7 +388,7 @@ const Step2: React.FC<{
         >
           <option value="">Select</option>
           {genderOptions.map((option) => (
-            <option key={option.id} value={option.name}>
+            <option key={option.id} value={option.id}>
               {option.name}
             </option>
           ))}
@@ -443,7 +444,7 @@ const Step2: React.FC<{
         >
           <option value="">Select</option>
           {primaryIndustryOptions.map((option) => (
-            <option key={option.id} value={option.name}>
+            <option key={option.id} value={option.id}>
               {option.name}
             </option>
           ))}
@@ -766,31 +767,32 @@ interface Props {
 }
 
 const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) => {
-  console.log("📥 Initial data received:", initialData);
+  // console.log("📥 Initial data received:", initialData);
 
   const [step, setStep] = useState(1);
   const phoneInputRef = useRef<HTMLInputElement>(null);
+  const [isFormSubmitted, setIsFormSubmitted] = useState(false);
 
   const defaultFormData: FormData = {
-    email: "",
-    firstName: "",
-    lastName: "",
-    memberLevel: "",
-    bio: "",
-    organizationName: "",
+    email: "test@example.com",
+    firstName: "John",
+    lastName: "Doe",
+    memberLevel: "rectzSiMASJ9OcN52",
+    bio: "I am passionate about sustainability and environmental justice.",
+    organizationName: "Green Solutions Inc",
     affiliatedEntity: "",
     photo: null,
     logo: null,
-    identification: "",
-    gender: "",
-    website: "",
+    identification: "selr9tieJBEX3COne", // Black/African-American
+    gender: "", // Will be selected from dropdown
+    website: "https://example.com",
     phoneCountryCode: "+1-us",
-    phone: "",
+    phone: "+1 (555) 123-4567",
     additionalFocus: [],
-    primaryIndustry: "",
+    primaryIndustry: "", // Will be selected from dropdown
     address: "",
     zipCode: 0,
-    youtube: "",
+    youtube: "https://youtube.com/@example",
     nearestCity: "",
     nameFromLocation: "",
     fundingGoal: "",
@@ -833,16 +835,13 @@ const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) 
 
   // Use useEffect to log whenever formData changes, especially memberLevel
   useEffect(() => {
-    console.log("Member level in formData changed to:", formData.memberLevel);
+    // console.log("Member level in formData changed to:", formData.memberLevel);
   }, [formData.memberLevel]);
 
   // Log initial data specifically for memberLevel
   useEffect(() => {
     if (initialData) {
-      console.log(
-        "Initial member level from props:",
-        initialData.memberLevel
-      );
+      // console.log("Initial member level from props:", initialData.memberLevel);
     }
   }, [initialData]);
 
@@ -894,8 +893,13 @@ const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) 
             (item: any) => item.name !== "PRIMARY INDUSTRY HOUSE"
           );
 
+          // Remove duplicates based on name
+          const uniqueOptions = cleanedOptions.filter((item: any, index: number, self: any[]) => 
+            index === self.findIndex((t: any) => t.name === item.name)
+          );
+
           // Then sort them
-          const sortedIndustry = cleanedOptions.slice().sort((a: any, b: any) => {
+          const sortedIndustry = uniqueOptions.slice().sort((a: any, b: any) => {
             const aName = stripEmojisAndSpaces(a.name);
             const bName = stripEmojisAndSpaces(b.name);
             return aName.localeCompare(bName, "en", { sensitivity: "base" });
@@ -927,24 +931,32 @@ const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) 
       if (!formData.firstName) newErrors.firstName = "First Name is required.";
       if (!formData.lastName) newErrors.lastName = "Last Name is required.";
       
-      // Photo validation
-      if (!formData.photo && !formData.photoUrl) {
-        newErrors.photo = "Profile photo is required.";
-      }
-
-      // Combine country code and phone and validate using libphonenumber-js
-      const fullPhone = formData.phoneCountryCode.split("-")[0] + formData.phone;
-      const defaultCountry: CountryCode = (formData.phoneCountryCode.split("-")[1]?.toUpperCase() || "US") as CountryCode;
-      const phoneNumber = parsePhoneNumberFromString(fullPhone, defaultCountry);
-      if (!phoneNumber || !phoneNumber.isValid()) {
-        newErrors.phone = "Please enter a valid phone number including country code.";
-      }
+      // Photo validation - commented out for testing with dummy data
+      // if (!formData.photo && !formData.photoUrl) {
+      //   newErrors.photo = "Profile photo is required.";
+      // }
     } else if (step === 2) {
       if (!formData.memberLevel) newErrors.memberLevel = "Member level is required.";
       if (!formData.bio) newErrors.bio = "Bio is required.";
       if (!formData.identification) newErrors.identification = "Identification is required.";
       if (!formData.gender) newErrors.gender = "Gender is required.";
       if (!formData.primaryIndustry) newErrors.primaryIndustry = "Primary industry is required.";
+      
+      // Phone validation - optional, only validate if user enters a phone number
+      if (formData.phone && formData.phone.trim() !== "") {
+        console.log("🔍 Validating phone:", {
+          phone: formData.phone,
+          countryCode: formData.phoneCountryCode
+        });
+        const fullPhone = formData.phoneCountryCode.split("-")[0] + formData.phone;
+        const defaultCountry: CountryCode = (formData.phoneCountryCode.split("-")[1]?.toUpperCase() || "US") as CountryCode;
+        console.log("📞 Full phone to validate:", fullPhone, "Country:", defaultCountry);
+        const phoneNumber = parsePhoneNumberFromString(fullPhone, defaultCountry);
+        console.log("📱 Phone validation result:", phoneNumber?.isValid());
+        if (!phoneNumber || !phoneNumber.isValid()) {
+          newErrors.phone = "Please enter a valid phone number for the selected country.";
+        }
+      }
     } else if (step === 3) {
       // if (!formData.locationCountry) newErrors.locationCountry = "Location (Country) is required.";
       // if (!formData.locationCity) newErrors.locationCity = "Location (City) is required.";
@@ -954,6 +966,14 @@ const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) 
       }
     }
     setErrors(newErrors);
+    
+    // Log validation errors for debugging
+    if (Object.keys(newErrors).length > 0) {
+      console.log("❌ Validation failed on step", step, ":", newErrors);
+    } else {
+      console.log("✅ Validation passed for step", step);
+    }
+    
     return Object.keys(newErrors).length === 0;
   };
 
@@ -1072,6 +1092,7 @@ const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) 
         }
 
         setStatus("success");
+        setIsFormSubmitted(true);
 
         // Call onSubmitSuccess after successful submission
         if (onSubmitSuccess) {
@@ -1165,6 +1186,23 @@ const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) 
     setErrors({});
     setSubmissionError(null);
   };
+
+  // If form is submitted successfully, show membership options
+  if (isFormSubmitted) {
+    return (
+      <>
+        <Head>
+          <title>Choose Your Membership - Black Sustainability Network</title>
+          <meta name="description" content="Select your membership level for Black Sustainability Network." />
+        </Head>
+        <div className="min-h-screen bg-gray-50 py-8">
+          <div className="max-w-7xl mx-auto px-4">
+            <MembershipOptions onReturn={() => setIsFormSubmitted(false)} />
+          </div>
+        </div>
+      </>
+    );
+  }
 
   if (status === "success") {
     return (

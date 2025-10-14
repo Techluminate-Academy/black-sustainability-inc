@@ -3,7 +3,7 @@ import axios from "axios";
 // const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
 // const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
 // const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
-const isDev = process.env.NODE_ENV === 'development';
+const isDev = process.env.NODE_ENV === 'production';
 const AIRTABLE_API_KEY = isDev
   ? process.env.NEXT_PUBLIC_DEV_AIRTABLE_ACCESS_TOKEN
   : process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
