@@ -38,11 +38,18 @@ module.exports = {
       },
     ];
   },
-  webpack: (config) => {
+  webpack: (config, { isServer, defaultLoaders }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': path.resolve(__dirname),
     };
+    
+    // Exclude test files from webpack compilation
+    config.module.rules.push({
+      test: /\/__tests__\/.*\.(ts|tsx|js|jsx)$/,
+      use: 'null-loader',
+    });
+    
     return config;
   },
 }; 
