@@ -1,7 +1,5 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-
 // This API endpoint provides performance metrics without console logs
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
