@@ -15,6 +15,7 @@ import { BsiUserObjectArray } from "@/typings";
 import { getAllRecordsFromAirtable } from "@/utils/airtable";
 import Loader from "@/components/common/loader";
 import { LatLngBounds } from "leaflet";
+import { testPerformanceMonitoring } from "@/lib/testPerformance";
 
 // Dynamic import for Joyride to prevent SSR issues
 const Joyride = dynamic(() => import('react-joyride'), {
@@ -273,6 +274,26 @@ export default function Home() {
   // Track component mount status to prevent hydration issues
   useEffect(() => {
     setIsMounted(true);
+    
+    // Test performance monitoring
+    setTimeout(() => {
+      testPerformanceMonitoring();
+    }, 1000);
+    
+    // Add manual performance test button to window for debugging
+    (window as any).testPerformance = () => {
+      testPerformanceMonitoring();
+    };
+    
+    // Add manual performance metrics logging
+    (window as any).logPerformanceNow = () => {
+      const { getPerformanceMetrics, logPerformanceMetrics } = require('@/lib/performanceLogger');
+      const metrics = getPerformanceMetrics();
+      logPerformanceMetrics(metrics);
+    };
+    
+    console.log('🔧 Performance test available: Run window.testPerformance() in console');
+    console.log('🔧 Manual performance logging: Run window.logPerformanceNow() in console');
   }, []);
 
   // --- NEW: Monitor scroll position to show/hide the back-to-top button ---
@@ -389,16 +410,31 @@ export default function Home() {
   // 1. Initial Data Fetch for Map & Sidebar
   // --------------------------------------------------------------------
   useEffect(() => {
+    console.log("🚀 Fetch data useEffect triggered");
     const fetchData = async () => {
+      console.log("🚀 fetchData function called");
       performance.mark("mapFetchStart");
       setLoading(true);
       // setPreloaderSidebar(true);
+      console.log("🚀 About to fetch /api/getData?page=1&limit=100");
+      const fetchStartTime = performance.now();
+      console.log("⏱️ TIMING: Fetch started at", fetchStartTime);
+      
       fetch("/api/getData?page=1&limit=100")
-        .then((response) => response.json())
+        .then((response) => {
+          const responseTime = performance.now() - fetchStartTime;
+          console.log("⏱️ TIMING: API response received in", responseTime, "ms");
+          console.log("API Response status:", response.status, response.statusText);
+          return response.json();
+        })
         .then(async (result) => {
+          const parseTime = performance.now() - fetchStartTime;
+          console.log("⏱️ TIMING: Data parsed in", parseTime, "ms");
+          
           if (result.success && Array.isArray(result.data)) {
             const filteredNullData = result.data.filter((item: any) => item !== null);
-            console.log("Filtered data count:", filteredNullData);
+            const filterTime = performance.now() - fetchStartTime;
+            console.log("⏱️ TIMING: Data filtered in", filterTime, "ms - Count:", filteredNullData.length);
             // Save the full total count
             setFullTotalCount(result.totalCount);
             setTotalCount(result.totalCount);
@@ -412,6 +448,9 @@ export default function Home() {
             setCurrentIndex(chunkSize);
             setChunkIndex(1);
             setSidebarPage(1);
+            
+            const setStateTime = performance.now() - fetchStartTime;
+            console.log("⏱️ TIMING: State set in", setStateTime, "ms");
           } else {
             console.error("API did not return a valid data array", result);
           }
@@ -420,12 +459,15 @@ export default function Home() {
           console.error("Error fetching data:", error);
         })
         .finally(() => {
+          console.log("🚀 Finally block - setting loading to false");
           setLoading(false);
           setPreloaderSidebar(false);
         });
     };
 
+    console.log("🚀 Calling fetchData()");
     fetchData();
+    console.log("🚀 After calling fetchData()");
   }, []);
 
   // --------------------------------------------------------------------
@@ -797,6 +839,7 @@ export default function Home() {
                   src="/png/mapbg2.1920.png"
                   width={1920}
                   height={Math.round((3451 / 6134) * 1920)} // ≈ 1080
+                  priority
                   unoptimized
                   alt="map one"
                   className="w-full h-auto"
@@ -809,6 +852,7 @@ export default function Home() {
                       alt="company logo"
                       width={266}
                       height={82}
+                      priority
                     />
                     <div className="flex flex-col items-center">
                       <Loader />

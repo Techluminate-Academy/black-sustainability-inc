@@ -69,11 +69,20 @@ export default async function handler(req, res) {
       query["fields.PRIMARY INDUSTRY HOUSE"] = industryHouse;
     }
 
-    // 🔹 Fetch data from MongoDB
+    // 🔹 Fetch data from MongoDB with optimized query
     const mongoStart = Date.now();
-    const totalCount = await collection.countDocuments(query);
-    const data = await collection.find(query).skip(skip).limit(recordsPerPage).toArray();
-    // console.log(`MongoDB Fetch Time: ${Date.now() - mongoStart}ms`);
+    
+    // Use parallel queries for better performance
+    const [totalCount, data] = await Promise.all([
+      collection.countDocuments(query),
+      collection.find(query)
+        .skip(skip)
+        .limit(recordsPerPage)
+        .sort({ _id: 1 }) // Add consistent sorting for better performance
+        .toArray()
+    ]);
+    
+    console.log(`MongoDB Fetch Time: ${Date.now() - mongoStart}ms`);
 
     const response = {
       success: true,

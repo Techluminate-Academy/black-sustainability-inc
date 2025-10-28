@@ -1,6 +1,10 @@
 const path = require('path');
 
 module.exports = {
+  // Performance optimizations
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
   images: {
     remotePatterns: [
       {
@@ -28,6 +32,9 @@ module.exports = {
         pathname: '/**',
       }
     ],
+    // Optimize images
+    formats: ['image/webp', 'image/avif'],
+    minimumCacheTTL: 60,
   },
   async redirects() {
     return [
