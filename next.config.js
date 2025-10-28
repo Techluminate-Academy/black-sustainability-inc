@@ -3,7 +3,7 @@ const path = require('path');
 module.exports = {
   // Performance optimizations
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    removeConsole: process.env.NODE_ENV === 'production', // Remove console logs in production only
   },
   images: {
     remotePatterns: [

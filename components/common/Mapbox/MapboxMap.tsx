@@ -24,6 +24,7 @@ interface IProps {
 interface MarkerWithId {
   marker: mapboxgl.Marker;
   recordId: string | number;
+  popupRoot: any; // Store the React root for cleanup
 }
 
 const BASE_OFFSET = 0.0002;
@@ -80,9 +81,128 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
 
     let fetchedLocations: any[] = [];
 
+    // Function to update markers with new data
+    const updateMarkers = (data: any[]) => {
+      if (!mapRef.current) return;
+
+      // Clean up existing markers
+      markersRef.current.forEach(({ marker, popupRoot }) => {
+        const popup = marker.getPopup();
+        if (popup && popup.isOpen()) popup.remove();
+        marker.remove();
+        if (popupRoot) popupRoot.unmount();
+      });
+      markersRef.current = [];
+
+      // Update GeoJSON source
+      const source = mapRef.current.getSource("users-cluster") as mapboxgl.GeoJSONSource;
+      if (source) {
+        const geoJsonData: FeatureCollection<Point> = {
+          type: "FeatureCollection",
+          features: data.map((item: any) => ({
+            type: "Feature",
+            properties: { id: item.id },
+            geometry: {
+              type: "Point",
+              coordinates: [
+                parseFloat(item?.location?.coordinates[0]) || mapCenter[0],
+                parseFloat(item?.location?.coordinates[1]) || mapCenter[1],
+              ],
+            },
+          })),
+        };
+        source.setData(geoJsonData);
+      }
+
+      // Track processed record IDs to prevent duplicates
+      const processedIds = new Set<string | number>();
+      
+      // Create new markers
+      data.forEach((item: any) => {
+        // Skip if already processed
+        if (processedIds.has(item.id)) {
+          return;
+        }
+        processedIds.add(item.id);
+        
+        // Defensive check for valid coordinates
+        if (
+          !item.location ||
+          !Array.isArray(item.location.coordinates) ||
+          item.location.coordinates.length < 2 ||
+          isNaN(parseFloat(item.location.coordinates[0])) ||
+          isNaN(parseFloat(item.location.coordinates[1]))
+        ) {
+          return; // Skip this record
+        }
+
+        // Create the custom marker element
+        const markerEl = createMarkerElement(item, isAuthenticated);
+      
+        // Prepare the Mapbox popup
+        const popup = new mapboxgl.Popup({
+          offset: {
+            'top': [0, 0],
+            'top-left': [0, 0],
+            'top-right': [0, 0],
+            'bottom': [0, 0],
+            'bottom-left': [0, 0],
+            'bottom-right': [0, 0],
+            'left': [0, 0],
+            'right': [0, 0]
+          },
+          closeButton: false,
+          className: "custom-popup",
+          anchor: 'left',
+        });
+      
+        // Create a real DOM container and mount InfoCard into it
+        const popupContainer = document.createElement("div");
+        const popupRoot = createRoot(popupContainer);
+        popupRoot.render(
+          <div 
+            className="popup-wrapper" 
+            data-record-id={String(item.id)}
+            style={{ maxWidth: "280px", minWidth: "250px", backgroundColor: "white", borderRadius: "8px", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", padding: "12px", position: "relative" }}
+          >
+            <button className="close-popup-btn" style={{ position: "absolute", right: "10px", top: "10px", border: "none", fontSize: "13px", outline: "none", cursor: "pointer", backgroundColor: "rgba(0,0,0,0.1)", borderRadius: "50%", width: "20px", height: "20px", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => popup.remove()}>×</button>
+            <InfoCard
+              imgUrl={item.fields.PHOTO?.[0]?.url || "/png/default.png"}
+              FIRST_NAME={item.fields["FIRST NAME"]}
+              LAST_NAME={item.fields["LAST NAME"]}
+              BIO={item.fields.BIO}
+              EMAIL_ADDRESS={item.fields["EMAIL ADDRESS"]}
+              ORGANIZATION_NAME={item.fields["ORGANIZATION NAME"]}
+              Nearest_City={`${item.fields["Location (Nearest City)"] ?? ""}`}
+              WEBSITE={item.fields.WEBSITE}
+              MEMBER_LEVEL={item.fields["MEMBER LEVEL"]}
+              isAuthenticated={isAuthenticated}
+            />
+          </div>
+        );
+      
+        // Tell Mapbox to use that live React tree
+        popup.setDOMContent(popupContainer);
+      
+        // Create the marker and attach the popup
+        const marker = new mapboxgl.Marker({ element: markerEl })
+          .setLngLat({
+            lng: parseFloat(item.location.coordinates[0]) || mapCenter[0],
+            lat: parseFloat(item.location.coordinates[1]) || mapCenter[1],
+          })
+          .setPopup(popup)
+          .addTo(mapRef.current!);
+      
+        // Store marker with popup root for cleanup
+        markersRef.current.push({ marker, recordId: item.id, popupRoot });
+      });
+
+      setLoading(false);
+    };
+
     const initMap = async () => {
       try {
-        setLoading(true); // Start loading
+        setLoading(true);
 
         fetchedLocations = filteredData;
         offsetDuplicateCoordinates(fetchedLocations);
@@ -185,186 +305,8 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
               });
             });
 
-
-            // fetchedLocations.forEach((data: any) => {
-            //   const markerEl = createMarkerElement(data, isAuthenticated);
-            //   const popupHtml = ReactDOMServer.renderToStaticMarkup(
-            //     <div className="popup-wrapper">
-            //       <button
-            //         className="close-popup-btn"
-            //         style={{
-            //           position: 'absolute',
-            //           right:'-160px',
-            //           top:'10px',
-            //           border: 'none',
-            //           fontSize: '13px',
-            //           outline: 'none',
-            //           cursor: 'pointer',
-            //         }}
-            //       >
-            //         X
-            //       </button>
-            //       <InfoCard
-            //         imgUrl={ data?.fields?.PHOTO && data?.fields?.PHOTO.length > 0
-            //           ? data?.fields?.PHOTO[0].url || data?.fields?.PHOTO
-            //           : "/png/default.png"}
-            //         LAST_NAME={data.fields["LAST NAME"]}
-            //         FIRST_NAME={data.fields["FIRST NAME"]}
-            //         BIO={data.fields?.BIO}
-            //         EMAIL_ADDRESS={data.fields["EMAIL ADDRESS"]}
-            //         ORGANIZATION_NAME={data.fields["ORGANIZATION NAME"]}
-            //         Nearest_City={`${data.fields["Location (Nearest City)"] ?? ""}`}
-            //         WEBSITE={data.fields.WEBSITE}
-            //         MEMBER_LEVEL={data.fields["MEMBER LEVEL"]}
-            //         isAuthenticated={isAuthenticated}
-         
-            //       />
-            //     </div>
-            //   );
-
-            //   const popup = new mapboxgl.Popup({
-            //     offset: 25,
-            //     closeButton: false,
-            //     className: "custom-popup",
-            //   }).setHTML(popupHtml);
-
-            //   const marker = new mapboxgl.Marker({ element: markerEl })
-            //     .setLngLat({
-            //       lng: parseFloat(data?.location?.coordinates[0]) || mapCenter[0],
-            //       lat: parseFloat(data?.location?.coordinates[1]) || mapCenter[1],
-            //     })
-            //     .setPopup(popup)
-            //     .addTo(mapRef.current!);
-
-            //   markersRef.current.push({ marker, recordId: data.id });
-            //   // ⬇️ Attach close button listener after popup is added
-            //   popup.on('open', () => {
-            //     const closeBtn = document.querySelector('.close-popup-btn');
-            //     if (closeBtn) {
-            //       closeBtn.addEventListener('click', () => {
-            //         popup.remove();
-            //       });
-            //     }
-            //   });
-            // });
-
-
-            fetchedLocations.forEach((data: any) => {
-              // Defensive check for valid coordinates
-              if (
-                !data.location ||
-                !Array.isArray(data.location.coordinates) ||
-                data.location.coordinates.length < 2 ||
-                isNaN(parseFloat(data.location.coordinates[0])) ||
-                isNaN(parseFloat(data.location.coordinates[1]))
-              ) {
-                // Optionally log or handle skipped record
-                return; // Skip this record
-              }
-
-              // 1️⃣ Create the custom marker element
-              const markerEl = createMarkerElement(data, isAuthenticated);
-            
-              // 2️⃣ Prepare the Mapbox popup
-              const popup = new mapboxgl.Popup({
-                offset: {
-                  'top': [0, 0],
-                  'top-left': [0, 0],
-                  'top-right': [0, 0],
-                  'bottom': [0, 0],
-                  'bottom-left': [0, 0],
-                  'bottom-right': [0, 0],
-                  'left': [0, 0],
-                  'right': [0, 0]
-                },
-                closeButton: false,
-                className: "custom-popup",
-                anchor: 'left',
-              });
-            
-              // 3️⃣ Create a real DOM container and mount InfoCard into it
-              const popupContainer = document.createElement("div");
-              createRoot(popupContainer).render(
-                <div className="popup-wrapper" style={{
-                  maxWidth: "280px",
-                  minWidth: "250px",
-                  backgroundColor: "white",
-                  borderRadius: "8px",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                  padding: "12px",
-                  position: "relative",
-                }}>
-                  <button
-                    className="close-popup-btn"
-                    style={{
-                      position: "absolute",
-                      right: "10px",
-                      top: "10px",
-                      border: "none",
-                      fontSize: "13px",
-                      outline: "none",
-                      cursor: "pointer",
-                      backgroundColor: "rgba(0,0,0,0.1)",
-                      borderRadius: "50%",
-                      width: "20px",
-                      height: "20px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      zIndex: 1000,
-                    }}
-                    onClick={() => popup.remove()}
-                  >
-                    ×
-                  </button>
-                  <InfoCard
-                    imgUrl={
-                      data.fields.PHOTO?.[0]?.url ||
-                      "/png/default.png"
-                    }
-                    FIRST_NAME={data.fields["FIRST NAME"]}
-                    LAST_NAME={data.fields["LAST NAME"]}
-                    BIO={data.fields.BIO}
-                    EMAIL_ADDRESS={data.fields["EMAIL ADDRESS"]}
-                    ORGANIZATION_NAME={data.fields["ORGANIZATION NAME"]}
-                    Nearest_City={`${data.fields["Location (Nearest City)"] ?? ""}`}
-                    WEBSITE={data.fields.WEBSITE}
-                    MEMBER_LEVEL={data.fields["MEMBER LEVEL"]}
-                    isAuthenticated={isAuthenticated}
-                  />
-                </div>
-              );
-            
-              // 4️⃣ Tell Mapbox to use that live React tree
-              popup.setDOMContent(popupContainer);
-            
-              // 5️⃣ Create the marker and attach the popup
-              const marker = new mapboxgl.Marker({ element: markerEl })
-                .setLngLat({
-                  lng: parseFloat(data.location.coordinates[0]) || mapCenter[0],
-                  lat: parseFloat(data.location.coordinates[1]) || mapCenter[1],
-                })
-                .setPopup(popup)
-                .addTo(mapRef.current!);
-            
-              markersRef.current.push({ marker, recordId: data.id });
-            });
-            
-
-            const hideClusteredMarkers = () => {
-              if (!mapRef.current) return;
-              const unclusteredFeatures = mapRef.current.querySourceFeatures("users-cluster", {
-                filter: ["!", ["has", "point_count"]],
-              });
-              const unclusteredIds = new Set(unclusteredFeatures.map((f) => f.properties?.id));
-              markersRef.current.forEach(({ marker, recordId }) => {
-                marker.getElement().style.display = unclusteredIds.has(recordId) ? "block" : "none";
-              });
-            };
-
-            mapRef.current.on("render", hideClusteredMarkers);
-
-            setLoading(false); // Stop loading after markers are added
+            // Call updateMarkers when map first loads
+            updateMarkers(fetchedLocations);
           });
 
           mapRef.current?.on("moveend", () => {
@@ -381,6 +323,14 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
             }
           });
 
+        } else if (mapRef.current && !mapRef.current.loaded()) {
+          // Map exists but not loaded yet, wait for it
+          mapRef.current.once("load", () => {
+            updateMarkers(fetchedLocations);
+          });
+        } else if (mapRef.current && mapRef.current.loaded()) {
+          // Map exists and is loaded, update markers immediately
+          updateMarkers(fetchedLocations);
         }
       } catch (error) {
         console.error("Error loading locations:", error);
@@ -391,8 +341,25 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
     initMap();
 
     return () => {
-      markersRef.current.forEach(({ marker }) => marker.remove());
+      // Clean up markers and their React roots
+      markersRef.current.forEach(({ marker, popupRoot }) => {
+        // Close popup if open
+        const popup = marker.getPopup();
+        if (popup && popup.isOpen()) {
+          popup.remove();
+        }
+        // Remove marker from map
+        marker.remove();
+        // Unmount React root to prevent memory leaks and duplicate renders
+        if (popupRoot) {
+          popupRoot.unmount();
+        }
+      });
+      // Clear the markers reference
+      markersRef.current = [];
+      // Remove the map
       mapRef.current?.remove();
+      mapRef.current = null;
     };
   }, [isAuthenticated, onMarkerHover, filteredData]);
 

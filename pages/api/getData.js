@@ -35,28 +35,19 @@ export default async function handler(req, res) {
     // // 🔹 Check Redis cache first
     // await redis.flushall();
 
-    redis.keys("*").then((keys) => {
-      console.log("All keys:", keys);
-    }).catch((err) => {
-      console.error("Error fetching keys:", err);
-    });
+    // Remove debug redis.keys call - it was slowing down the API
+    // redis.keys("*").then((keys) => {
+    //   console.log("All keys:", keys);
+    // }).catch((err) => {
+    //   console.error("Error fetching keys:", err);
+    // });
     
     const cacheStart = Date.now();
     const cachedData = await redis.get(cacheKey);
 
     if (cachedData) {
       const parsedCache = JSON.parse(cachedData);
-      console.log("✅ Serving from Redis Cache");
-      console.log("Redis Cache - Photo Data:", parsedCache.data.map(record => ({
-        email: record.fields?.['EMAIL ADDRESS'],
-        hasPhoto: Boolean(record.fields?.PHOTO?.[0]),
-        hasThumbnails: Boolean(record.fields?.PHOTO?.[0]?.thumbnails),
-        thumbnailUrls: record.fields?.PHOTO?.[0]?.thumbnails ? {
-          small: record.fields.PHOTO[0].thumbnails.small?.url,
-          large: record.fields.PHOTO[0].thumbnails.large?.url,
-          full: record.fields.PHOTO[0].thumbnails.full?.url
-        } : null
-      })));
+      console.log(`✅ Serving from Redis Cache - Time: ${Date.now() - cacheStart}ms`);
       return res.status(200).json(parsedCache);
     }
 

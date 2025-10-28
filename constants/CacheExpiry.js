@@ -1,2 +1,2 @@
-const CACHE_EXPIRY = 30 // 30 seconds expiry to minimize expired URL window
+const CACHE_EXPIRY = 3600 // 1 hour expiry - balances freshness with performance
 export default CACHE_EXPIRY
