@@ -15,13 +15,42 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Performance optimizations
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production', // Remove console logs in production only
+  },
   images: {
-    domains: [
-      "v5.airtableusercontent.com",
-      "images.unsplash.com",
-      "plus.unsplash.com",
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.airtableusercontent.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'dl.airtable.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        port: '',
+        pathname: '/**',
+      }
     ],
-    unoptimized: true,
+    // Optimize images for mobile
+    formats: ['image/webp', 'image/avif'],
+    minimumCacheTTL: 60,
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
   // output: "export",
   // Configure webpack to handle file watching better

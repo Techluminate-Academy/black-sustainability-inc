@@ -5,6 +5,13 @@ const COLLECTION_NAME = "airtableRecords";
 import CACHE_EXPIRY from '../../constants/CacheExpiry'
 
 export default async function handler(req, res) {
+  // Set response timeout to prevent hanging
+  const timeout = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(503).json({ success: false, error: 'Request timeout - server took too long to respond' });
+    }
+  }, 10000); // 10 second timeout
+
   try {
     const { industryHouse, page, limit } = req.query;
     const currentPage = parseInt(page) || 1;
@@ -13,34 +20,6 @@ export default async function handler(req, res) {
 
     // 🔹 Build cache key dynamically
     const cacheKey = `filterData:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
-
-    // async function deleteKeysByPattern(pattern) {
-    //   let cursor = "0";
-    //   do {
-    //     const [nextCursor, keys] = await redis.scan(cursor, "MATCH", pattern, "COUNT", 100);
-    //     cursor = nextCursor;
-    
-    //     if (keys.length > 0) {
-    //       await redis.del(...keys);
-    //       console.log(`Deleted keys: ${keys}`);
-    //     }
-    //   } while (cursor !== "0");
-    // }
-  
-    // deleteKeysByPattern("*")
-    //   .then(() => console.log("Deletion complete"))
-    //   .catch(err => console.error("Error deleting keys:", err));
-
-
-    // // 🔹 Check Redis cache first
-    // await redis.flushall();
-
-    // Remove debug redis.keys call - it was slowing down the API
-    // redis.keys("*").then((keys) => {
-    //   console.log("All keys:", keys);
-    // }).catch((err) => {
-    //   console.error("Error fetching keys:", err);
-    // });
     
     const cacheStart = Date.now();
     const cachedData = await redis.get(cacheKey);
@@ -48,6 +27,7 @@ export default async function handler(req, res) {
     if (cachedData) {
       const parsedCache = JSON.parse(cachedData);
       console.log(`✅ Serving from Redis Cache - Time: ${Date.now() - cacheStart}ms`);
+      clearTimeout(timeout);
       return res.status(200).json(parsedCache);
     }
 
@@ -87,9 +67,13 @@ export default async function handler(req, res) {
     // 🔹 Store response in Redis cache
     await redis.setex(cacheKey, CACHE_EXPIRY, JSON.stringify(response));
 
+    clearTimeout(timeout);
     res.status(200).json(response);
   } catch (error) {
+    clearTimeout(timeout);
     console.error("❌ Error retrieving data:", error);
-    res.status(500).json({ success: false, error: error.message });
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: error.message });
+    }
   }
 }

@@ -416,11 +416,16 @@ export default function Home() {
       performance.mark("mapFetchStart");
       setLoading(true);
       // setPreloaderSidebar(true);
-      console.log("🚀 About to fetch /api/getData?page=1&limit=100");
+      
+      // Detect mobile and reduce initial load
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      const initialLimit = isMobile ? 50 : 100;
+      
+      console.log(`🚀 About to fetch /api/getData?page=1&limit=${initialLimit} (${isMobile ? 'mobile' : 'desktop'})`);
       const fetchStartTime = performance.now();
       console.log("⏱️ TIMING: Fetch started at", fetchStartTime);
       
-      fetch("/api/getData?page=1&limit=100")
+      fetch(`/api/getData?page=1&limit=${initialLimit}`)
         .then((response) => {
           const responseTime = performance.now() - fetchStartTime;
           console.log("⏱️ TIMING: API response received in", responseTime, "ms");
