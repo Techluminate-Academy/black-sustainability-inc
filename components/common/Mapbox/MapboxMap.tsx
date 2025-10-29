@@ -335,8 +335,32 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                     const popup = new mapboxgl.Popup({
                       closeButton: true,
                       className: "custom-popup",
-                      anchor: 'left',
+                      anchor: 'right',
                     });
+                    
+                    // Customize close button after popup opens - position it outside the wrapper
+                    setTimeout(() => {
+                      const closeBtn = document.querySelector('.mapboxgl-popup-close-button') as HTMLElement;
+                      const popupWrapper = document.querySelector('.popup-wrapper') as HTMLElement;
+                      if (closeBtn && popupWrapper) {
+                        // Position the close button outside and to the right of the wrapper
+                        closeBtn.style.position = 'absolute';
+                        closeBtn.style.right = '-125px'; // Move it much farther outside the right edge
+                        closeBtn.style.top = '0px';
+                        closeBtn.style.padding = '8px';
+                        closeBtn.style.margin = '0';
+                        closeBtn.style.width = '32px';
+                        closeBtn.style.height = '32px';
+                        closeBtn.style.fontSize = '24px';
+                        closeBtn.style.lineHeight = '1';
+                        closeBtn.style.fontWeight = 'bold';
+                        closeBtn.style.zIndex = '1000';
+                        closeBtn.style.backgroundColor = 'white'; // Make it visible
+                        closeBtn.style.borderRadius = '4px';
+                        closeBtn.style.outline = 'none'; // Remove focus outline
+                        closeBtn.style.border = 'none'; // Remove any border
+                      }
+                    }, 100);
                     
                     const popupContainer = document.createElement("div");
                     const popupRoot = createRoot(popupContainer);
@@ -344,7 +368,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                       <div 
                         className="popup-wrapper" 
                         data-record-id={String(record.id)}
-                        style={{ maxWidth: "280px", minWidth: "250px", backgroundColor: "white", borderRadius: "8px", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", padding: "12px", position: "relative" }}
+                        style={{ maxWidth: "280px", minWidth: "250px" }}
                       >
                         <InfoCard
                           imgUrl={record.fields.PHOTO?.[0]?.url || "/png/default.png"}
