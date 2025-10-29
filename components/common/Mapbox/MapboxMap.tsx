@@ -269,6 +269,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                 });
                 
                 const popupContainer = document.createElement("div");
+                const authStatus = isAuthenticated;
                 popupContainer.innerHTML = `
                   <div style="background-color: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: 500px;">
                     <h3 style="margin: 0 0 12px 0; font-size: 18px; font-weight: bold; color: #000;">${pointCount} Members at this location</h3>
@@ -276,10 +277,18 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                       ${leaves.map((leaf: any) => {
                         const record = dataForClustering.find((d: any) => d.id === leaf.properties.id);
                         if (!record) return '';
+                        
+                        // Blur names for unauthenticated users
+                        const fullName = record.fields["FIRST NAME"] && record.fields["LAST NAME"] 
+                          ? record.fields["FIRST NAME"] + ' ' + record.fields["LAST NAME"] 
+                          : 'Member';
+                        const displayName = authStatus ? fullName : 'Member';
+                        const nameStyle = !authStatus ? 'filter: blur(4px); user-select: none;' : '';
+                        
                         return `
                           <div style="background-color: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px;">
-                            <div style="font-weight: bold; margin-bottom: 4px; color: #000; font-size: 16px;">
-                              ${record.fields["FIRST NAME"] || ''} ${record.fields["LAST NAME"] || ''}
+                            <div style="font-weight: bold; margin-bottom: 4px; color: #000; font-size: 16px; ${nameStyle}">
+                              ${displayName}
                             </div>
                             <div style="color: #666; font-size: 14px;">
                               ${record.fields["ORGANIZATION NAME"] || 'No organization'}
