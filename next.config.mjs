@@ -48,9 +48,12 @@ const nextConfig = {
     ],
     // Optimize images for mobile
     formats: ['image/webp', 'image/avif'],
-    minimumCacheTTL: 60,
+    minimumCacheTTL: 31536000, // 1 year cache for images
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    // Enable image optimization
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   // output: "export",
   // Configure webpack to handle file watching better
@@ -78,6 +81,10 @@ const nextConfig = {
   experimental: {
     esmExternals: true,
   },
+  // Enable compression
+  compress: true,
+  // Optimize production builds
+  swcMinify: true,
 };
 
 export default nextConfig;

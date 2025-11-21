@@ -1,10 +1,8 @@
 "use client";
 import Nav from "@/components/layouts/Nav";
-import Footer from "@/components/layouts/Footer";
 import Sidebar from "@/components/layouts/Sidebar";
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { customStyles } from "@/components/common/CustomSelect";
-import Select from "react-select";
 import Head from "next/head";
 import { IndustryHouses } from "@/utils/IndustryDetails";
 import dynamic from "next/dynamic";
@@ -12,13 +10,20 @@ import icons from "@/icons";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { BsiUserObjectArray } from "@/typings";
-import { getAllRecordsFromAirtable } from "@/utils/airtable";
 import Loader from "@/components/common/loader";
-import { LatLngBounds } from "leaflet";
 import { testPerformanceMonitoring } from "@/lib/testPerformance";
 
-// Dynamic import for Joyride to prevent SSR issues
+// Dynamic imports for code splitting
 const Joyride = dynamic(() => import('react-joyride'), {
+  ssr: false,
+});
+
+const Select = dynamic(() => import('react-select'), {
+  ssr: false,
+  loading: () => <div className="h-10 bg-gray-100 rounded animate-pulse" />,
+});
+
+const Footer = dynamic(() => import("@/components/layouts/Footer"), {
   ssr: false,
 });
 
@@ -28,7 +33,12 @@ export default function Home() {
   // });
   const BsiMap = dynamic(() => import("@/components/common/Mapbox/MapboxMap"), {
     ssr: false,
-  })
+    loading: () => (
+      <div className="relative w-full h-screen flex items-center justify-center bg-gray-100">
+        <Loader />
+      </div>
+    ),
+  });
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredData, setFilteredData] = useState<BsiUserObjectArray>([]);
@@ -65,7 +75,6 @@ export default function Home() {
   const [sidebarPage, setSidebarPage] = useState(1);
   // Modification: totalCount now initialized as null instead of 0.
   const [totalCount, setTotalCount] = useState<number | null>(null);
-  console.log(filteredData, 'filtered data')
   const route = useRouter();
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [showScrollButtons, setShowScrollButtons] = useState(false);
@@ -74,70 +83,48 @@ export default function Home() {
 
   // Scroll functions for mobile navigation
   const scrollUp = () => {
-    console.log('Scrolling up...');
     try {
-      // First try simple scrollBy
       window.scrollBy(0, -200);
-      
-      // Then try the more complex method
       const currentScroll = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
-      const scrollAmount = 200; // Scroll amount
+      const scrollAmount = 200;
       const newScroll = Math.max(0, currentScroll - scrollAmount);
-      
-      console.log('Current scroll:', currentScroll, 'New scroll:', newScroll);
-      
-      // Try multiple scroll methods
       window.scrollTo({ top: newScroll, behavior: 'smooth' });
-      document.documentElement.scrollTop = newScroll;
-      document.body.scrollTop = newScroll;
     } catch (error) {
-      console.error('Scroll up error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Scroll up error:', error);
+      }
     }
   };
 
   const scrollDown = () => {
-    console.log('Scrolling down...');
     try {
-      // First try simple scrollBy
       window.scrollBy(0, 200);
-      
-      // Then try the more complex method
       const currentScroll = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
-      const scrollAmount = 200; // Scroll amount
+      const scrollAmount = 200;
       const maxScroll = Math.max(
         document.body.scrollHeight,
         document.documentElement.scrollHeight
       ) - window.innerHeight;
       const newScroll = Math.min(maxScroll, currentScroll + scrollAmount);
-      
-      console.log('Current scroll:', currentScroll, 'New scroll:', newScroll, 'Max scroll:', maxScroll);
-      
-      // Try multiple scroll methods
       window.scrollTo({ top: newScroll, behavior: 'smooth' });
-      document.documentElement.scrollTop = newScroll;
-      document.body.scrollTop = newScroll;
     } catch (error) {
-      console.error('Scroll down error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Scroll down error:', error);
+      }
     }
   };
 
   const scrollToMapSection = () => {
-    console.log('Scrolling to map section...');
     const mapElement = document.querySelector('[data-tour="map-container"]');
     if (mapElement) {
       mapElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      console.log('Map element not found');
     }
   };
 
   const scrollToSidebarSection = () => {
-    console.log('Scrolling to sidebar section...');
     const sidebarElement = document.querySelector('[data-tour="sidebar"]');
     if (sidebarElement) {
       sidebarElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      console.log('Sidebar element not found');
     }
   };
 
@@ -280,20 +267,18 @@ export default function Home() {
       testPerformanceMonitoring();
     }, 1000);
     
-    // Add manual performance test button to window for debugging
-    (window as any).testPerformance = () => {
-      testPerformanceMonitoring();
-    };
-    
-    // Add manual performance metrics logging
-    (window as any).logPerformanceNow = () => {
-      const { getPerformanceMetrics, logPerformanceMetrics } = require('@/lib/performanceLogger');
-      const metrics = getPerformanceMetrics();
-      logPerformanceMetrics(metrics);
-    };
-    
-    console.log('🔧 Performance test available: Run window.testPerformance() in console');
-    console.log('🔧 Manual performance logging: Run window.logPerformanceNow() in console');
+    // Add manual performance test button to window for debugging (dev only)
+    if (process.env.NODE_ENV === 'development') {
+      (window as any).testPerformance = () => {
+        testPerformanceMonitoring();
+      };
+      
+      (window as any).logPerformanceNow = () => {
+        const { getPerformanceMetrics, logPerformanceMetrics } = require('@/lib/performanceLogger');
+        const metrics = getPerformanceMetrics();
+        logPerformanceMetrics(metrics);
+      };
+    }
   }, []);
 
   // --- NEW: Monitor scroll position to show/hide the back-to-top button ---
@@ -331,11 +316,12 @@ export default function Home() {
 
     try {
       const userObj = JSON.parse(raw);
-      console.log('Parsed user object:', userObj);
       setAuthenticatedUser(userObj);
       setIsAuthenticated(true);
     } catch (err) {
-      console.error('Error parsing user data:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error parsing user data:', err);
+      }
       setIsAuthenticated(false);
       setAuthenticatedUser(null);
     }
@@ -410,76 +396,77 @@ export default function Home() {
   // 1. Initial Data Fetch for Map & Sidebar
   // --------------------------------------------------------------------
   useEffect(() => {
-    console.log("🚀 Fetch data useEffect triggered");
     const fetchData = async () => {
-      console.log("🚀 fetchData function called");
       performance.mark("mapFetchStart");
       setLoading(true);
-      // setPreloaderSidebar(true);
       
       // Detect mobile and reduce initial load
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
       const initialLimit = isMobile ? 50 : 100;
       
-      console.log(`🚀 About to fetch /api/getData?page=1&limit=${initialLimit} (${isMobile ? 'mobile' : 'desktop'})`);
-      const fetchStartTime = performance.now();
-      console.log("⏱️ TIMING: Fetch started at", fetchStartTime);
-      
-      fetch(`/api/getData?page=1&limit=${initialLimit}`)
-        .then((response) => {
-          const responseTime = performance.now() - fetchStartTime;
-          console.log("⏱️ TIMING: API response received in", responseTime, "ms");
-          console.log("API Response status:", response.status, response.statusText);
-          return response.json();
-        })
-        .then(async (result) => {
-          const parseTime = performance.now() - fetchStartTime;
-          console.log("⏱️ TIMING: Data parsed in", parseTime, "ms");
-          
-          if (result.success && Array.isArray(result.data)) {
-            const filteredNullData = result.data.filter((item: any) => item !== null);
-            const filterTime = performance.now() - fetchStartTime;
-            console.log("⏱️ TIMING: Data filtered in", filterTime, "ms - Count:", filteredNullData.length);
-            // Save the full total count
-            setFullTotalCount(result.totalCount);
-            setTotalCount(result.totalCount);
-            // Set data for sidebar and for map progressive loading
-            setOriginalData(filteredNullData);
-            setFilteredData(filteredNullData);
+      try {
+        const response = await fetch(`/api/getData?page=1&limit=${initialLimit}`);
+        if (!response.ok) throw new Error('Failed to fetch data');
+        
+        const result = await response.json();
+        
+        if (result.success && Array.isArray(result.data)) {
+          // Process data in chunks to avoid blocking main thread
+          const processData = (data: any[]) => {
+            const filteredNullData = data.filter((item: any) => item !== null);
             const totalRecords = filteredNullData.length;
             const chunkSize = Math.ceil(totalRecords / 3);
-            setChunkSizes([chunkSize, chunkSize, totalRecords - 2 * chunkSize]);
-            setLoadedData(filteredNullData.slice(0, chunkSize));
-            setCurrentIndex(chunkSize);
-            setChunkIndex(1);
-            setSidebarPage(1);
             
-            const setStateTime = performance.now() - fetchStartTime;
-            console.log("⏱️ TIMING: State set in", setStateTime, "ms");
-          } else {
-            console.error("API did not return a valid data array", result);
-          }
-        })
-        .catch((error) => {
+            // Use requestIdleCallback to process data without blocking
+            if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+              requestIdleCallback(() => {
+                setFullTotalCount(result.totalCount);
+                setTotalCount(result.totalCount);
+                setOriginalData(filteredNullData);
+                setFilteredData(filteredNullData);
+                setChunkSizes([chunkSize, chunkSize, totalRecords - 2 * chunkSize]);
+                setLoadedData(filteredNullData.slice(0, chunkSize));
+                setCurrentIndex(chunkSize);
+                setChunkIndex(1);
+                setSidebarPage(1);
+              });
+            } else {
+              // Fallback for browsers without requestIdleCallback
+              setTimeout(() => {
+                setFullTotalCount(result.totalCount);
+                setTotalCount(result.totalCount);
+                setOriginalData(filteredNullData);
+                setFilteredData(filteredNullData);
+                setChunkSizes([chunkSize, chunkSize, totalRecords - 2 * chunkSize]);
+                setLoadedData(filteredNullData.slice(0, chunkSize));
+                setCurrentIndex(chunkSize);
+                setChunkIndex(1);
+                setSidebarPage(1);
+              }, 0);
+            }
+          };
+          
+          processData(result.data);
+        }
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
           console.error("Error fetching data:", error);
-        })
-        .finally(() => {
-          console.log("🚀 Finally block - setting loading to false");
-          setLoading(false);
-          setPreloaderSidebar(false);
-        });
+        }
+      } finally {
+        setLoading(false);
+        setPreloaderSidebar(false);
+      }
     };
 
-    console.log("🚀 Calling fetchData()");
     fetchData();
-    console.log("🚀 After calling fetchData()");
   }, []);
 
   // --------------------------------------------------------------------
-  // 2. Progressive Chunk Loading for Map
+  // 2. Progressive Chunk Loading for Map (Optimized to avoid blocking)
   // --------------------------------------------------------------------
   useEffect(() => {
     if (lazyLoaded) return;
+    
     const loadNextChunk = () => {
       if (filteredData) {
         if (
@@ -491,20 +478,35 @@ export default function Home() {
             currentIndex,
             currentIndex + nextChunkSize
           );
-          setLoadedData((prevData: any) => [...prevData, ...nextChunk]);
-          setCurrentIndex(currentIndex + nextChunkSize);
-          setChunkIndex(chunkIndex + 1);
+          
+          // Use requestIdleCallback to avoid blocking main thread
+          const updateState = () => {
+            setLoadedData((prevData: any) => [...prevData, ...nextChunk]);
+            setCurrentIndex(currentIndex + nextChunkSize);
+            setChunkIndex(chunkIndex + 1);
+          };
+          
+          if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+            requestIdleCallback(updateState, { timeout: 1000 });
+          } else {
+            setTimeout(updateState, 0);
+          }
         }
       }
     };
 
     if (currentIndex === 0) {
-      loadNextChunk();
+      // Use requestIdleCallback for initial chunk too
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        requestIdleCallback(loadNextChunk, { timeout: 500 });
+      } else {
+        setTimeout(loadNextChunk, 0);
+      }
     } else {
       const timer = setTimeout(loadNextChunk, 1000);
       return () => clearTimeout(timer);
     }
-  }, [currentIndex, filteredData, chunkIndex, chunkSizes]);
+  }, [currentIndex, filteredData, chunkIndex, chunkSizes, lazyLoaded]);
 
   // --------------------------------------------------------------------
   // 3. Map Loader: Hide when all chunks loaded
@@ -513,8 +515,12 @@ export default function Home() {
     if (loadedData.length === filteredData.length && filteredData.length > 0) {
       performance.mark("mapLoadEnd");
       performance.measure("mapLoadTime", "mapFetchStart", "mapLoadEnd");
-      const measures = performance.getEntriesByName("mapLoadTime");
-      console.log("Map load time:", measures[0].duration, "ms");
+      if (process.env.NODE_ENV === 'development') {
+        const measures = performance.getEntriesByName("mapLoadTime");
+        if (measures[0]) {
+          console.log("Map load time:", measures[0].duration, "ms");
+        }
+      }
       setPreloaderMap(false);
     }
   }, [loadedData, filteredData]);
@@ -529,15 +535,18 @@ export default function Home() {
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
         const newRecords = result.data.filter((item: any) => item !== null);
-        console.log(`Fetched page ${nextPage}: ${newRecords.length} records`);
         setFilteredData((prev: any) => [...prev, ...newRecords]);
         setOriginalData((prev: any) => [...prev, ...newRecords]);
         setSidebarPage(nextPage);
       } else {
-        console.error("Infinite scroll: API did not return valid data", result);
+        if (process.env.NODE_ENV === 'development') {
+          console.error("Infinite scroll: API did not return valid data", result);
+        }
       }
     } catch (error) {
-      console.error("Error fetching more sidebar data:", error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error fetching more sidebar data:", error);
+      }
     }
   };
 
@@ -557,30 +566,27 @@ export default function Home() {
   const DEBOUNCE_DELAY = 500; // Adjust debounce delay as needed
 
   useEffect(() => {
-    console.log("🔍 Frontend: Search useEffect triggered, searchQuery:", searchQuery);
     const handler = setTimeout(() => {
-      console.log("🔍 Frontend: Debounce timeout triggered, searchQuery:", searchQuery);
       if (searchQuery.trim() !== "") {
-        console.log("🔍 Frontend: Starting search for:", searchQuery);
         setLoading(true);
         setPreloaderSidebar(true);
 
-        console.log("🔍 Frontend: Searching for:", searchQuery);
         fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}&_t=${Date.now()}`)
           .then((response) => response.json())
           .then((result) => {
-            console.log("🔍 Frontend: Search API response:", result);
             if (result.success && Array.isArray(result.data)) {
-              console.log("🔍 Frontend: Search API returned:", result.data.length, "records");
               setFilteredData(result.data);
-
             } else {
-              console.error("🔍 Frontend: Search API did not return valid data", result);
-              setFilteredData([]); // Ensure we clear data on error
+              if (process.env.NODE_ENV === 'development') {
+                console.error("Search API did not return valid data", result);
+              }
+              setFilteredData([]);
             }
           })
           .catch((error) => {
-            console.error("Error fetching search data:", error);
+            if (process.env.NODE_ENV === 'development') {
+              console.error("Error fetching search data:", error);
+            }
             setFilteredData([]);
           })
           .finally(() => {
@@ -588,13 +594,12 @@ export default function Home() {
             setPreloaderSidebar(false);
           });
       } else {
-        console.log("🔍 Frontend: Search query is empty, resetting to original data");
         // If search query is empty, reset to original data
         setFilteredData(OriginalData);
       }
     }, DEBOUNCE_DELAY);
 
-    return () => clearTimeout(handler); // Cleanup previous timeout
+    return () => clearTimeout(handler);
   }, [searchQuery, OriginalData]);
 
 
@@ -603,7 +608,6 @@ export default function Home() {
   // --------------------------------------------------------------------
   const filterByIndustryHouse = async (selectedOption: any) => {
     const selectedValue = selectedOption.value;
-    console.log(selectedValue);
     setSelectedIndustry(selectedValue);
     if (selectedValue === "") {
       setFilteredData(OriginalData);
@@ -620,10 +624,14 @@ export default function Home() {
         setTotalCount(filteredData.length);
         setPreloaderSidebar(false);
       } else {
-        console.error("Filter API did not return valid data", result);
+        if (process.env.NODE_ENV === 'development') {
+          console.error("Filter API did not return valid data", result);
+        }
       }
     } catch (error) {
-      console.error("Error fetching filtered data:", error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error fetching filtered data:", error);
+      }
     }
   };
 
@@ -845,9 +853,10 @@ export default function Home() {
                   width={1920}
                   height={Math.round((3451 / 6134) * 1920)} // ≈ 1080
                   priority
-                  unoptimized
                   alt="map one"
                   className="w-full h-auto"
+                  quality={85}
+                  sizes="100vw"
                 />
 
                 <div className="absolute top-[45%] left-1/2 transform -translate-x-1/2 -translate-y-1/2">
@@ -903,25 +912,37 @@ export default function Home() {
           >
             <div className="bg-[#FFF8E5] py-2 sticky left-0 top-0 w-full flex flex-col items-center justify-center z-10">
               <div className="w-[95%]">
+                <label htmlFor="industry-select" className="sr-only">
+                  Filter by Industry House
+                </label>
                 <Select
+                  id="industry-select"
+                  inputId="industry-select"
                   placeholder="Select Industry House"
                   isSearchable
                   noOptionsMessage={() => "No Industry Found"}
                   options={IndustryHouses}
                   onChange={filterByIndustryHouse}
                   styles={customStyles}
+                  aria-label="Filter by Industry House"
                 />
               </div>
               <div className="w-[95%] relative">
+                <label htmlFor="search-input" className="sr-only">
+                  Search members by Name, Country, City, State, Zip Code, Organization, Bio Keywords, Industry, House, or Affiliated
+                </label>
                 <input
+                  id="search-input"
                   data-tour="search-input"
+                  type="search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="bg-white border outline-none w-full px-5 py-2 rounded-full text-sm placeholder:capitalize placeholder:text-xs"
                   placeholder="Search by Name, Country, City, State, Zip Code, Organization, Bio Keywords, Industry, House, Affiliated"
+                  aria-label="Search members"
                 />
 
-                <span className="absolute right-4 top-3">
+                <span className="absolute right-4 top-3" aria-hidden="true">
                   <icons.search />
                 </span>
               </div>
@@ -929,10 +950,14 @@ export default function Home() {
 
             {preloaderSidebar || totalCount === null ? (
               <div className="flex items-center justify-center h-[80vh]">
-                <img
+                <Image
                   src="/gif/loading.gif"
+                  width={200}
+                  height={200}
                   className="max-w-xs"
                   alt="sidebar loading"
+                  unoptimized
+                  priority={false}
                 />
               </div>
             ) : (
@@ -1023,7 +1048,6 @@ export default function Home() {
       <div className="fixed right-4 bottom-20 z-50 flex flex-col gap-2 md:hidden">
         <button
           onClick={(e) => {
-            console.log('Scroll up button clicked!');
             // Add visual feedback
             const button = e.currentTarget as HTMLElement;
             button.style.transform = 'scale(0.95)';
@@ -1064,7 +1088,6 @@ export default function Home() {
         
         <button
           onClick={(e) => {
-            console.log('Scroll down button clicked!');
             // Add visual feedback
             const button = e.currentTarget as HTMLElement;
             button.style.transform = 'scale(0.95)';

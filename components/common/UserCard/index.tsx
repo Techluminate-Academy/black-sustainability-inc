@@ -52,14 +52,19 @@ const UserCard: React.FC<IProps> = ({
             />
           </div>
         ) : (
-          <img
+          <div className="relative h-[250px] w-full bg-[#FFF8E5] rounded-xl">
+            <Image
               src={imgUrl}
-              className={`${
+              alt="profile image"
+              fill
+              className={`rounded-xl object-top object-cover ${
                 isAuthenticated ? "blur-none" : "blur-md"
-              } w-full object-cover object-center h-full rounded-md`}
-              alt={` profile image`}
+              }`}
               loading="lazy"
+              quality={75}
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
+          </div>
         )}
       </div>
 

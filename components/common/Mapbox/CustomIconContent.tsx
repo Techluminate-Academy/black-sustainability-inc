@@ -95,6 +95,8 @@ const CustomIconContent: React.FC<CustomIconContentProps> = ({ record }) => {
             width={60} // Set width and height to match the div's size
             height={64}
             loading="lazy"
+            quality={70}
+            sizes="60px"
             style={{
               width: "100%",
               height: "100%",

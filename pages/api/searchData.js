@@ -17,6 +17,8 @@ export default async function handler(req, res) {
     const cachedData = await redis.get(cacheKey);
     if (cachedData) {
       console.log('🔍 API: Serving from cache, skipping database query');
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.setHeader('Content-Type', 'application/json');
       return res.status(200).json(JSON.parse(cachedData));
     }
     console.log('🔍 API: No cache found, querying database');
@@ -187,6 +189,8 @@ export default async function handler(req, res) {
     // Cache the search result for 5 minutes
     await redis.set(cacheKey, JSON.stringify(responseData), "EX", CACHE_EXPIRY);
 
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+    res.setHeader('Content-Type', 'application/json');
     return res.status(200).json(responseData);
   } catch (error) {
     console.error("Error retrieving filtered data from MongoDB:", error);

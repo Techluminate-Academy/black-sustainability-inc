@@ -26,18 +26,17 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, ...UserProps }) => {
     <div className="popup-info-card" style={{ maxWidth: "280px", minWidth: "250px" }}>
       <div className="flex gap-x-3 items-start ">
         <div className="relative w-[35%] h-[100px] rounded-md overflow-hidden">
-          {!isAuthenticated ? (
-            <img
-              src={UserProps.imgUrl}
-              className={`${
-                isAuthenticated ? "blur-none" : "blur-md"
-              } w-full object-cover object-center h-full rounded-md`}
-              alt={`${UserProps.FIRST_NAME} ${UserProps.LAST_NAME}  profile image`}
-              loading="lazy"
-            />
-          ) : (
-            <img src={UserProps.imgUrl} />
-          )}
+          <Image
+            src={UserProps.imgUrl || "/png/default.png"}
+            alt={`${UserProps.FIRST_NAME} ${UserProps.LAST_NAME} profile image`}
+            fill
+            className={`rounded-md object-cover ${
+              isAuthenticated ? "blur-none" : "blur-md"
+            }`}
+            loading="lazy"
+            quality={75}
+            sizes="100px"
+          />
         </div>
         <div className="w-[65%] flex flex-col justify-between gap-y-0.5 h-[100px] p-1 ">
           <div className="flex items-center gap-x-5">

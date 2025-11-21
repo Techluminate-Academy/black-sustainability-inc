@@ -28,6 +28,9 @@ export default async function handler(req, res) {
       const parsedCache = JSON.parse(cachedData);
       console.log(`✅ Serving from Redis Cache - Time: ${Date.now() - cacheStart}ms`);
       clearTimeout(timeout);
+      // Set cache headers for browser caching
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.setHeader('Content-Type', 'application/json');
       return res.status(200).json(parsedCache);
     }
 
@@ -68,6 +71,9 @@ export default async function handler(req, res) {
     await redis.setex(cacheKey, CACHE_EXPIRY, JSON.stringify(response));
 
     clearTimeout(timeout);
+    // Set cache headers for browser caching
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+    res.setHeader('Content-Type', 'application/json');
     res.status(200).json(response);
   } catch (error) {
     clearTimeout(timeout);

@@ -24,6 +24,8 @@ export default async function handler(req, res) {
     });
     if (cachedData) {
       // console.log("✅ Serving from Cache");
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.setHeader('Content-Type', 'application/json');
       return res.status(200).json(JSON.parse(cachedData));
     }
 
@@ -52,6 +54,8 @@ export default async function handler(req, res) {
     // Store in Redis
     await redis.setex(cacheKey, CACHE_EXPIRY, JSON.stringify(response));
 
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+    res.setHeader('Content-Type', 'application/json');
     res.status(200).json(response);
   } catch (error) {
     console.error("Error filtering data:", error);

@@ -89,6 +89,8 @@ export default async function handler(req, res) {
     await redis.setex(cacheKey, CACHE_EXPIRY, compressedDataBase64);
 
     console.log(`✅ Cached data for all records in Redis`);
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+    res.setHeader('Content-Type', 'application/json');
     res.status(200).json(response);
 
   } catch (error) {
