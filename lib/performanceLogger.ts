@@ -15,7 +15,9 @@ export interface PerformanceMetrics {
 }
 
 export const logPerformanceMetrics = (metrics: PerformanceMetrics) => {
-  console.log('🎯 Performance logger called with metrics:', metrics);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🎯 Performance logger called with metrics:', metrics);
+  }
   
   const formatTime = (ms: number) => `${ms.toFixed(0)}ms`;
   const formatBytes = (bytes: number) => {
@@ -46,32 +48,34 @@ export const logPerformanceMetrics = (metrics: PerformanceMetrics) => {
     return '❌ Poor';
   };
 
-  console.log('\n🚀 PERFORMANCE METRICS');
-  console.log('═'.repeat(50));
-  console.log(`📄 Page: ${metrics.pageUrl}`);
-  console.log(`⏰ Time: ${new Date(metrics.timestamp).toLocaleString()}`);
-  console.log('─'.repeat(50));
-  
-  console.log(`🕐 Load Time: ${formatTime(metrics.loadTime)} ${getStatus('loadTime', metrics.loadTime)}`);
-  console.log(`⚡ TTFB: ${formatTime(metrics.ttfb)} ${getStatus('ttfb', metrics.ttfb)}`);
-  console.log(`🎨 FCP: ${formatTime(metrics.fcp)} ${getStatus('fcp', metrics.fcp)}`);
-  
-  if (metrics.lcp !== null) {
-    console.log(`🖼️ LCP: ${formatTime(metrics.lcp)} ${getStatus('lcp', metrics.lcp)}`);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('\n🚀 PERFORMANCE METRICS');
+    console.log('═'.repeat(50));
+    console.log(`📄 Page: ${metrics.pageUrl}`);
+    console.log(`⏰ Time: ${new Date(metrics.timestamp).toLocaleString()}`);
+    console.log('─'.repeat(50));
+    
+    console.log(`🕐 Load Time: ${formatTime(metrics.loadTime)} ${getStatus('loadTime', metrics.loadTime)}`);
+    console.log(`⚡ TTFB: ${formatTime(metrics.ttfb)} ${getStatus('ttfb', metrics.ttfb)}`);
+    console.log(`🎨 FCP: ${formatTime(metrics.fcp)} ${getStatus('fcp', metrics.fcp)}`);
+    
+    if (metrics.lcp !== null) {
+      console.log(`🖼️ LCP: ${formatTime(metrics.lcp)} ${getStatus('lcp', metrics.lcp)}`);
+    }
+    
+    if (metrics.fid !== null) {
+      console.log(`👆 FID: ${formatTime(metrics.fid)} ${getStatus('fid', metrics.fid)}`);
+    }
+    
+    if (metrics.cls !== null) {
+      console.log(`📐 CLS: ${metrics.cls.toFixed(3)} ${getStatus('cls', metrics.cls)}`);
+    }
+    
+    console.log(`📄 DOM Content Loaded: ${formatTime(metrics.domContentLoaded)} ${getStatus('domContentLoaded', metrics.domContentLoaded)}`);
+    console.log(`✅ DOM Complete: ${formatTime(metrics.domComplete)} ${getStatus('domComplete', metrics.domComplete)}`);
+    console.log(`📦 Resources: ${metrics.resourceCount} files (${formatBytes(metrics.resourceSize)})`);
+    console.log('═'.repeat(50));
   }
-  
-  if (metrics.fid !== null) {
-    console.log(`👆 FID: ${formatTime(metrics.fid)} ${getStatus('fid', metrics.fid)}`);
-  }
-  
-  if (metrics.cls !== null) {
-    console.log(`📐 CLS: ${metrics.cls.toFixed(3)} ${getStatus('cls', metrics.cls)}`);
-  }
-  
-  console.log(`📄 DOM Content Loaded: ${formatTime(metrics.domContentLoaded)} ${getStatus('domContentLoaded', metrics.domContentLoaded)}`);
-  console.log(`✅ DOM Complete: ${formatTime(metrics.domComplete)} ${getStatus('domComplete', metrics.domComplete)}`);
-  console.log(`📦 Resources: ${metrics.resourceCount} files (${formatBytes(metrics.resourceSize)})`);
-  console.log('═'.repeat(50));
   
   // Emit custom event for performance summary component
   if (typeof window !== 'undefined') {

@@ -2,7 +2,7 @@
 import Nav from "@/components/layouts/Nav";
 import Footer from "@/components/layouts/Footer";
 import Sidebar from "@/components/layouts/Sidebar";
-import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback, startTransition } from "react";
 import { customStyles } from "@/components/common/CustomSelect";
 import Select from "react-select";
 import Head from "next/head";
@@ -65,7 +65,6 @@ export default function Home() {
   const [sidebarPage, setSidebarPage] = useState(1);
   // Modification: totalCount now initialized as null instead of 0.
   const [totalCount, setTotalCount] = useState<number | null>(null);
-  console.log(filteredData, 'filtered data')
   const route = useRouter();
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [showScrollButtons, setShowScrollButtons] = useState(false);
@@ -74,7 +73,6 @@ export default function Home() {
 
   // Scroll functions for mobile navigation
   const scrollUp = () => {
-    console.log('Scrolling up...');
     try {
       // First try simple scrollBy
       window.scrollBy(0, -200);
@@ -84,19 +82,18 @@ export default function Home() {
       const scrollAmount = 200; // Scroll amount
       const newScroll = Math.max(0, currentScroll - scrollAmount);
       
-      console.log('Current scroll:', currentScroll, 'New scroll:', newScroll);
-      
       // Try multiple scroll methods
       window.scrollTo({ top: newScroll, behavior: 'smooth' });
       document.documentElement.scrollTop = newScroll;
       document.body.scrollTop = newScroll;
     } catch (error) {
-      console.error('Scroll up error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Scroll up error:', error);
+      }
     }
   };
 
   const scrollDown = () => {
-    console.log('Scrolling down...');
     try {
       // First try simple scrollBy
       window.scrollBy(0, 200);
@@ -110,34 +107,28 @@ export default function Home() {
       ) - window.innerHeight;
       const newScroll = Math.min(maxScroll, currentScroll + scrollAmount);
       
-      console.log('Current scroll:', currentScroll, 'New scroll:', newScroll, 'Max scroll:', maxScroll);
-      
       // Try multiple scroll methods
       window.scrollTo({ top: newScroll, behavior: 'smooth' });
       document.documentElement.scrollTop = newScroll;
       document.body.scrollTop = newScroll;
     } catch (error) {
-      console.error('Scroll down error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Scroll down error:', error);
+      }
     }
   };
 
   const scrollToMapSection = () => {
-    console.log('Scrolling to map section...');
     const mapElement = document.querySelector('[data-tour="map-container"]');
     if (mapElement) {
       mapElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      console.log('Map element not found');
     }
   };
 
   const scrollToSidebarSection = () => {
-    console.log('Scrolling to sidebar section...');
     const sidebarElement = document.querySelector('[data-tour="sidebar"]');
     if (sidebarElement) {
       sidebarElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      console.log('Sidebar element not found');
     }
   };
 
@@ -281,19 +272,18 @@ export default function Home() {
     }, 1000);
     
     // Add manual performance test button to window for debugging
-    (window as any).testPerformance = () => {
-      testPerformanceMonitoring();
-    };
-    
-    // Add manual performance metrics logging
-    (window as any).logPerformanceNow = () => {
-      const { getPerformanceMetrics, logPerformanceMetrics } = require('@/lib/performanceLogger');
-      const metrics = getPerformanceMetrics();
-      logPerformanceMetrics(metrics);
-    };
-    
-    console.log('🔧 Performance test available: Run window.testPerformance() in console');
-    console.log('🔧 Manual performance logging: Run window.logPerformanceNow() in console');
+    if (process.env.NODE_ENV === 'development') {
+      (window as any).testPerformance = () => {
+        testPerformanceMonitoring();
+      };
+      
+      // Add manual performance metrics logging
+      (window as any).logPerformanceNow = () => {
+        const { getPerformanceMetrics, logPerformanceMetrics } = require('@/lib/performanceLogger');
+        const metrics = getPerformanceMetrics();
+        logPerformanceMetrics(metrics);
+      };
+    }
   }, []);
 
   // --- NEW: Monitor scroll position to show/hide the back-to-top button ---
@@ -329,16 +319,17 @@ export default function Home() {
       return;
     }
 
-    try {
-      const userObj = JSON.parse(raw);
-      console.log('Parsed user object:', userObj);
-      setAuthenticatedUser(userObj);
-      setIsAuthenticated(true);
-    } catch (err) {
-      console.error('Error parsing user data:', err);
-      setIsAuthenticated(false);
-      setAuthenticatedUser(null);
-    }
+      try {
+        const userObj = JSON.parse(raw);
+        setAuthenticatedUser(userObj);
+        setIsAuthenticated(true);
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error parsing user data:', err);
+        }
+        setIsAuthenticated(false);
+        setAuthenticatedUser(null);
+      }
   }, []);
 
   // Guided Tour Initialization - Removed automatic trigger
@@ -410,69 +401,101 @@ export default function Home() {
   // 1. Initial Data Fetch for Map & Sidebar
   // --------------------------------------------------------------------
   useEffect(() => {
-    console.log("🚀 Fetch data useEffect triggered");
     const fetchData = async () => {
-      console.log("🚀 fetchData function called");
       performance.mark("mapFetchStart");
       setLoading(true);
-      // setPreloaderSidebar(true);
       
       // Detect mobile and reduce initial load
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
       const initialLimit = isMobile ? 50 : 100;
       
-      console.log(`🚀 About to fetch /api/getData?page=1&limit=${initialLimit} (${isMobile ? 'mobile' : 'desktop'})`);
-      const fetchStartTime = performance.now();
-      console.log("⏱️ TIMING: Fetch started at", fetchStartTime);
-      
       fetch(`/api/getData?page=1&limit=${initialLimit}`)
         .then((response) => {
-          const responseTime = performance.now() - fetchStartTime;
-          console.log("⏱️ TIMING: API response received in", responseTime, "ms");
-          console.log("API Response status:", response.status, response.statusText);
           return response.json();
         })
         .then(async (result) => {
-          const parseTime = performance.now() - fetchStartTime;
-          console.log("⏱️ TIMING: Data parsed in", parseTime, "ms");
-          
           if (result.success && Array.isArray(result.data)) {
-            const filteredNullData = result.data.filter((item: any) => item !== null);
-            const filterTime = performance.now() - fetchStartTime;
-            console.log("⏱️ TIMING: Data filtered in", filterTime, "ms - Count:", filteredNullData.length);
-            // Save the full total count
-            setFullTotalCount(result.totalCount);
-            setTotalCount(result.totalCount);
-            // Set data for sidebar and for map progressive loading
-            setOriginalData(filteredNullData);
-            setFilteredData(filteredNullData);
-            const totalRecords = filteredNullData.length;
-            const chunkSize = Math.ceil(totalRecords / 3);
-            setChunkSizes([chunkSize, chunkSize, totalRecords - 2 * chunkSize]);
-            setLoadedData(filteredNullData.slice(0, chunkSize));
-            setCurrentIndex(chunkSize);
-            setChunkIndex(1);
-            setSidebarPage(1);
+            // Filter data in chunks to avoid blocking
+            // In dev mode, use larger threshold to reduce async overhead
+            const isDev = process.env.NODE_ENV === 'development';
+            const syncThreshold = isDev ? 500 : 100;
             
-            const setStateTime = performance.now() - fetchStartTime;
-            console.log("⏱️ TIMING: State set in", setStateTime, "ms");
+            const filterDataInChunks = (dataArray: any[], chunkSize = 100): Promise<any[]> => {
+              // For small arrays or dev mode with small arrays, process synchronously
+              if (dataArray.length <= syncThreshold) {
+                return Promise.resolve(dataArray.filter((item: any) => item !== null));
+              }
+              
+              return new Promise((resolve) => {
+                const filtered: any[] = [];
+                let index = 0;
+
+                const processChunk = (deadline?: IdleDeadline) => {
+                  const hasTime = deadline ? deadline.timeRemaining() > 0 : true;
+                  const endIndex = Math.min(index + chunkSize, dataArray.length);
+
+                  while (index < endIndex && hasTime) {
+                    if (dataArray[index] !== null) {
+                      filtered.push(dataArray[index]);
+                    }
+                    index++;
+                  }
+
+                  if (index < dataArray.length) {
+                    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+                      requestIdleCallback(processChunk, { timeout: 50 });
+                    } else {
+                      setTimeout(() => processChunk(), 0);
+                    }
+                  } else {
+                    resolve(filtered);
+                  }
+                };
+
+                if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+                  requestIdleCallback(processChunk, { timeout: 50 });
+                } else {
+                  setTimeout(() => processChunk(), 0);
+                }
+              });
+            };
+
+            // Use startTransition for non-critical state updates
+            filterDataInChunks(result.data).then((filteredNullData) => {
+              startTransition(() => {
+                // Save the full total count
+                setFullTotalCount(result.totalCount);
+                setTotalCount(result.totalCount);
+                // Set data for sidebar and for map progressive loading
+                setOriginalData(filteredNullData);
+                setFilteredData(filteredNullData);
+                const totalRecords = filteredNullData.length;
+                const chunkSize = Math.ceil(totalRecords / 3);
+                setChunkSizes([chunkSize, chunkSize, totalRecords - 2 * chunkSize]);
+                setLoadedData(filteredNullData.slice(0, chunkSize));
+                setCurrentIndex(chunkSize);
+                setChunkIndex(1);
+                setSidebarPage(1);
+              });
+            });
           } else {
-            console.error("API did not return a valid data array", result);
+            if (process.env.NODE_ENV === 'development') {
+              console.error("API did not return a valid data array", result);
+            }
           }
         })
         .catch((error) => {
-          console.error("Error fetching data:", error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error("Error fetching data:", error);
+          }
         })
         .finally(() => {
-          console.log("🚀 Finally block - setting loading to false");
           setLoading(false);
           setPreloaderSidebar(false);
         });
     };
 
-    console.log("🚀 Calling fetchData()");
     fetchData();
-    console.log("🚀 After calling fetchData()");
   }, []);
 
   // --------------------------------------------------------------------
@@ -491,9 +514,12 @@ export default function Home() {
             currentIndex,
             currentIndex + nextChunkSize
           );
-          setLoadedData((prevData: any) => [...prevData, ...nextChunk]);
-          setCurrentIndex(currentIndex + nextChunkSize);
-          setChunkIndex(chunkIndex + 1);
+          // Batch non-critical state updates to avoid blocking UI
+          startTransition(() => {
+            setLoadedData((prevData: any) => [...prevData, ...nextChunk]);
+            setCurrentIndex(currentIndex + nextChunkSize);
+            setChunkIndex(chunkIndex + 1);
+          });
         }
       }
     };
@@ -513,8 +539,12 @@ export default function Home() {
     if (loadedData.length === filteredData.length && filteredData.length > 0) {
       performance.mark("mapLoadEnd");
       performance.measure("mapLoadTime", "mapFetchStart", "mapLoadEnd");
-      const measures = performance.getEntriesByName("mapLoadTime");
-      console.log("Map load time:", measures[0].duration, "ms");
+      if (process.env.NODE_ENV === 'development') {
+        const measures = performance.getEntriesByName("mapLoadTime");
+        if (measures[0]) {
+          console.log("Map load time:", measures[0].duration, "ms");
+        }
+      }
       setPreloaderMap(false);
     }
   }, [loadedData, filteredData]);
@@ -529,15 +559,21 @@ export default function Home() {
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
         const newRecords = result.data.filter((item: any) => item !== null);
-        console.log(`Fetched page ${nextPage}: ${newRecords.length} records`);
-        setFilteredData((prev: any) => [...prev, ...newRecords]);
-        setOriginalData((prev: any) => [...prev, ...newRecords]);
-        setSidebarPage(nextPage);
+        // Batch non-critical state updates to avoid blocking UI
+        startTransition(() => {
+          setFilteredData((prev: any) => [...prev, ...newRecords]);
+          setOriginalData((prev: any) => [...prev, ...newRecords]);
+          setSidebarPage(nextPage);
+        });
       } else {
-        console.error("Infinite scroll: API did not return valid data", result);
+        if (process.env.NODE_ENV === 'development') {
+          console.error("Infinite scroll: API did not return valid data", result);
+        }
       }
     } catch (error) {
-      console.error("Error fetching more sidebar data:", error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error fetching more sidebar data:", error);
+      }
     }
   };
 
@@ -557,40 +593,49 @@ export default function Home() {
   const DEBOUNCE_DELAY = 500; // Adjust debounce delay as needed
 
   useEffect(() => {
-    console.log("🔍 Frontend: Search useEffect triggered, searchQuery:", searchQuery);
     const handler = setTimeout(() => {
-      console.log("🔍 Frontend: Debounce timeout triggered, searchQuery:", searchQuery);
       if (searchQuery.trim() !== "") {
-        console.log("🔍 Frontend: Starting search for:", searchQuery);
+        // Keep loading states urgent (user needs immediate feedback)
         setLoading(true);
         setPreloaderSidebar(true);
 
-        console.log("🔍 Frontend: Searching for:", searchQuery);
         fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}&_t=${Date.now()}`)
           .then((response) => response.json())
           .then((result) => {
-            console.log("🔍 Frontend: Search API response:", result);
             if (result.success && Array.isArray(result.data)) {
-              console.log("🔍 Frontend: Search API returned:", result.data.length, "records");
-              setFilteredData(result.data);
-
+              // Batch data update to avoid blocking UI
+              startTransition(() => {
+                setFilteredData(result.data);
+              });
             } else {
-              console.error("🔍 Frontend: Search API did not return valid data", result);
-              setFilteredData([]); // Ensure we clear data on error
+              if (process.env.NODE_ENV === 'development') {
+                console.error("🔍 Frontend: Search API did not return valid data", result);
+              }
+              // Batch error state update
+              startTransition(() => {
+                setFilteredData([]); // Ensure we clear data on error
+              });
             }
           })
           .catch((error) => {
-            console.error("Error fetching search data:", error);
-            setFilteredData([]);
+            if (process.env.NODE_ENV === 'development') {
+              console.error("Error fetching search data:", error);
+            }
+            // Batch error state update
+            startTransition(() => {
+              setFilteredData([]);
+            });
           })
           .finally(() => {
+            // Keep loading states urgent (user needs immediate feedback)
             setLoading(false);
             setPreloaderSidebar(false);
           });
       } else {
-        console.log("🔍 Frontend: Search query is empty, resetting to original data");
-        // If search query is empty, reset to original data
-        setFilteredData(OriginalData);
+        // If search query is empty, reset to original data (non-urgent)
+        startTransition(() => {
+          setFilteredData(OriginalData);
+        });
       }
     }, DEBOUNCE_DELAY);
 
@@ -603,27 +648,40 @@ export default function Home() {
   // --------------------------------------------------------------------
   const filterByIndustryHouse = async (selectedOption: any) => {
     const selectedValue = selectedOption.value;
-    console.log(selectedValue);
+    // Keep selected industry update urgent (immediate UI feedback)
     setSelectedIndustry(selectedValue);
     if (selectedValue === "") {
-      setFilteredData(OriginalData);
-      setTotalCount(fullTotalCount); // Reset total count to full count
-
+      // Batch data reset updates (non-urgent)
+      startTransition(() => {
+        setFilteredData(OriginalData);
+        setTotalCount(fullTotalCount); // Reset total count to full count
+      });
       return;
     }
     try {
+      // Keep loading state urgent (user needs immediate feedback)
       setPreloaderSidebar(true);
       const res = await fetch(`/api/filterData?page=1&limit=100&industryHouse=${encodeURIComponent(selectedValue)}`);
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
-        setFilteredData(result.data);
-        setTotalCount(filteredData.length);
+        // Batch data updates to avoid blocking UI
+        startTransition(() => {
+          setFilteredData(result.data);
+          setTotalCount(result.data.length);
+        });
+        // Keep loading state urgent
         setPreloaderSidebar(false);
       } else {
-        console.error("Filter API did not return valid data", result);
+        if (process.env.NODE_ENV === 'development') {
+          console.error("Filter API did not return valid data", result);
+        }
+        setPreloaderSidebar(false);
       }
     } catch (error) {
-      console.error("Error fetching filtered data:", error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error fetching filtered data:", error);
+      }
+      setPreloaderSidebar(false);
     }
   };
 
@@ -1021,11 +1079,10 @@ export default function Home() {
       
       {/* Scroll Navigation Buttons - Mobile Only */}
       <div className="fixed right-4 bottom-20 z-50 flex flex-col gap-2 md:hidden">
-        <button
-          onClick={(e) => {
-            console.log('Scroll up button clicked!');
-            // Add visual feedback
-            const button = e.currentTarget as HTMLElement;
+          <button
+            onClick={(e) => {
+              // Add visual feedback
+              const button = e.currentTarget as HTMLElement;
             button.style.transform = 'scale(0.95)';
             setTimeout(() => {
               button.style.transform = 'scale(1)';
@@ -1062,11 +1119,10 @@ export default function Home() {
           </svg>
         </button>
         
-        <button
-          onClick={(e) => {
-            console.log('Scroll down button clicked!');
-            // Add visual feedback
-            const button = e.currentTarget as HTMLElement;
+          <button
+            onClick={(e) => {
+              // Add visual feedback
+              const button = e.currentTarget as HTMLElement;
             button.style.transform = 'scale(0.95)';
             setTimeout(() => {
               button.style.transform = 'scale(1)';

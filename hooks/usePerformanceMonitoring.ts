@@ -17,7 +17,9 @@ const usePerformanceMonitoring = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    console.log('🚀 Performance monitoring initialized');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🚀 Performance monitoring initialized');
+    }
 
     let lcpValue: number | null = null;
     let fidValue: number | null = null;
@@ -28,7 +30,9 @@ const usePerformanceMonitoring = () => {
       const entries = entryList.getEntries();
       const lastEntry = entries[entries.length - 1];
       lcpValue = lastEntry.startTime;
-      console.log('📊 LCP detected:', lcpValue);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📊 LCP detected:', lcpValue);
+      }
     });
 
     // Create a PerformanceObserver for First Input Delay
@@ -36,7 +40,9 @@ const usePerformanceMonitoring = () => {
       const firstInput = entryList.getEntries()[0] as PerformanceEventTiming;
       if (firstInput && 'processingStart' in firstInput) {
         fidValue = firstInput.processingStart - firstInput.startTime;
-        console.log('📊 FID detected:', fidValue);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('📊 FID detected:', fidValue);
+        }
       }
     });
 
@@ -46,7 +52,9 @@ const usePerformanceMonitoring = () => {
         const layoutShift = entry as LayoutShift;
         if (!layoutShift.hadRecentInput) {
           clsValue = (clsValue || 0) + layoutShift.value;
-          console.log('📊 CLS detected:', clsValue);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('📊 CLS detected:', clsValue);
+          }
         }
       }
     });

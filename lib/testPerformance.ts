@@ -1,5 +1,7 @@
 // Simple test to verify performance monitoring is working
 export const testPerformanceMonitoring = () => {
+  if (process.env.NODE_ENV !== 'development') return;
+  
   if (typeof window === 'undefined') {
     console.log('❌ Performance monitoring test: Not in browser environment');
     return;
