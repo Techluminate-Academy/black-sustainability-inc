@@ -130,8 +130,9 @@ export default async function handler(
 
 // Helper function to upload a single row to Airtable
 async function uploadRowToAirtable(row: any, AirtableUtils: any) {
-  // Helper to format phone numbers
+  // Helper to format phone numbers (US/Canada format)
   const formatPhoneNumber = (phoneNumber: string) => {
+    if (!phoneNumber) return "";
     const cleaned = phoneNumber.replace(/\D/g, '');
     if (cleaned.length === 10) {
       return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
@@ -144,37 +145,82 @@ async function uploadRowToAirtable(row: any, AirtableUtils: any) {
     "FIRST NAME": row.firstName,
     "LAST NAME": row.lastName,
     "BIO": row.bio,
-    "IDENTIFICATION": row.identification,
-    "GENDER": row.gender,
-    "PRIMARY INDUSTRY HOUSE": row.primaryIndustry,
     "Address": row.address,
     "Location (Nearest City)": row.nearestCity,
   };
 
+  // Required fields
+  if (row.memberLevel) fields["MEMBER LEVEL"] = [row.memberLevel];
+  if (row.identification) fields["IDENTIFICATION"] = row.identification;
+  if (row.gender) fields["GENDER"] = row.gender;
+  if (row.primaryIndustry) fields["PRIMARY INDUSTRY HOUSE"] = row.primaryIndustry;
+
   // Optional fields
-  if (row.email2) fields["Email 2"] = row.email2;
   if (row.organizationName) fields["ORGANIZATION NAME"] = row.organizationName;
+  if (row.affiliatedEntity) fields["AFFILIATED ENTITY"] = row.affiliatedEntity;
   if (row.website) fields["WEBSITE"] = row.website;
-  if (row.phoneUS) fields["PHONE US/CAN ONLY"] = formatPhoneNumber(row.phoneUS);
-  if (row.phoneNonUS) fields["PHONE NON-US/CAN"] = row.phoneNonUS;
-  if (row.additionalFocus) {
+  
+  // Phone handling - use phone and phoneCountryCode if available, otherwise fallback to phoneUS/phoneNonUS
+  if (row.phone && row.phoneCountryCode) {
+    if (row.phoneCountryCode === "+1-us") {
+      fields["PHONE US/CAN ONLY"] = formatPhoneNumber(row.phone);
+    } else {
+      fields["PHONE NON-US/CAN"] = row.phone;
+    }
+  } else {
+    // Legacy support for old format
+    if (row.phoneUS) fields["PHONE US/CAN ONLY"] = formatPhoneNumber(row.phoneUS);
+    if (row.phoneNonUS) fields["PHONE NON-US/CAN"] = row.phoneNonUS;
+  }
+
+  // Multi-select fields (arrays)
+  if (row.additionalFocus && Array.isArray(row.additionalFocus) && row.additionalFocus.length > 0) {
+    fields["ADDITIONAL FOCUS AREAS"] = row.additionalFocus;
+  } else if (row.additionalFocus && typeof row.additionalFocus === 'string') {
+    // Legacy support for comma-separated string
     fields["ADDITIONAL FOCUS AREAS"] = row.additionalFocus.split(',').map((s: string) => s.trim()).filter((s: string) => s);
   }
+
+  if (row.similarCategories && Array.isArray(row.similarCategories) && row.similarCategories.length > 0) {
+    fields["Similar Categories"] = row.similarCategories.filter((cat: string) => cat && cat.trim() !== "");
+  }
+
+  // Location fields
+  if (row.zipCode !== undefined && row.zipCode !== null) {
+    fields["Zip/Postal Code"] = typeof row.zipCode === 'number' ? row.zipCode : parseInt(row.zipCode) || 0;
+  }
+  if (row.latitude !== undefined && row.latitude !== null) {
+    fields["Latitude"] = typeof row.latitude === 'number' ? row.latitude.toString() : row.latitude;
+  }
+  if (row.longitude !== undefined && row.longitude !== null) {
+    fields["Longitude"] = typeof row.longitude === 'number' ? row.longitude.toString() : row.longitude;
+  }
+
+  // Boolean fields
+  if (row.includeOnMap !== undefined) {
+    fields["Featured"] = typeof row.includeOnMap === 'boolean' ? row.includeOnMap : 
+      (row.includeOnMap === "Yes" || row.includeOnMap === "TRUE" || row.includeOnMap === "true");
+  }
+
+  // Additional fields
+  if (row.youtube) fields["YOUTUBE"] = row.youtube;
+  if (row.nameFromLocation) fields["Name (from Location)"] = row.nameFromLocation;
+  if (row.fundingGoal) fields["FUNDING GOAL"] = row.fundingGoal;
   if (row.naicsCode) fields["NAICS Code"] = row.naicsCode;
-  if (row.affiliatedEntity) fields["AFFILIATED ENTITY"] = row.affiliatedEntity;
-  if (row.country) fields["Country"] = row.country;
-  if (row.stateProvince) fields["State/Province"] = row.stateProvince;
-  if (row.state) fields["State"] = row.state;
-  if (row.zipCode) fields["Zip/Postal Code"] = parseInt(row.zipCode) || 0;
-  if (row.timezone) fields["Time zone"] = row.timezone;
-  if (row.includeOnMap) fields["Include me on Global BSN Map"] = row.includeOnMap === "Yes" || row.includeOnMap === "TRUE" || row.includeOnMap === "true";
-  if (row.latitude) fields["LATITUDE (NEW)"] = row.latitude;
-  if (row.longitude) fields["LONGITUDE (NEW)"] = row.longitude;
-  if (row.memberLevel) fields["MEMBER LEVEL"] = [row.memberLevel];
-  if (row.payingMember) fields["Paying Member (keep current)"] = row.payingMember === "Yes" || row.payingMember === "TRUE" || row.payingMember === "true";
-  if (row.equityMember) fields["Equity Member (keep current)"] = row.equityMember === "Yes" || row.equityMember === "TRUE" || row.equityMember === "true";
-  if (row.membershipNotes) fields["Membership Status Notes"] = row.membershipNotes;
-  if (row.sendPaymentEmail) fields["Send Need Payment Email"] = row.sendPaymentEmail === "Yes" || row.sendPaymentEmail === "TRUE" || row.sendPaymentEmail === "true";
+
+  // Photo and Logo (URLs from Cloudinary)
+  if (row.photoUrl) {
+    fields["PHOTO"] = [{
+      url: row.photoUrl,
+      filename: "profile-photo.jpg"
+    }];
+  }
+  if (row.logoUrl) {
+    fields["LOGO"] = [{
+      url: row.logoUrl,
+      filename: "organization-logo.jpg"
+    }];
+  }
 
   // Check if record exists by email
   const url = `https://api.airtable.com/v0/${process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID}/${process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME}`;

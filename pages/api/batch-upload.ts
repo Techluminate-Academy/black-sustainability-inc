@@ -1,6 +1,71 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { connectToDatabase } from '@/lib/mongodb';
 import type { BatchUploadRow } from '@/models/pendingBatchUpload';
+import nodemailer from 'nodemailer';
+
+// Mailchimp SMTP credentials
+const MAILCHIMP_API_KEY = process.env.MAILCHIMP_API_KEY;
+
+// Send confirmation email to user
+async function sendConfirmationEmail(email: string, firstName: string) {
+  if (!MAILCHIMP_API_KEY) {
+    console.warn('MAILCHIMP_API_KEY not configured, skipping email');
+    return;
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.mandrillapp.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: 'Black Sustainability, Inc.',
+        pass: MAILCHIMP_API_KEY,
+      },
+    });
+
+    const mailOptions = {
+      from: '"Black Sustainability, Inc." <info@blacksustainability.org>',
+      to: email,
+      subject: 'Your BSN Account Will Be Created Shortly',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2c5aa0; margin-bottom: 10px;">Black Sustainability, Inc.</h1>
+            <p style="color: #666; font-size: 16px;">Account Creation Confirmation</p>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+            <h2 style="color: #333; margin-bottom: 20px;">
+              Hello ${firstName}!
+            </h2>
+            <p style="color: #666; font-size: 16px; margin-bottom: 20px;">
+              Thank you for submitting your information to Black Sustainability Network (BSN).
+            </p>
+            <p style="color: #666; font-size: 16px; margin-bottom: 20px;">
+              Your account will be created shortly. You will receive another email once your account is ready.
+            </p>
+            <p style="color: #666; font-size: 16px; margin-bottom: 20px;">
+              If you have any questions, please contact us at info@blacksustainability.org
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+            <p style="color: #999; font-size: 12px;">
+              © 2024 Black Sustainability, Inc. All rights reserved.
+            </p>
+          </div>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Confirmation email sent`);
+  } catch (error: any) {
+    console.error(`❌ Failed to send confirmation email to ${email}:`, error.message);
+    // Don't throw - email failure shouldn't block submission
+  }
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -22,8 +87,8 @@ export default async function handler(
     const validRows: BatchUploadRow[] = [];
 
     rows.forEach((row, index) => {
-      if (!row.email || !row.firstName || !row.lastName || !row.bio || 
-          !row.identification || !row.gender || !row.primaryIndustry || 
+      if (!row.email || !row.firstName || !row.lastName || !row.memberLevel || 
+          !row.bio || !row.identification || !row.gender || !row.primaryIndustry || 
           !row.address || !row.nearestCity) {
         validationErrors.push({
           row: index + 1,
@@ -58,125 +123,28 @@ export default async function handler(
       const result = await pendingBatchUploads.insertOne(pendingUpload);
       console.log('✅ Saved to MongoDB pendingBatchUploads collection:', result.insertedId);
 
+      // Send confirmation emails to all users (don't await - send in background)
+      validRows.forEach((row) => {
+        sendConfirmationEmail(row.email, row.firstName).catch(err => {
+          console.error(`Failed to send email to ${row.email}:`, err);
+        });
+      });
+
+      // Return generic confirmation without user data
       return res.status(200).json({
-        message: `Saved ${validRows.length} member(s) for review`,
-        id: result.insertedId,
-        storage: 'MongoDB',
-        validationErrors: validationErrors.length > 0 ? validationErrors : undefined,
-        note: 'Your submission has been saved and will be reviewed before being uploaded to the system.'
+        success: true,
+        message: `Successfully submitted ${validRows.length} member(s). Confirmation emails have been sent.`,
+        count: validRows.length,
+        validationErrors: validationErrors.length > 0 ? validationErrors.length : undefined,
+        note: 'Your submission has been received and will be reviewed. You will receive an email confirmation shortly.'
       });
     } catch (dbError: any) {
-      // If MongoDB connection fails, save to Airtable with a special flag
-      console.error('MongoDB connection failed, using Airtable fallback:', dbError);
-      
-      // Import Airtable utils
-      const AirtableUtils = require('@/pages/api/submitForm').default;
-      
-      // Save each row to Airtable with a special field indicating it's pending review
-      const results = {
-        successful: 0,
-        failed: 0,
-        errors: [] as any[]
-      };
-
-      for (let i = 0; i < validRows.length; i++) {
-        const row = validRows[i];
-        try {
-          // Map to Airtable format
-          const formatPhoneNumber = (phoneNumber: string) => {
-            const cleaned = phoneNumber.replace(/\D/g, '');
-            if (cleaned.length === 10) {
-              return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
-            }
-            return phoneNumber;
-          };
-
-          const fields: any = {
-            "EMAIL ADDRESS": row.email,
-            "FIRST NAME": row.firstName,
-            "LAST NAME": row.lastName,
-            "BIO": row.bio,
-            "IDENTIFICATION": row.identification,
-            "GENDER": row.gender,
-            "PRIMARY INDUSTRY HOUSE": row.primaryIndustry,
-            "Address": row.address,
-            "Location (Nearest City)": row.nearestCity,
-            "PENDING_REVIEW": true, // Flag to indicate this needs review
-            "BATCH_UPLOAD_SUBMITTED_AT": new Date().toISOString()
-          };
-
-          // Add optional fields
-          if (row.email2) fields["Email 2"] = row.email2;
-          if (row.organizationName) fields["ORGANIZATION NAME"] = row.organizationName;
-          if (row.website) fields["WEBSITE"] = row.website;
-          if (row.phoneUS) fields["PHONE US/CAN ONLY"] = formatPhoneNumber(row.phoneUS);
-          if (row.phoneNonUS) fields["PHONE NON-US/CAN"] = row.phoneNonUS;
-          if (row.additionalFocus) {
-            fields["ADDITIONAL FOCUS AREAS"] = row.additionalFocus.split(',').map(s => s.trim()).filter(s => s);
-          }
-          if (row.naicsCode) fields["NAICS Code"] = row.naicsCode;
-          if (row.affiliatedEntity) fields["AFFILIATED ENTITY"] = row.affiliatedEntity;
-          if (row.country) fields["Country"] = row.country;
-          if (row.stateProvince) fields["State/Province"] = row.stateProvince;
-          if (row.state) fields["State"] = row.state;
-          if (row.zipCode) fields["Zip/Postal Code"] = parseInt(row.zipCode) || 0;
-          if (row.timezone) fields["Time zone"] = row.timezone;
-          if (row.includeOnMap) fields["Include me on Global BSN Map"] = row.includeOnMap === "Yes" || row.includeOnMap === "TRUE" || row.includeOnMap === "true";
-          if (row.latitude) fields["LATITUDE (NEW)"] = row.latitude;
-          if (row.longitude) fields["LONGITUDE (NEW)"] = row.longitude;
-          if (row.memberLevel) fields["MEMBER LEVEL"] = [row.memberLevel];
-          if (row.payingMember) fields["Paying Member (keep current)"] = row.payingMember === "Yes" || row.payingMember === "TRUE" || row.payingMember === "true";
-          if (row.equityMember) fields["Equity Member (keep current)"] = row.equityMember === "Yes" || row.equityMember === "TRUE" || row.equityMember === "true";
-          if (row.membershipNotes) fields["Membership Status Notes"] = row.membershipNotes;
-          if (row.sendPaymentEmail) fields["Send Need Payment Email"] = row.sendPaymentEmail === "Yes" || row.sendPaymentEmail === "TRUE" || row.sendPaymentEmail === "true";
-
-          // Check if record exists
-          const url = `https://api.airtable.com/v0/${process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID}/${process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME}`;
-          const searchResponse = await fetch(
-            url + `?filterByFormula={EMAIL ADDRESS}='${row.email}'`,
-            {
-              headers: {
-                'Authorization': `Bearer ${process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN}`,
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-          
-          const searchData = await searchResponse.json();
-          
-          if (searchData.records && searchData.records.length > 0) {
-            // Update existing record
-            const recordId = searchData.records[0].id;
-            await AirtableUtils.updateRecord(recordId, fields);
-          } else {
-            // Create new record
-            await AirtableUtils.submitToAirtable(fields);
-          }
-
-          results.successful++;
-        } catch (rowError: any) {
-          results.failed++;
-          results.errors.push({
-            row: i + 1,
-            email: row.email,
-            error: rowError.message || 'Unknown error'
-          });
-        }
-      }
-
-      console.log('✅ Saved to Airtable (MongoDB fallback):', results);
-      
-      return res.status(200).json({
-        message: `Saved ${results.successful} member(s) to Airtable (MongoDB unavailable)`,
-        storage: 'Airtable',
-        warning: 'MongoDB connection failed. Data saved directly to Airtable with PENDING_REVIEW flag.',
-        results: {
-          successful: results.successful,
-          failed: results.failed,
-          errors: results.errors
-        },
-        validationErrors: validationErrors.length > 0 ? validationErrors : undefined,
-        note: 'Note: These records are marked as PENDING_REVIEW in Airtable. Please review them before making them active.'
+      // MongoDB connection failed - return error
+      console.error('MongoDB connection failed:', dbError);
+      return res.status(500).json({ 
+        error: 'Database connection failed',
+        message: 'Unable to save your submission. Please try again later or contact support.',
+        details: 'The database is temporarily unavailable. Your data has not been saved.'
       });
     }
   } catch (error: any) {

@@ -13,33 +13,32 @@ export interface PendingBatchUpload {
 
 export interface BatchUploadRow {
   email: string;
-  email2?: string;
   firstName: string;
   lastName: string;
-  organizationName?: string;
-  website?: string;
+  memberLevel: string;
   bio: string;
+  organizationName?: string;
+  affiliatedEntity?: string;
+  photo?: string; // URL or base64
+  photoUrl?: string;
+  logo?: string; // URL or base64
+  logoUrl?: string;
   identification: string;
   gender: string;
-  phoneUS?: string;
-  phoneNonUS?: string;
+  website?: string;
+  phoneCountryCode?: string;
+  phone?: string;
+  additionalFocus?: string[]; // Array of focus area names
   primaryIndustry: string;
-  additionalFocus?: string;
-  naicsCode?: string;
-  affiliatedEntity?: string;
   address: string;
+  zipCode?: number;
+  youtube?: string;
   nearestCity: string;
-  country?: string;
-  stateProvince?: string;
-  state?: string;
-  zipCode?: string;
-  timezone?: string;
-  includeOnMap?: string;
-  latitude?: string;
-  longitude?: string;
-  memberLevel?: string;
-  payingMember?: string;
-  equityMember?: string;
-  membershipNotes?: string;
-  sendPaymentEmail?: string;
+  nameFromLocation?: string;
+  fundingGoal?: string;
+  similarCategories?: string[]; // Array of category names
+  naicsCode?: string;
+  includeOnMap?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
 }
