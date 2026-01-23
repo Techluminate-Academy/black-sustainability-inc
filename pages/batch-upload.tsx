@@ -13,7 +13,9 @@ import AirtableUtils from "@/pages/api/submitForm";
 
 // Helper function to strip emojis and spaces for sorting
 const stripEmojisAndSpaces = (str: string) => {
-  return str.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').replace(/^\s+/, '');
+  // Remove emojis (surrogate pairs) and leading spaces
+  // This regex matches emoji surrogate pairs without requiring the Unicode flag
+  return str.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '').replace(/^\s+/, '');
 };
 
 const US_STATES = [
