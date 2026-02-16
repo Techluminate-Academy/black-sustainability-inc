@@ -1,5 +1,6 @@
 import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
+import { getExcludeViewerId } from "../../lib/mapViewerGating";
 import CACHE_EXPIRY from '../../constants/CacheExpiry'
 const COLLECTION_NAME = "airtableRecords";
 
@@ -10,33 +11,29 @@ export default async function handler(req, res) {
     const recordsPerPage = parseInt(limit) || 50;
     const skip = (currentPage - 1) * recordsPerPage;
 
-    // Build cache key
-    const cacheKey = `filterData:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
-
-    // Check Redis cache
-    const cacheStart = Date.now();
-    const cachedData = await redis.get(cacheKey);
-    console.log(`Redis Fetch Time: ${Date.now() - cacheStart}ms`);
-    redis.keys("*").then((keys) => {
-      console.log("All keys:", keys);
-    }).catch((err) => {
-      console.error("Error fetching keys:", err);
-    });
-    if (cachedData) {
-      // console.log("✅ Serving from Cache");
-      return res.status(200).json(JSON.parse(cachedData));
-    }
-
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 
-    // Build the query object
+    const { excludeViewerId } = await getExcludeViewerId(req, collection);
+    const useCache = !excludeViewerId;
+
+    const cacheKey = `filterData:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
+    if (useCache) {
+      const cacheStart = Date.now();
+      const cachedData = await redis.get(cacheKey);
+      if (cachedData) {
+        return res.status(200).json(JSON.parse(cachedData));
+      }
+    }
+
     let query = {};
     if (industryHouse && industryHouse !== "") {
       query["fields.PRIMARY INDUSTRY HOUSE"] = industryHouse;
     }
+    if (excludeViewerId) {
+      query.$nor = [{ id: excludeViewerId }, { airtableId: excludeViewerId }];
+    }
 
-    // Fetch data from MongoDB
     const totalCount = await collection.countDocuments(query);
     const data = await collection.find(query).skip(skip).limit(recordsPerPage).toArray();
 
@@ -49,8 +46,9 @@ export default async function handler(req, res) {
       data,
     };
 
-    // Store in Redis
-    await redis.setex(cacheKey, CACHE_EXPIRY, JSON.stringify(response));
+    if (useCache) {
+      await redis.setex(cacheKey, CACHE_EXPIRY, JSON.stringify(response));
+    }
 
     res.status(200).json(response);
   } catch (error) {

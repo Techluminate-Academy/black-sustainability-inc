@@ -61,6 +61,9 @@ export default function Home() {
     50, 50, 200, 200, 300, 300, 500, 500, 800,
   ]); // Default value
 
+  // Fly map to a record (after search or clicking a sidebar card)
+  const [flyToCoordinates, setFlyToCoordinates] = useState<{ lng: number; lat: number; ts?: number } | null>(null);
+
   // New state for sidebar infinite scroll
   const [sidebarPage, setSidebarPage] = useState(1);
   // Modification: totalCount now initialized as null instead of 0.
@@ -92,6 +95,20 @@ export default function Home() {
       }
     }
   };
+
+  /** Get map coordinates from a list/map record (location.coordinates or fields lat/lng). */
+  const getRecordCoords = useCallback((record: any): { lng: number; lat: number } | null => {
+    const coords = record?.location?.coordinates;
+    if (Array.isArray(coords) && coords.length >= 2) {
+      const lng = parseFloat(coords[0]);
+      const lat = parseFloat(coords[1]);
+      if (!isNaN(lng) && !isNaN(lat)) return { lng, lat };
+    }
+    const lat = parseFloat(record?.fields?.["LATITUDE (NEW)"]);
+    const lng = parseFloat(record?.fields?.["LONGITUDE (NEW)"]);
+    if (!isNaN(lat) && !isNaN(lng)) return { lng, lat };
+    return null;
+  }, []);
 
   const scrollDown = () => {
     try {
@@ -387,15 +404,23 @@ export default function Home() {
   // }, []);
 
 
+  const fetchMapLocations = useCallback(async () => {
+    const response = await fetch("api/getMarkers", { credentials: "include" });
+    if (!response.ok) throw new Error("Failed to fetch locations data.");
+    const json = await response.json();
+    setMapLocations(json.data ?? []);
+  }, []);
+
   useEffect(() => {
-    const getMapLocations = async () => {
-      const response = await fetch("api/getMarkers");
-      if (!response.ok) throw new Error("Failed to fetch locations data.");
-      const json = await response.json();  // <--- this was missing
-      setMapLocations(json.data)
+    fetchMapLocations();
+  }, [fetchMapLocations]);
+
+  // Refetch map markers when user signs in so the map shows the correct list (e.g. P1 sees themselves)
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchMapLocations();
     }
-    getMapLocations()
-  }, [])
+  }, [isAuthenticated, fetchMapLocations]);
 
   // --------------------------------------------------------------------
   // 1. Initial Data Fetch for Map & Sidebar
@@ -409,7 +434,7 @@ export default function Home() {
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
       const initialLimit = isMobile ? 50 : 100;
       
-      fetch(`/api/getData?page=1&limit=${initialLimit}`)
+      fetch(`/api/getData?page=1&limit=${initialLimit}`, { credentials: "include" })
         .then((response) => {
           return response.json();
         })
@@ -555,7 +580,7 @@ export default function Home() {
   const handleLoadMore = async () => {
     const nextPage = sidebarPage + 1;
     try {
-      const res = await fetch(`/api/getData?page=${nextPage}&limit=100`);
+      const res = await fetch(`/api/getData?page=${nextPage}&limit=100`, { credentials: "include" });
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
         const newRecords = result.data.filter((item: any) => item !== null);
@@ -599,14 +624,19 @@ export default function Home() {
         setLoading(true);
         setPreloaderSidebar(true);
 
-        fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}&_t=${Date.now()}`)
+        fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}&_t=${Date.now()}`, { credentials: "include" })
           .then((response) => response.json())
           .then((result) => {
             if (result.success && Array.isArray(result.data)) {
-              // Batch data update to avoid blocking UI
+              const data = result.data;
               startTransition(() => {
-                setFilteredData(result.data);
+                setFilteredData(data);
               });
+              // Fly map to first search result
+              if (data.length > 0) {
+                const coords = getRecordCoords(data[0]);
+                if (coords) setFlyToCoordinates({ ...coords, ts: Date.now() });
+              }
             } else {
               if (process.env.NODE_ENV === 'development') {
                 console.error("🔍 Frontend: Search API did not return valid data", result);
@@ -640,7 +670,7 @@ export default function Home() {
     }, DEBOUNCE_DELAY);
 
     return () => clearTimeout(handler); // Cleanup previous timeout
-  }, [searchQuery, OriginalData]);
+  }, [searchQuery, OriginalData, getRecordCoords]);
 
 
   // --------------------------------------------------------------------
@@ -661,7 +691,7 @@ export default function Home() {
     try {
       // Keep loading state urgent (user needs immediate feedback)
       setPreloaderSidebar(true);
-      const res = await fetch(`/api/filterData?page=1&limit=100&industryHouse=${encodeURIComponent(selectedValue)}`);
+      const res = await fetch(`/api/filterData?page=1&limit=100&industryHouse=${encodeURIComponent(selectedValue)}`, { credentials: "include" });
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
         // Batch data updates to avoid blocking UI
@@ -816,8 +846,9 @@ export default function Home() {
     isAuthenticated,
     loadedData,
     hideCounter,
-    filteredData: searchQuery === "" && selectedIndustry === "" ? mapLocations : filteredData
-  }), [isAuthenticated, loadedData, hideCounter, searchQuery, selectedIndustry, mapLocations, filteredData]);
+    filteredData: searchQuery === "" && selectedIndustry === "" ? mapLocations : filteredData,
+    flyToCoordinates,
+  }), [isAuthenticated, loadedData, hideCounter, searchQuery, selectedIndustry, mapLocations, filteredData, flyToCoordinates]);
 
   // Memoized map component to prevent re-renders from popup state changes
   const MemoizedBsiMap = useMemo(() => (
@@ -827,8 +858,14 @@ export default function Home() {
       hideCounter={mapData.hideCounter}
       onMarkerHover={() => { }}
       filteredData={mapData.filteredData}
+      flyToCoordinates={mapData.flyToCoordinates}
     />
   ), [mapData]);
+
+  const handleRecordClickForMap = useCallback((record: any) => {
+    const coords = getRecordCoords(record);
+    if (coords) setFlyToCoordinates({ ...coords, ts: Date.now() });
+  }, [getRecordCoords]);
 
   return (
     <>
@@ -1005,6 +1042,7 @@ export default function Home() {
                   }
                   loading={loading}
                   hasSearched={hasSearched}
+                  onRecordClick={handleRecordClickForMap}
                 />
                 {filteredData.length > 0 &&
                   totalCount !== null &&

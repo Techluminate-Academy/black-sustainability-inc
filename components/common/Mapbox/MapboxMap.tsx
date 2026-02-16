@@ -19,6 +19,8 @@ interface IProps {
   hideCounter: boolean;
   filteredData: any[];
   onMarkerHover: (bounds: LatLngBounds) => void;
+  /** When set, map flies to this point (e.g. after search or clicking a sidebar card). ts forces re-fly when same coords. */
+  flyToCoordinates?: { lng: number; lat: number; ts?: number } | null;
 }
 
 interface MarkerWithId {
@@ -178,13 +180,25 @@ const createMarkerElement = (record: any, isAuthenticated: boolean): HTMLElement
   return el.firstElementChild as HTMLElement;
 };
 
-const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, filteredData }) => {
+const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, filteredData, flyToCoordinates }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<MarkerWithId[]>([]);
   const mapCenter: [number, number] = [-84.3877, 33.7488];
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Fly to a point when requested (e.g. after search or clicking a sidebar card)
+  useEffect(() => {
+    if (!flyToCoordinates || !mapRef.current) return;
+    const { lng, lat } = flyToCoordinates;
+    if (typeof lng !== "number" || typeof lat !== "number" || isNaN(lng) || isNaN(lat)) return;
+    mapRef.current.flyTo({
+      center: [lng, lat],
+      zoom: 14,
+      duration: 1000,
+    });
+  }, [flyToCoordinates?.lng, flyToCoordinates?.lat, flyToCoordinates?.ts]);
 
   // Detect mobile device
   useEffect(() => {

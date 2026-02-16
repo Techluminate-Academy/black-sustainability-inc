@@ -22,6 +22,8 @@ interface IProps {
   isAuthenticated: boolean;
   ConnectLink?: string;
   AFFILIATION?: string;
+  /** When set, clicking the card flies the map to this member's marker. */
+  onClick?: () => void;
 }
 
 const UserCard: React.FC<IProps> = ({
@@ -35,11 +37,17 @@ const UserCard: React.FC<IProps> = ({
   isAuthenticated,
   ConnectLink,
   AFFILIATION,
+  onClick,
   // State_Province,
   // NameFromLocation,
 }) => {
   return (
-    <div className=" bg-white rounded-2xl p-[7px] overflow-hidden space-y-[10px]">
+    <div
+      className=" bg-white rounded-2xl p-[7px] overflow-hidden space-y-[10px]"
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      style={onClick ? { cursor: "pointer" } : undefined}
+    >
       <div className="relative">
         {isAuthenticated ? (
           <div className="relative h-[250px] w-full bg-[#FFF8E5] rounded-xl">
@@ -168,6 +176,7 @@ const UserCard: React.FC<IProps> = ({
           target="_blank"
           rel="noreferrer"
           className="bg-[#FFBF23] border border-[#1A1A1A] flex justify-between items-center py-1 px-3 rounded-3xl"
+          onClick={(e) => e.stopPropagation()}
         >
           <span className="font-bold text-sm capitalize">connect</span>
           <icons.rightArrow />

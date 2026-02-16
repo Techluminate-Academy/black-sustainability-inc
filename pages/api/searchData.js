@@ -1,5 +1,6 @@
 import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
+import { getExcludeViewerId } from "../../lib/mapViewerGating";
 import CACHE_EXPIRY from "../../constants/CacheExpiry";
 
 export default async function handler(req, res) {
@@ -7,17 +8,18 @@ export default async function handler(req, res) {
     const { db } = await connectToDatabase();
     const collection = db.collection("airtableRecords");
 
-    // Read query parameters for search and filtering
-    const queryParams = req.query;
+    const { excludeViewerId } = await getExcludeViewerId(req, collection);
+    const useCache = !excludeViewerId;
 
-    // Generate a cache key based on the search query
+    const queryParams = req.query;
     const cacheKey = `search:${JSON.stringify(queryParams)}`;
-    
-    // Check Redis cache first
-    const cachedData = await redis.get(cacheKey);
-    if (cachedData) {
-      console.log('🔍 API: Serving from cache, skipping database query');
-      return res.status(200).json(JSON.parse(cachedData));
+
+    if (useCache) {
+      const cachedData = await redis.get(cacheKey);
+      if (cachedData) {
+        console.log('🔍 API: Serving from cache, skipping database query');
+        return res.status(200).json(JSON.parse(cachedData));
+      }
     }
     console.log('🔍 API: No cache found, querying database');
 
@@ -83,6 +85,10 @@ export default async function handler(req, res) {
     // NEW: Additional affiliated entity filter
     if (queryParams.affiliatedEntity)
       query["fields['AFFILIATED ENTITY']"] = queryParams.affiliatedEntity;
+
+    if (excludeViewerId) {
+      query.$nor = [{ id: excludeViewerId }, { airtableId: excludeViewerId }];
+    }
 
     // Retrieve matching documents
     console.log('Search query:', queryParams.q);
@@ -184,8 +190,9 @@ export default async function handler(req, res) {
 
     const responseData = { success: true, totalCount, data };
 
-    // Cache the search result for 5 minutes
-    await redis.set(cacheKey, JSON.stringify(responseData), "EX", CACHE_EXPIRY);
+    if (useCache) {
+      await redis.set(cacheKey, JSON.stringify(responseData), "EX", CACHE_EXPIRY);
+    }
 
     return res.status(200).json(responseData);
   } catch (error) {
