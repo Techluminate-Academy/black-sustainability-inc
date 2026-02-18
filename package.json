@@ -12,7 +12,8 @@
     "generate": "next build && next export",
     "test": "jest",
     "test:watch": "jest --watch",
-    "setup-master-forms": "ts-node -r tsconfig-paths/register scripts/setup-master-forms.ts"
+    "setup-master-forms": "ts-node -r tsconfig-paths/register scripts/setup-master-forms.ts",
+    "wix-fetch": "ts-node -r tsconfig-paths/register scripts/wix-fetch-subscriptions.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.0.0",
@@ -44,6 +45,9 @@
     "@types/react-map-gl": "^6.1.7",
     "@types/react-show-more-text": "^1.4.5",
     "@vis.gl/react-google-maps": "^0.6.1",
+    "@wix/members": "^1.0.424",
+    "@wix/pricing-plans": "^1.0.285",
+    "@wix/sdk": "^1.21.3",
     "array-move": "^4.0.0",
     "autoprefixer": "^10.4.17",
     "axios": "^1.10.0",
