@@ -14,8 +14,8 @@
     "test:watch": "jest --watch",
     "setup-master-forms": "ts-node -r tsconfig-paths/register scripts/setup-master-forms.ts",
     "wix-fetch": "ts-node -r tsconfig-paths/register scripts/wix-fetch-subscriptions.ts",
-    "wix-airtable-sync-dryrun": "ts-node -r tsconfig-paths/register scripts/wix-airtable-sync-dryrun.ts",
-    "wix-airtable-sync-apply": "ts-node -r tsconfig-paths/register scripts/wix-airtable-sync-apply.ts"
+    "wix-airtable-sync-dryrun": "tsx scripts/wix-airtable-sync-dryrun.ts",
+    "wix-airtable-sync-apply": "tsx scripts/wix-airtable-sync-apply.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.0.0",
@@ -119,6 +119,7 @@
     "jest-environment-jsdom": "^30.0.0-beta.3",
     "node-mocks-http": "^1.17.2",
     "ts-node": "^10.9.2",
-    "tsconfig-paths": "^4.2.0"
+    "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.21.0"
   }
 }
