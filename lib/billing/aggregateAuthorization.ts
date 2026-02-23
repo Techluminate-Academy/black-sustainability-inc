@@ -15,7 +15,7 @@ function subscriptionIsAuthorized(sub: WixSubscription): boolean {
   if (status === "Free trial") {
     return true;
   }
-  if (status === "Active" && payment === "Paid") {
+  if (status === "Active" && (payment === "Paid" || payment === "Pending")) {
     return true;
   }
   return false;

@@ -9,3 +9,10 @@ export {
   type WixClientConfig,
 } from "./client";
 export { fetchWixSubscriptionsFromApi } from "./fetchSubscriptions";
+export { aggregateWixAuthority } from "./aggregateWixAuthority";
+export { writeWixAuthorityReports } from "./writeWixAuthorityReports";
+export type {
+  WixSubscriptionRaw,
+  AggregatedAuthorityRow,
+  UnresolvedAuthorityRow,
+} from "./types";

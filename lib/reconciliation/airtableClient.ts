@@ -153,22 +153,33 @@ export type PatchPayingMemberOpts = {
   tableId: string;
   recordId: string;
   paying: boolean;
+  /** If true, also sets "Send Need Payment Email" = !paying. Default: true. */
+  setNeedPaymentEmail?: boolean;
 };
 
 export async function patchPayingMember(
   opts: PatchPayingMemberOpts
 ): Promise<void> {
-  const { apiKey, baseId, tableId, recordId, paying } = opts;
+  const {
+    apiKey,
+    baseId,
+    tableId,
+    recordId,
+    paying,
+    setNeedPaymentEmail = true,
+  } = opts;
   const url = `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(tableId)}/${encodeURIComponent(recordId)}`;
+  const fields: Record<string, unknown> = { [PAYING_FIELD]: paying };
+  if (setNeedPaymentEmail) {
+    fields[NEED_PAYMENT_FIELD] = !paying;
+  }
   const res = await fetch(url, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      fields: { [PAYING_FIELD]: paying },
-    }),
+    body: JSON.stringify({ fields }),
   });
   if (!res.ok) {
     const text = await res.text();

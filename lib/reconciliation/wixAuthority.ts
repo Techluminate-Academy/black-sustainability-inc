@@ -136,7 +136,7 @@ export async function loadWixSubscriptionsFromSource(
 
   if (preferApi && hasWixApiCredentials()) {
     try {
-      const subscriptions = await fetchWixSubscriptionsFromApi();
+      const { subscriptions } = await fetchWixSubscriptionsFromApi();
       return { subscriptions, source: "api" };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
