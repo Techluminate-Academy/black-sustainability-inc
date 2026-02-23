@@ -79,11 +79,11 @@ async function main() {
       byPayment.set(s.lastPaymentStatus, (byPayment.get(s.lastPaymentStatus) ?? 0) + 1);
     }
     console.log("\nBy subscription status:");
-    for (const [status, count] of [...byStatus.entries()].sort((a, b) => b[1]! - a[1]!)) {
+    for (const [status, count] of Array.from(byStatus.entries()).sort((a, b) => b[1]! - a[1]!)) {
       console.log(`  ${status}: ${count}`);
     }
     console.log("\nBy payment status:");
-    for (const [status, count] of [...byPayment.entries()].sort((a, b) => b[1]! - a[1]!)) {
+    for (const [status, count] of Array.from(byPayment.entries()).sort((a, b) => b[1]! - a[1]!)) {
       console.log(`  ${status}: ${count}`);
     }
 
