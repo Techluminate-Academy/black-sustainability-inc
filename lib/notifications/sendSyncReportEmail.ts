@@ -5,11 +5,9 @@
  */
 import nodemailer from "nodemailer";
 
-const RECIPIENTS = [
-  "admin@blacksustainability.org",
-  "info@blacksustainability.org",
-  "jerry@techluminateacademy.com",
-] as const;
+const TO_RECIPIENTS = ["kelyce@blacksustainability.org"] as const;
+const CC_RECIPIENTS = ["info@blacksustainability.org"] as const;
+const DEFAULT_FROM_EMAIL = "imara@blacksustainability.org";
 
 const MAX_LIST_ITEMS = 20;
 
@@ -42,6 +40,13 @@ function truncateList(arr: string[]): string {
   return `${shown} (+${more} more, see logs)`;
 }
 
+function getScheduledRunLabel(isoTimestamp: string): string {
+  const day = new Date(isoTimestamp).getUTCDate();
+  if (day === 1) return "1st of month";
+  if (day === 15) return "15th of month";
+  return "Off-cycle/manual run";
+}
+
 export function buildSubject(summary: SyncRunSummary): string {
   const totalChanges = summary.actions.setTrue + summary.actions.setFalse;
   const hasErrors = (summary.actions.errors ?? 0) > 0 || (summary.errors?.length ?? 0) > 0;
@@ -54,6 +59,8 @@ export function buildSubject(summary: SyncRunSummary): string {
 }
 
 export function buildHtmlBody(summary: SyncRunSummary): string {
+  const scheduledRunLabel = getScheduledRunLabel(summary.timestamp);
+
   const totalChanges = summary.actions.setTrue + summary.actions.setFalse;
   const errorCount = summary.actions.errors ?? 0;
   const hasErrors = errorCount > 0 || (summary.errors?.length ?? 0) > 0;
@@ -117,6 +124,7 @@ export function buildHtmlBody(summary: SyncRunSummary): string {
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <tr><td colspan="2" style="padding:0 0 12px 0;font-weight:600;color:#2c5aa0;font-size:12px;text-transform:uppercase">Run Details</td></tr>
         ${metricRow("Run type", summary.runType)}
+        ${metricRow("Scheduled run", scheduledRunLabel)}
         ${metricRow("Run ID", `#${summary.runId}`)}
         ${metricRow("Timestamp", summary.timestamp)}
         ${metricRow("Source", "Wix API")}
@@ -156,6 +164,8 @@ export function buildHtmlBody(summary: SyncRunSummary): string {
 }
 
 function buildPlainTextBody(summary: SyncRunSummary): string {
+  const scheduledRunLabel = getScheduledRunLabel(summary.timestamp);
+
   const totalChanges = summary.actions.setTrue + summary.actions.setFalse;
   const errorCount = summary.actions.errors ?? 0;
   const hasErrors = errorCount > 0 || (summary.errors?.length ?? 0) > 0;
@@ -170,6 +180,7 @@ function buildPlainTextBody(summary: SyncRunSummary): string {
 
 Run details
 - Run type: ${summary.runType}
+- Scheduled run: ${scheduledRunLabel}
 - Run ID: #${summary.runId}
 - Timestamp: ${summary.timestamp}
 - Source of truth: Wix API
@@ -222,6 +233,8 @@ export async function sendSyncReportEmail(
 ): Promise<void> {
   const emailUser = process.env.EMAIL_USER?.trim();
   const emailPassword = process.env.EMAIL_PASSWORD?.trim();
+  const configuredFrom = process.env.SYNC_REPORT_FROM?.trim();
+  const fromEmail = configuredFrom || DEFAULT_FROM_EMAIL;
   if (!emailUser || !emailPassword) {
     console.warn("EMAIL_USER or EMAIL_PASSWORD not configured, skipping sync report email");
     return;
@@ -249,8 +262,9 @@ export async function sendSyncReportEmail(
     });
 
     await transporter.sendMail({
-      from: `"Black Sustainability, Inc." <${emailUser}>`,
-      to: RECIPIENTS.join(", "),
+      from: `"Black Sustainability, Inc. (Imara)" <${fromEmail}>`,
+      to: TO_RECIPIENTS.join(", "),
+      cc: CC_RECIPIENTS.join(", "),
       subject,
       text,
       html,
