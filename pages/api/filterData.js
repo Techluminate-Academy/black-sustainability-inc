@@ -72,6 +72,10 @@ export default async function handler(req, res) {
 
     const response = {
       success: true,
+      meta: {
+        collection: COLLECTION_NAME,
+        buildCommit: process.env.RENDER_GIT_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA || null,
+      },
       page: currentPage,
       limit: recordsPerPage,
       totalPages: Math.ceil(totalCount / recordsPerPage),
