@@ -6,6 +6,7 @@ import React, { useState } from "react";
 import { usePathname } from "next/navigation";
 import icons from "@/icons";
 import { useRouter } from "next/router";
+import toast from "react-hot-toast";
 
 interface IProps {
   isAuthenticated: boolean;
@@ -26,10 +27,16 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
     "py-2 px-4 border border-gray-300 text-gray-800 rounded-md font-semibold uppercase text-xs transition hover:bg-gray-50";
 
   const handleLogout = async () => {
+    const loadingId = toast.loading("Signing out…");
     try {
-      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    } finally {
-      window.location.href = "/";
+      const res = await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+      if (!res.ok) throw new Error("Logout failed");
+      toast.success("You're signed out.", { id: loadingId });
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 600);
+    } catch {
+      toast.error("Could not sign out. Try again.", { id: loadingId });
     }
   };
 

@@ -1,17 +1,18 @@
 import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
-import { getExcludeViewerId } from "../../lib/mapViewerGating";
+import { getExcludeViewerMighty } from "../../lib/mapViewerGating";
+import { buildPrimaryIndustryHouseFilter } from "../../lib/buildIndustryHouseQuery";
+import { toAirtableishDoc } from "../../lib/mightyMemberAirtableShape";
 
-const COLLECTION_NAME = "airtableRecords";
+const COLLECTION_NAME = "mightyMembers";
 import CACHE_EXPIRY from '../../constants/CacheExpiry'
 
 export default async function handler(req, res) {
-  // Set response timeout to prevent hanging
   const timeout = setTimeout(() => {
     if (!res.headersSent) {
       res.status(503).json({ success: false, error: 'Request timeout - server took too long to respond' });
     }
-  }, 10000); // 10 second timeout
+  }, 10000);
 
   try {
     const { industryHouse, page, limit } = req.query;
@@ -22,10 +23,11 @@ export default async function handler(req, res) {
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 
-    const { excludeViewerId } = await getExcludeViewerId(req, collection);
-    const useCache = !excludeViewerId;
+    const { excludeMongoId, excludeMightyId } = await getExcludeViewerMighty(req, collection);
+    const excludeViewer = !!excludeMongoId || excludeMightyId != null;
+    const useCache = !excludeViewer;
 
-    const cacheKey = `filterData:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
+    const cacheKey = `getData:v3:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
     if (useCache) {
       const cacheStart = Date.now();
       const cachedData = await redis.get(cacheKey);
@@ -37,16 +39,20 @@ export default async function handler(req, res) {
       }
     }
 
-    // 🔹 Build MongoDB query
     let query = {};
     if (industryHouse && industryHouse !== "") {
-      query["fields.PRIMARY INDUSTRY HOUSE"] = industryHouse;
+      const industryClause = buildPrimaryIndustryHouseFilter(industryHouse);
+      if (industryClause != null) {
+        query.industry = industryClause;
+      }
     }
-    if (excludeViewerId) {
-      query.$nor = [{ id: excludeViewerId }, { airtableId: excludeViewerId }];
+    if (excludeViewer) {
+      const nor = [];
+      if (excludeMongoId) nor.push({ _id: excludeMongoId });
+      if (excludeMightyId != null) nor.push({ mightyId: excludeMightyId });
+      if (nor.length) query.$nor = nor;
     }
 
-    // 🔹 Fetch data from MongoDB with optimized query
     const mongoStart = Date.now();
     const [totalCount, data] = await Promise.all([
       collection.countDocuments(query),
@@ -64,7 +70,7 @@ export default async function handler(req, res) {
       limit: recordsPerPage,
       totalPages: Math.ceil(totalCount / recordsPerPage),
       totalCount,
-      data,
+      data: data.map(toAirtableishDoc),
     };
 
     if (useCache) {

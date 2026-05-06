@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import toast from 'react-hot-toast';
 
 export default function SignInPage() {
   const router = useRouter();
@@ -30,11 +31,15 @@ export default function SignInPage() {
         throw new Error(data.error || 'Sign-in failed');
       }
 
+      const first = data.user?.firstName ? String(data.user.firstName).trim() : '';
+      toast.success(first ? `Welcome back, ${first}!` : "You're signed in. Opening the map…");
       await router.replace('/');
     } catch (error) {
+      const text = error.message || 'An unexpected error occurred.';
+      toast.error(text);
       setMessage({
         type: 'error',
-        text: error.message || 'An unexpected error occurred.',
+        text,
       });
     } finally {
       setIsSubmitting(false);

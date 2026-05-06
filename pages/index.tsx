@@ -12,7 +12,6 @@ import icons from "@/icons";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { BsiUserObjectArray } from "@/typings";
-import { getAllRecordsFromAirtable } from "@/utils/airtable";
 import Loader from "@/components/common/loader";
 import { LatLngBounds } from "leaflet";
 import { testPerformanceMonitoring } from "@/lib/testPerformance";

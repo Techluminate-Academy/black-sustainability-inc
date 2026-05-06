@@ -4,7 +4,7 @@ import { MongoClient } from 'mongodb';
 
 const MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI;
 const DATABASE_NAME = 'members';         // Name of the database that stores member records.
-const COLLECTION_NAME = 'airtableRecords'; // Name of the collection with member data.
+const COLLECTION_NAME = 'mightyMembers'; // Directory / member map data
 
 export default async function handler(req, res) {
   // Verify that an Authorization header is provided.

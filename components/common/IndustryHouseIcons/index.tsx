@@ -7,6 +7,7 @@ interface IProps {
 
 export const industries = [
   { label: "🌾 Agriculture/Sustainable Food Production / Land Management", value: "🌾 Agriculture/Sustainable Food Production / Land Management", source: "agric" },
+  { label: "🌾 Reparative Agriculture", value: "🌾 Reparative Agriculture", source: "agric" },
   { label: "💰 Alternative Economics", value: "💰 Alternative Economics", source: "AlternativeEp" },
   { label: "☀️ Alternative Energy", value: "☀️ Alternative Energy", source: "AlternaiveEnergy" },
   { label: "Business", value: "Business", source: "default" },

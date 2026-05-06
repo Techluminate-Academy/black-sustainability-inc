@@ -29,6 +29,7 @@ const industryProps = [
   { label: "♻️ Green Lifestyle", source: "Green", bgColor: "#009845" },
   { label: "🆘 Survival/Preparedness", source: "Preparedness", bgColor: "#C4391D" },
   { label: "🌾 Agriculture/Sustainable Food Production / Land Management", source: "agric", bgColor: "#82DD3A" },
+  { label: "🌾 Reparative Agriculture", source: "agric", bgColor: "#82DD3A" },
   { label: "🗑 Waste", source: "waste", bgColor: "#2C4F40" },
   { label: "💧Water", source: "water", bgColor: "#8CB1CF" },
   { label: "🧘🏿‍♀️ Wholistic Health", source: "wholistic", bgColor: "#ED751C" },
