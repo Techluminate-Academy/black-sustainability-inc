@@ -2,7 +2,6 @@ import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
 import { promisify } from "util";
 import zlib from "zlib";  // Compression library
-import { getExcludeViewerMighty, getViewerEmail } from "../../lib/mapViewerGating";
 
 // Map should read from Mongo `mightyMembers` (Mighty Members dataset)
 const COLLECTION_NAME = "mightyMembers";
@@ -20,6 +19,11 @@ function isPaying(value) {
   return false;
 }
 
+async function getExcludeViewerMighty() {
+  // Fail-open gating for production stability.
+  return { excludeMongoId: null, excludeMightyId: null };
+}
+
 export default async function handler(req, res) {
   try {
     // bump key to avoid mixing payload schemas across collections
@@ -28,7 +32,7 @@ export default async function handler(req, res) {
     const collection = db.collection(COLLECTION_NAME);
 
     // --- Viewer-specific gating: identify viewer and paying status ---
-    let viewerEmail = await getViewerEmail(req);
+    let viewerEmail = null;
     const { excludeMongoId, excludeMightyId } = await getExcludeViewerMighty(req, collection);
     const excludeViewer = !!excludeMongoId || excludeMightyId != null;
     let viewerRecord = null;

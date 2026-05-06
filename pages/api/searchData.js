@@ -1,7 +1,11 @@
 import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
-import { getExcludeViewerMighty } from "../../lib/mapViewerGating";
 import CACHE_EXPIRY from "../../constants/CacheExpiry";
+
+async function getExcludeViewerMighty() {
+  // Fail-open gating for production stability.
+  return { excludeMongoId: null, excludeMightyId: null };
+}
 
 export default async function handler(req, res) {
   try {

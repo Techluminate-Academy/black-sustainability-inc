@@ -1,8 +1,12 @@
 import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
-import { getExcludeViewerMighty } from "../../lib/mapViewerGating";
 import CACHE_EXPIRY from '../../constants/CacheExpiry'
 const COLLECTION_NAME = "mightyMembers";
+
+async function getExcludeViewerMighty() {
+  // Fail-open gating for production stability.
+  return { excludeMongoId: null, excludeMightyId: null };
+}
 
 function buildIndustryQuery(industryHouse) {
   // Expand agriculture selection to cover legacy + current variants in Mongo.
