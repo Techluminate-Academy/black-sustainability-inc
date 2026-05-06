@@ -1094,7 +1094,7 @@ export default function Home() {
                   totalCount !== null &&
                   ((typeof totalPages === "number" && sidebarPage < totalPages) ||
                     (typeof totalPages !== "number" && filteredData.length < totalCount)) && (
-                    <div className="py-6 flex justify-center">
+                    <div className="sticky bottom-0 left-0 w-full bg-[#FFF8E5] py-4 flex justify-center border-t border-black/10">
                       <button
                         onClick={handleLoadMore}
                         className="px-6 py-3 bg-[#FFBF23] text-black font-semibold rounded-full shadow-md hover:bg-yellow-500 transition duration-200 ease-in-out"
