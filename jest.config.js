@@ -15,4 +15,5 @@ module.exports = {
     '^.+\\.module\\.(css|sass|scss)$',
   ],
   moduleDirectories: ['node_modules', '<rootDir>'],
+  watchman: false,
 }; 
