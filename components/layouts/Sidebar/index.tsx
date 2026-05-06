@@ -7,6 +7,9 @@ interface IProps {
   totalNumber: any;
   loading?: boolean;
   hasSearched?: boolean;
+  /** Show "Load More" control (top, desktop only). */
+  showLoadMoreTop?: boolean;
+  onLoadMore?: () => void;
   /** When user clicks a result card, fly map to that marker. */
   onRecordClick?: (record: any) => void;
 }
@@ -17,6 +20,8 @@ const Sidebar: React.FC<IProps> = ({
   totalNumber,
   loading,
   hasSearched,
+  showLoadMoreTop,
+  onLoadMore,
   onRecordClick,
 }) => {
   // If we're still loading, don't render any search results or messages.
@@ -40,6 +45,14 @@ const Sidebar: React.FC<IProps> = ({
     <div>
       <div className="px-5 pb-1 flex items-center justify-between">
         <span className="font-bold">{totalNumber} result(s)</span>
+        {showLoadMoreTop && typeof onLoadMore === "function" ? (
+          <button
+            onClick={onLoadMore}
+            className="hidden md:inline-flex px-4 py-2 bg-[#FFBF23] text-black font-semibold rounded-full shadow-sm hover:bg-yellow-500 transition duration-200 ease-in-out"
+          >
+            Load More
+          </button>
+        ) : null}
       </div>
       <div className="grid 2xl:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-4 px-4">
         {filteredData?.map((data: any, idx: any) => (

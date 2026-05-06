@@ -1080,12 +1080,23 @@ export default function Home() {
               </div>
             ) : (
               <>
+                {/*
+                  Show top Load More on desktop so users can page without scrolling.
+                  Bottom sticky Load More remains for all viewports.
+                */}
                 <Sidebar
                   filteredData={filteredData}
                   isAuthenticated={isAuthenticated}
                   totalNumber={
                     totalCount!
                   }
+                  showLoadMoreTop={
+                    filteredData.length > 0 &&
+                    totalCount !== null &&
+                    ((typeof totalPages === "number" && sidebarPage < totalPages) ||
+                      (typeof totalPages !== "number" && filteredData.length < totalCount))
+                  }
+                  onLoadMore={handleLoadMore}
                   loading={loading}
                   hasSearched={hasSearched}
                   onRecordClick={handleRecordClickForMap}
