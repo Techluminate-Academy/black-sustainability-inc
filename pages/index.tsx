@@ -322,31 +322,31 @@ export default function Home() {
     };
   }, []);
 
-  // ─── 0. Bootstrap & re-write cross-site bsn_user_data cookie into first-party ──
+  // ─── 0. Session: httpOnly Mighty-verified cookie (server checks via /api/auth/session) ──
   useEffect(() => {
-    function getCookie(name: string): string | null {
-      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-      return match ? decodeURIComponent(match[2]) : null;
-    }
-
-    const raw = getCookie('bsn_user_data');
-    if (!raw) {
-      setIsAuthenticated(false);
-      setAuthenticatedUser(null);
-      return;
-    }
-
+    let cancelled = false;
+    (async () => {
       try {
-        const userObj = JSON.parse(raw);
-        setAuthenticatedUser(userObj);
-        setIsAuthenticated(true);
-      } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Error parsing user data:', err);
+        const res = await fetch("/api/auth/session", { credentials: "include" });
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.authenticated && data.user) {
+          setAuthenticatedUser(data.user);
+          setIsAuthenticated(true);
+        } else {
+          setAuthenticatedUser(null);
+          setIsAuthenticated(false);
         }
-        setIsAuthenticated(false);
-        setAuthenticatedUser(null);
+      } catch {
+        if (!cancelled) {
+          setAuthenticatedUser(null);
+          setIsAuthenticated(false);
+        }
       }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Guided Tour Initialization - Removed automatic trigger
@@ -405,7 +405,7 @@ export default function Home() {
 
 
   const fetchMapLocations = useCallback(async () => {
-    const response = await fetch("api/getMarkers", { credentials: "include" });
+    const response = await fetch("/api/getMarkers", { credentials: "include" });
     if (!response.ok) throw new Error("Failed to fetch locations data.");
     const json = await response.json();
     setMapLocations(json.data ?? []);
@@ -1092,18 +1092,28 @@ export default function Home() {
                   <p className="md:max-w-md w-full sm:text-base text-xs text-center text-black sm:leading-[20px] leading-3">
                     Consider becoming a member to view our members' profile pictures.
                   </p>
-                  <div className="mt-2 flex gap-x-2 justify-center items-center">
+                  <div className="mt-2 flex flex-col sm:flex-row gap-2 justify-center items-stretch sm:items-center max-w-md mx-auto">
                     <button
+                      type="button"
+                      onClick={() => route.push("/signin")}
+                      className="flex gap-x-2 items-center justify-center w-full sm:px-5 p-2.5 bg-green-600 text-white rounded-full hover:bg-green-700"
+                    >
+                      <span className="text-white font-semibold sm:text-base text-sm">
+                        Member sign in
+                      </span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() =>
                         route.push("https://www.blacksustainability.org/")
                       }
-                      className="flex gap-x-2 items-center w-full sm:px-5 p-2.5 bg-[#FFBF23] rounded-full"
+                      className="flex gap-x-2 items-center justify-center w-full sm:px-5 p-2.5 bg-[#FFBF23] rounded-full"
                     >
                       <span className="sm:block hidden">
                         <icons.signup />
                       </span>
                       <span className="text-black font-semibold sm:text-base text-sm">
-                        Login / Become a Member
+                        Become a member
                       </span>
                     </button>
                   </div>

@@ -2,8 +2,7 @@ import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
 import { promisify } from "util";
 import zlib from "zlib";  // Compression library
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "./auth/[...nextauth]";
+import { getViewerEmail } from "../../lib/mapViewerGating";
 
 const COLLECTION_NAME = "airtableRecords";
 import CACHE_EXPIRY from '../../constants/CacheExpiry';
@@ -18,43 +17,6 @@ function isPaying(value) {
   if (value === true || value === 1) return true;
   if (typeof value === "string" && (value === "true" || value === "True")) return true;
   return false;
-}
-
-/** Get viewer email from NextAuth session or bsn_user_data cookie (trusted server-side). */
-async function getViewerEmail(req) {
-  const cookieHeader = req.headers.cookie || "";
-  const match = cookieHeader.match(/\bbsn_user_data=([^;]+)/);
-  if (match && process.env.NODE_ENV === "development") {
-    try {
-      const parsed = JSON.parse(decodeURIComponent(match[1].trim()));
-      const email = parsed?.loginEmail ?? parsed?.email;
-      if (email) {
-        const normalized = String(email).trim().toLowerCase();
-        console.log("[getMarkers] viewer from cookie (login-as):", normalized);
-        return normalized;
-      }
-    } catch {
-      // fall through to session
-    }
-  }
-
-  const session = await getServerSession(req, null, authOptions);
-  if (session?.user?.email) {
-    const fromSession = (session.user.email || "").trim().toLowerCase();
-    if (process.env.NODE_ENV === "development") {
-      console.log("[getMarkers] viewer from NextAuth session:", fromSession);
-    }
-    return fromSession;
-  }
-
-  if (!match) return null;
-  try {
-    const parsed = JSON.parse(decodeURIComponent(match[1].trim()));
-    const email = parsed?.loginEmail ?? parsed?.email;
-    return email ? String(email).trim().toLowerCase() : null;
-  } catch {
-    return null;
-  }
 }
 
 export default async function handler(req, res) {
@@ -96,12 +58,16 @@ export default async function handler(req, res) {
     const useCache = !excludeViewerId;
     if (useCache) {
       const cacheStart = Date.now();
-      const cachedData = await redis.get(cacheKey);
-      if (cachedData) {
-        const decompressedData = await inflate(Buffer.from(cachedData, 'base64'));
-        const parsedData = JSON.parse(decompressedData.toString());
-        console.log(`✅ Served from Redis cache in ${Date.now() - cacheStart}ms`);
-        return res.status(200).json(parsedData);
+      try {
+        const cachedData = await redis.get(cacheKey);
+        if (cachedData) {
+          const decompressedData = await inflate(Buffer.from(cachedData, "base64"));
+          const parsedData = JSON.parse(decompressedData.toString());
+          console.log(`✅ Served from Redis cache in ${Date.now() - cacheStart}ms`);
+          return res.status(200).json(parsedData);
+        }
+      } catch (cacheErr) {
+        console.error("⚠️ Redis cache read/decode failed; falling back to Mongo:", cacheErr?.message || cacheErr);
       }
     }
 
@@ -160,10 +126,14 @@ export default async function handler(req, res) {
     const response = { success: true, data };
 
     if (useCache) {
-      const compressedData = await deflate(JSON.stringify(response));
-      const compressedDataBase64 = compressedData.toString('base64');
-      await redis.setex(cacheKey, CACHE_EXPIRY, compressedDataBase64);
-      console.log(`✅ Cached data for all records in Redis`);
+      try {
+        const compressedData = await deflate(JSON.stringify(response));
+        const compressedDataBase64 = compressedData.toString("base64");
+        await redis.setex(cacheKey, CACHE_EXPIRY, compressedDataBase64);
+        console.log(`✅ Cached data for all records in Redis`);
+      } catch (cacheWriteErr) {
+        console.error("⚠️ Redis cache write failed (response still returned):", cacheWriteErr?.message || cacheWriteErr);
+      }
     }
 
     res.status(200).json(response);

@@ -22,6 +22,16 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
   const parsedUser = authenticatedUser || null;
 
   const greenBtn = "py-2 px-4 bg-green-500 text-white rounded-md font-semibold uppercase text-xs transition hover:bg-green-600";
+  const mutedBtn =
+    "py-2 px-4 border border-gray-300 text-gray-800 rounded-md font-semibold uppercase text-xs transition hover:bg-gray-50";
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } finally {
+      window.location.href = "/";
+    }
+  };
 
   return (
     <nav className="bg-white w-full fixed top-0 left-0 !z-[9999] font-lexen">
@@ -53,6 +63,9 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                     Update Profile / Map Listing
                   </button>
                 </Link>
+                <button type="button" className={mutedBtn} onClick={handleLogout}>
+                  Log out
+                </button>
                 <div className="flex space-x-2">
                   <div className="relative w-7 h-7">
                     <Image
@@ -65,12 +78,7 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                 </div>
               </>
             ) : (
-              <button
-                className={greenBtn}
-                onClick={() =>
-                  router.replace("https://www.blacksustainability.org/")
-                }
-              >
+              <button className={greenBtn} onClick={() => router.push("/signin")}>
                 Login
               </button>
             )}
@@ -142,6 +150,16 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                           Update Profile / Map Listing
                         </button>
                       </Link>
+                      <button
+                        type="button"
+                        className={mutedBtn}
+                        onClick={() => {
+                          toggleMobileNav();
+                          void handleLogout();
+                        }}
+                      >
+                        Log out
+                      </button>
                       <div className="flex space-x-2">
                         <div className="relative w-4 h-4">
                           <Image
@@ -158,7 +176,7 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                       className={greenBtn}
                       onClick={() => {
                         toggleMobileNav();
-                        router.replace("https://www.blacksustainability.org/");
+                        router.push("/signin");
                       }}
                     >
                       Login
