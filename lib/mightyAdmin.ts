@@ -2,7 +2,7 @@ type MightyAdminMember = Record<string, any>;
 
 function requireEnv(name: string): string {
   const v = process.env[name];
-  if (!v) throw new Error(`${name} is not defined`);
+  if (!v) throw new Error(`${name} is not configured`);
   return v;
 }
 
@@ -41,18 +41,14 @@ export type MightyMember = {
   last_name?: string | null;
 };
 
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`${name} is not configured`);
-  return v;
-}
-
 function getNetworkId(): string {
   return (process.env.MIGHTY_NETWORK_ID || "1303008").toString();
 }
 
 function getApiKey(): string {
-  return requireEnv("MIGHTY_API_KEY") || requireEnv("MIGHTY_NETWORK_API_KEY");
+  const v = process.env.MIGHTY_API_KEY || process.env.MIGHTY_NETWORK_API_KEY;
+  if (!v) throw new Error("MIGHTY_API_KEY or MIGHTY_NETWORK_API_KEY is not configured");
+  return v;
 }
 
 export async function mightyGetMemberByEmail(
