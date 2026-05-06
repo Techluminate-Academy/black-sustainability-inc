@@ -68,6 +68,7 @@ export default function Home() {
   const [sidebarPage, setSidebarPage] = useState(1);
   // Modification: totalCount now initialized as null instead of 0.
   const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [totalPages, setTotalPages] = useState<number | null>(null);
   const [activeEndpoint, setActiveEndpoint] = useState<"getData" | "filterData" | "searchData">("getData");
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [showScrollButtons, setShowScrollButtons] = useState(false);
@@ -610,6 +611,9 @@ export default function Home() {
           if (typeof result.totalCount === "number") {
             setTotalCount(result.totalCount);
           }
+          if (typeof result.totalPages === "number") {
+            setTotalPages(result.totalPages);
+          }
           setSidebarPage(nextPage);
         });
       } else {
@@ -659,6 +663,12 @@ export default function Home() {
               if (typeof result.totalCount === "number") {
                 setTotalCount(result.totalCount);
               }
+              if (typeof result.totalPages === "number") {
+                setTotalPages(result.totalPages);
+              } else {
+                // searchData currently returns totalCount only
+                setTotalPages(null);
+              }
               // Fly map to first search result
               if (data.length > 0) {
                 const coords = getRecordCoords(data[0]);
@@ -694,6 +704,7 @@ export default function Home() {
         // - otherwise, fall back to the unfiltered list
         setActiveEndpoint(selectedIndustry ? "filterData" : "getData");
         setSidebarPage(1);
+        setTotalPages(null);
         // If search query is empty, reset to original data (non-urgent)
         startTransition(() => {
           setFilteredData(OriginalData);
@@ -715,6 +726,7 @@ export default function Home() {
     setSidebarPage(1);
     if (selectedValue === "") {
       setActiveEndpoint("getData");
+      setTotalPages(null);
       // Batch data reset updates (non-urgent)
       startTransition(() => {
         setFilteredData(OriginalData);
@@ -733,6 +745,7 @@ export default function Home() {
         startTransition(() => {
           setFilteredData(result.data);
           setTotalCount(typeof result.totalCount === "number" ? result.totalCount : result.data.length);
+          setTotalPages(typeof result.totalPages === "number" ? result.totalPages : null);
         });
         // Keep loading state urgent
         setPreloaderSidebar(false);
@@ -1079,8 +1092,9 @@ export default function Home() {
                 />
                 {filteredData.length > 0 &&
                   totalCount !== null &&
-                  filteredData.length < totalCount && (
-                    <div className="py-4">
+                  ((typeof totalPages === "number" && sidebarPage < totalPages) ||
+                    (typeof totalPages !== "number" && filteredData.length < totalCount)) && (
+                    <div className="py-6 flex justify-center">
                       <button
                         onClick={handleLoadMore}
                         className="px-6 py-3 bg-[#FFBF23] text-black font-semibold rounded-full shadow-md hover:bg-yellow-500 transition duration-200 ease-in-out"
