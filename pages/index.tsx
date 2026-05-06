@@ -9,13 +9,13 @@ import Head from "next/head";
 import { IndustryHouses } from "@/utils/IndustryDetails";
 import dynamic from "next/dynamic";
 import icons from "@/icons";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { BsiUserObjectArray } from "@/typings";
 import { getAllRecordsFromAirtable } from "@/utils/airtable";
 import Loader from "@/components/common/loader";
 import { LatLngBounds } from "leaflet";
 import { testPerformanceMonitoring } from "@/lib/testPerformance";
+import { toast } from "react-hot-toast";
 
 // Dynamic import for Joyride to prevent SSR issues
 const Joyride = dynamic(() => import('react-joyride'), {
@@ -33,7 +33,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredData, setFilteredData] = useState<BsiUserObjectArray>([]);
   const [OriginalData, setOriginalData] = useState<BsiUserObjectArray>([]);
-  const [authenticatedUser, setAuthenticatedUser] = useState<any>(null);
+  const [authenticatedUser, setAuthenticatedUser] = useState<string>("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isPopUpActive, setIsPopUpActive] = useState(false);
@@ -68,7 +68,7 @@ export default function Home() {
   const [sidebarPage, setSidebarPage] = useState(1);
   // Modification: totalCount now initialized as null instead of 0.
   const [totalCount, setTotalCount] = useState<number | null>(null);
-  const route = useRouter();
+  const [activeEndpoint, setActiveEndpoint] = useState<"getData" | "filterData" | "searchData">("getData");
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [showScrollButtons, setShowScrollButtons] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -322,31 +322,43 @@ export default function Home() {
     };
   }, []);
 
-  // ─── 0. Bootstrap & re-write cross-site bsn_user_data cookie into first-party ──
+  // Server-verified session (httpOnly cookie; no document.cookie / bsn_user_data)
   useEffect(() => {
-    function getCookie(name: string): string | null {
-      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-      return match ? decodeURIComponent(match[2]) : null;
-    }
-
-    const raw = getCookie('bsn_user_data');
-    if (!raw) {
-      setIsAuthenticated(false);
-      setAuthenticatedUser(null);
-      return;
-    }
-
+    let cancelled = false;
+    (async () => {
       try {
-        const userObj = JSON.parse(raw);
-        setAuthenticatedUser(userObj);
-        setIsAuthenticated(true);
-      } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Error parsing user data:', err);
+        const res = await fetch("/api/auth/session", { credentials: "include" });
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.authenticated && data.user?.email) {
+          setIsAuthenticated(true);
+          setAuthenticatedUser(String(data.user.email));
+        } else {
+          setIsAuthenticated(false);
+          setAuthenticatedUser("");
         }
-        setIsAuthenticated(false);
-        setAuthenticatedUser(null);
+      } catch (err) {
+        if (process.env.NODE_ENV === "development") {
+          console.error("Session check failed:", err);
+        }
+        if (!cancelled) {
+          setIsAuthenticated(false);
+          setAuthenticatedUser("");
+        }
       }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth") === "failed") {
+      toast.error("Sign-in was not completed. Please try again.");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   }, []);
 
   // Guided Tour Initialization - Removed automatic trigger
@@ -580,7 +592,14 @@ export default function Home() {
   const handleLoadMore = async () => {
     const nextPage = sidebarPage + 1;
     try {
-      const res = await fetch(`/api/getData?page=${nextPage}&limit=100`, { credentials: "include" });
+      const url =
+        activeEndpoint === "searchData"
+          ? `/api/searchData?page=${nextPage}&limit=100&q=${encodeURIComponent(searchQuery)}&_t=${Date.now()}`
+          : activeEndpoint === "filterData"
+            ? `/api/filterData?page=${nextPage}&limit=100&industryHouse=${encodeURIComponent(selectedIndustry)}`
+            : `/api/getData?page=${nextPage}&limit=100`;
+
+      const res = await fetch(url, { credentials: "include" });
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
         const newRecords = result.data.filter((item: any) => item !== null);
@@ -588,6 +607,9 @@ export default function Home() {
         startTransition(() => {
           setFilteredData((prev: any) => [...prev, ...newRecords]);
           setOriginalData((prev: any) => [...prev, ...newRecords]);
+          if (typeof result.totalCount === "number") {
+            setTotalCount(result.totalCount);
+          }
           setSidebarPage(nextPage);
         });
       } else {
@@ -620,6 +642,8 @@ export default function Home() {
   useEffect(() => {
     const handler = setTimeout(() => {
       if (searchQuery.trim() !== "") {
+        setActiveEndpoint("searchData");
+        setSidebarPage(1);
         // Keep loading states urgent (user needs immediate feedback)
         setLoading(true);
         setPreloaderSidebar(true);
@@ -632,6 +656,9 @@ export default function Home() {
               startTransition(() => {
                 setFilteredData(data);
               });
+              if (typeof result.totalCount === "number") {
+                setTotalCount(result.totalCount);
+              }
               // Fly map to first search result
               if (data.length > 0) {
                 const coords = getRecordCoords(data[0]);
@@ -662,6 +689,11 @@ export default function Home() {
             setPreloaderSidebar(false);
           });
       } else {
+        // When search is cleared, restore current mode:
+        // - if industry filter is active, keep filter mode
+        // - otherwise, fall back to the unfiltered list
+        setActiveEndpoint(selectedIndustry ? "filterData" : "getData");
+        setSidebarPage(1);
         // If search query is empty, reset to original data (non-urgent)
         startTransition(() => {
           setFilteredData(OriginalData);
@@ -680,7 +712,9 @@ export default function Home() {
     const selectedValue = selectedOption.value;
     // Keep selected industry update urgent (immediate UI feedback)
     setSelectedIndustry(selectedValue);
+    setSidebarPage(1);
     if (selectedValue === "") {
+      setActiveEndpoint("getData");
       // Batch data reset updates (non-urgent)
       startTransition(() => {
         setFilteredData(OriginalData);
@@ -694,10 +728,11 @@ export default function Home() {
       const res = await fetch(`/api/filterData?page=1&limit=100&industryHouse=${encodeURIComponent(selectedValue)}`, { credentials: "include" });
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
+        setActiveEndpoint("filterData");
         // Batch data updates to avoid blocking UI
         startTransition(() => {
           setFilteredData(result.data);
-          setTotalCount(result.data.length);
+          setTotalCount(typeof result.totalCount === "number" ? result.totalCount : result.data.length);
         });
         // Keep loading state urgent
         setPreloaderSidebar(false);
@@ -1036,9 +1071,7 @@ export default function Home() {
                   filteredData={filteredData}
                   isAuthenticated={isAuthenticated}
                   totalNumber={
-                    searchQuery.trim() === "" && selectedIndustry === ""
-                      ? totalCount!
-                      : filteredData.length
+                    totalCount!
                   }
                   loading={loading}
                   hasSearched={hasSearched}
@@ -1094,16 +1127,17 @@ export default function Home() {
                   </p>
                   <div className="mt-2 flex gap-x-2 justify-center items-center">
                     <button
-                      onClick={() =>
-                        route.push("https://www.blacksustainability.org/")
-                      }
+                      type="button"
+                      onClick={() => {
+                        window.location.href = "/signin";
+                      }}
                       className="flex gap-x-2 items-center w-full sm:px-5 p-2.5 bg-[#FFBF23] rounded-full"
                     >
                       <span className="sm:block hidden">
                         <icons.signup />
                       </span>
                       <span className="text-black font-semibold sm:text-base text-sm">
-                        Login / Become a Member
+                        Login
                       </span>
                     </button>
                   </div>
