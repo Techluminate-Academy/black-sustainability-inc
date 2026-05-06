@@ -1,7 +1,8 @@
 import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
 
-const COLLECTION_NAME = "mightyMembers";
+// Old setup: Airtable records mirrored into Mongo
+const COLLECTION_NAME = "airtableRecords";
 import CACHE_EXPIRY from '../../constants/CacheExpiry'
 
 async function getExcludeViewerMighty() {
@@ -11,51 +12,41 @@ async function getExcludeViewerMighty() {
 }
 
 function buildIndustryQuery(industryHouse) {
-  // Expand agriculture selection to cover legacy + current variants in Mongo.
-  const agricultureGroup = new Set([
-    "🌾 Agriculture/Sustainable Food Production / Land Management",
-    "🌾 Reparative Agriculture",
-  ]);
-  if (agricultureGroup.has(industryHouse)) {
-    return {
-      $in: [
-        // Current Mongo variants observed in production
-        "Sustainable Agriculture+Land Management",
-        "Sustainable Agriculture Land Management",
-        "Agriculture",
-        // Legacy / UI values
-        "🌾 Agriculture/Sustainable Food Production / Land Management",
-        "🌾 Reparative Agriculture",
-      ],
-    };
-  }
+  // For airtableRecords, the filter value should match `fields["PRIMARY INDUSTRY HOUSE"]`.
   return industryHouse;
 }
 
+function normalizePhotoUrl(fields) {
+  // Airtable attachment arrays: [{ url, thumbnails?... }]
+  const photo = fields?.PHOTO;
+  if (Array.isArray(photo) && photo.length) {
+    const p0 = photo[0] || {};
+    return (
+      p0.thumbnails?.large?.url ||
+      p0.thumbnails?.full?.url ||
+      p0.thumbnails?.small?.url ||
+      p0.url ||
+      null
+    );
+  }
+  // Back-compat: some records might already have userphoto
+  if (typeof fields?.userphoto === "string" && fields.userphoto.trim()) return fields.userphoto.trim();
+  return null;
+}
+
 function toAirtableishDoc(d) {
-  const id = d?._id ? String(d._id) : d?.mightyId != null ? String(d.mightyId) : "";
-  const first = d?.firstName || "";
-  const last = d?.lastName || "";
-  const fullName = `${first} ${last}`.trim();
-  const photoUrl = d?.avatarUrl || "";
+  const id = d?.id ? String(d.id) : d?._id ? String(d._id) : "";
+  const fields = d?.fields || {};
+  const photoUrl = normalizePhotoUrl(fields);
   return {
     id,
     fields: {
-      "FIRST NAME": d?.firstName || "",
-      "LAST NAME": d?.lastName || "",
-      "FULL NAME": fullName,
-      "EMAIL ADDRESS": d?.email || "",
-      "PRIMARY INDUSTRY HOUSE": d?.industry || "",
-      "Location (Nearest City)": d?.location || "",
-      "BIO": d?.bio || "",
-      "WEBSITE": "",
-      "ORGANIZATION NAME": "",
-      "MEMBER LEVEL": "",
-      "PHOTO": photoUrl ? [{ url: photoUrl }] : [],
-      "LATITUDE (NEW)": d?.latitude ?? null,
-      "LONGITUDE (NEW)": d?.longitude ?? null,
-      // keep compatibility for marker icon renderer
-      userphoto: photoUrl || null,
+      ...fields,
+      // ensure expected map/list fields exist
+      userphoto: photoUrl || fields.userphoto || null,
+      "PHOTO": Array.isArray(fields.PHOTO) ? fields.PHOTO : photoUrl ? [{ url: photoUrl }] : [],
+      "LATITUDE (NEW)": fields["LATITUDE (NEW)"] ?? null,
+      "LONGITUDE (NEW)": fields["LONGITUDE (NEW)"] ?? null,
     },
   };
 }
@@ -81,7 +72,7 @@ export default async function handler(req, res) {
     const excludeViewer = !!excludeMongoId || excludeMightyId != null;
     const useCache = !excludeViewer;
 
-    const cacheKey = `getData:v3:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
+    const cacheKey = `getData:v4:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
     if (useCache) {
       const cacheStart = Date.now();
       const cachedData = await redis.get(cacheKey);
@@ -96,7 +87,7 @@ export default async function handler(req, res) {
     // 🔹 Build MongoDB query
     let query = {};
     if (industryHouse && industryHouse !== "") {
-      query["industry"] = buildIndustryQuery(industryHouse);
+      query["fields.PRIMARY INDUSTRY HOUSE"] = buildIndustryQuery(industryHouse);
     }
     if (excludeViewer) {
       const nor = [];

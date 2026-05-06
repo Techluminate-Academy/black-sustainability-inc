@@ -10,40 +10,33 @@ async function getExcludeViewerMighty() {
 export default async function handler(req, res) {
   try {
     const { db } = await connectToDatabase();
-    const collection = db.collection("mightyMembers");
+    const collection = db.collection("airtableRecords");
     const { excludeMongoId, excludeMightyId } = await getExcludeViewerMighty(req, collection);
     const excludeViewer = !!excludeMongoId || excludeMightyId != null;
     const useCache = !excludeViewer;
 
     function toAirtableishDoc(d) {
-      const id = d?._id ? String(d._id) : d?.mightyId != null ? String(d.mightyId) : "";
-      const first = d?.firstName || "";
-      const last = d?.lastName || "";
-      const fullName = `${first} ${last}`.trim();
-      const photoUrl = d?.avatarUrl || "";
+      const id = d?.id ? String(d.id) : d?._id ? String(d._id) : "";
+      const fields = d?.fields || {};
+      const photo = fields?.PHOTO;
+      const photoUrl =
+        (Array.isArray(photo) && photo[0] && (photo[0].thumbnails?.large?.url || photo[0].url)) ||
+        (typeof fields?.userphoto === "string" ? fields.userphoto : null) ||
+        null;
       return {
         id,
         fields: {
-          "FIRST NAME": d?.firstName || "",
-          "LAST NAME": d?.lastName || "",
-          "FULL NAME": fullName,
-          "EMAIL ADDRESS": d?.email || "",
-          "PRIMARY INDUSTRY HOUSE": d?.industry || "",
-          "Location (Nearest City)": d?.location || "",
-          "BIO": d?.bio || "",
-          "WEBSITE": "",
-          "ORGANIZATION NAME": "",
-          "MEMBER LEVEL": "",
-          "PHOTO": photoUrl ? [{ url: photoUrl }] : [],
-          "LATITUDE (NEW)": d?.latitude ?? null,
-          "LONGITUDE (NEW)": d?.longitude ?? null,
-          userphoto: photoUrl || null,
+          ...fields,
+          userphoto: photoUrl || fields.userphoto || null,
+          "PHOTO": Array.isArray(fields.PHOTO) ? fields.PHOTO : photoUrl ? [{ url: photoUrl }] : [],
+          "LATITUDE (NEW)": fields["LATITUDE (NEW)"] ?? null,
+          "LONGITUDE (NEW)": fields["LONGITUDE (NEW)"] ?? null,
         },
       };
     }
 
     const queryParams = req.query;
-    const cacheKey = `search:v3:mightyMembers:${JSON.stringify(queryParams)}`;
+    const cacheKey = `search:v4:airtableRecords:${JSON.stringify(queryParams)}`;
 
     if (useCache) {
       const cachedData = await redis.get(cacheKey);
@@ -56,12 +49,14 @@ export default async function handler(req, res) {
     if (qRaw) {
       const re = new RegExp(qRaw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
       query.$or = [
-        { firstName: re },
-        { lastName: re },
-        { email: re },
-        { industry: re },
-        { location: re },
-        { bio: re },
+        { "fields.FIRST NAME": re },
+        { "fields.LAST NAME": re },
+        { "fields.FULL NAME": re },
+        { "fields.EMAIL ADDRESS": re },
+        { "fields.PRIMARY INDUSTRY HOUSE": re },
+        { "fields.Location (Nearest City)": re },
+        { "fields.BIO": re },
+        { "fields.ORGANIZATION NAME": re },
       ];
     }
     if (excludeViewer) {

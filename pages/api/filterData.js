@@ -1,7 +1,8 @@
 import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
 import CACHE_EXPIRY from '../../constants/CacheExpiry'
-const COLLECTION_NAME = "mightyMembers";
+// Old setup: Airtable records mirrored into Mongo
+const COLLECTION_NAME = "airtableRecords";
 
 async function getExcludeViewerMighty() {
   // Fail-open gating for production stability.
@@ -9,50 +10,25 @@ async function getExcludeViewerMighty() {
 }
 
 function buildIndustryQuery(industryHouse) {
-  // Expand agriculture selection to cover legacy + current variants in Mongo.
-  const agricultureGroup = new Set([
-    "🌾 Agriculture/Sustainable Food Production / Land Management",
-    "🌾 Reparative Agriculture",
-  ]);
-  if (agricultureGroup.has(industryHouse)) {
-    return {
-      $in: [
-        // Current Mongo variants observed in production
-        "Sustainable Agriculture+Land Management",
-        "Sustainable Agriculture Land Management",
-        "Agriculture",
-        // Legacy / UI values
-        "🌾 Agriculture/Sustainable Food Production / Land Management",
-        "🌾 Reparative Agriculture",
-      ],
-    };
-  }
   return industryHouse;
 }
 
 function toAirtableishDoc(d) {
-  const id = d?._id ? String(d._id) : d?.mightyId != null ? String(d.mightyId) : "";
-  const first = d?.firstName || "";
-  const last = d?.lastName || "";
-  const fullName = `${first} ${last}`.trim();
-  const photoUrl = d?.avatarUrl || "";
+  const id = d?.id ? String(d.id) : d?._id ? String(d._id) : "";
+  const fields = d?.fields || {};
+  const photo = fields?.PHOTO;
+  const photoUrl =
+    (Array.isArray(photo) && photo[0] && (photo[0].thumbnails?.large?.url || photo[0].url)) ||
+    (typeof fields?.userphoto === "string" ? fields.userphoto : null) ||
+    null;
   return {
     id,
     fields: {
-      "FIRST NAME": d?.firstName || "",
-      "LAST NAME": d?.lastName || "",
-      "FULL NAME": fullName,
-      "EMAIL ADDRESS": d?.email || "",
-      "PRIMARY INDUSTRY HOUSE": d?.industry || "",
-      "Location (Nearest City)": d?.location || "",
-      "BIO": d?.bio || "",
-      "WEBSITE": "",
-      "ORGANIZATION NAME": "",
-      "MEMBER LEVEL": "",
-      "PHOTO": photoUrl ? [{ url: photoUrl }] : [],
-      "LATITUDE (NEW)": d?.latitude ?? null,
-      "LONGITUDE (NEW)": d?.longitude ?? null,
-      userphoto: photoUrl || null,
+      ...fields,
+      userphoto: photoUrl || fields.userphoto || null,
+      "PHOTO": Array.isArray(fields.PHOTO) ? fields.PHOTO : photoUrl ? [{ url: photoUrl }] : [],
+      "LATITUDE (NEW)": fields["LATITUDE (NEW)"] ?? null,
+      "LONGITUDE (NEW)": fields["LONGITUDE (NEW)"] ?? null,
     },
   };
 }
@@ -71,7 +47,7 @@ export default async function handler(req, res) {
     const excludeViewer = !!excludeMongoId || excludeMightyId != null;
     const useCache = !excludeViewer;
 
-    const cacheKey = `filterData:v3:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
+    const cacheKey = `filterData:v4:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
     if (useCache) {
       const cacheStart = Date.now();
       const cachedData = await redis.get(cacheKey);
@@ -82,7 +58,7 @@ export default async function handler(req, res) {
 
     let query = {};
     if (industryHouse && industryHouse !== "") {
-      query["industry"] = buildIndustryQuery(industryHouse);
+      query["fields.PRIMARY INDUSTRY HOUSE"] = buildIndustryQuery(industryHouse);
     }
     if (excludeViewer) {
       const nor = [];

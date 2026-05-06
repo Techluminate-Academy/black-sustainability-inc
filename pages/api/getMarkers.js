@@ -3,8 +3,8 @@ import { connectToDatabase } from "../../lib/mongodb";
 import { promisify } from "util";
 import zlib from "zlib";  // Compression library
 
-// Map should read from Mongo `mightyMembers` (Mighty Members dataset)
-const COLLECTION_NAME = "mightyMembers";
+// Old setup: Airtable records mirrored into Mongo
+const COLLECTION_NAME = "airtableRecords";
 import CACHE_EXPIRY from '../../constants/CacheExpiry';
 
 const deflate = promisify(zlib.deflate);  // Promisified zlib deflate method
@@ -27,7 +27,7 @@ async function getExcludeViewerMighty() {
 export default async function handler(req, res) {
   try {
     // bump key to avoid mixing payload schemas across collections
-    const cacheKey = `map-locations:v5:${COLLECTION_NAME}`;
+    const cacheKey = `map-locations:v6:${COLLECTION_NAME}`;
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 
@@ -83,42 +83,38 @@ export default async function handler(req, res) {
     pipeline.push(
       {
         $project: {
-          id: { $toString: "$_id" },
-          fields: {
-            "FIRST NAME": "$firstName",
-            "LAST NAME": "$lastName",
-            "EMAIL ADDRESS": "$email",
-            "WEBSITE": { $literal: "" },
-            "BIO": "$bio",
-            "MEMBER LEVEL": { $literal: "" },
-            "PRIMARY INDUSTRY HOUSE": "$industry",
-            "Location (Nearest City)": "$location",
-            "ORGANIZATION NAME": { $literal: "" },
-            // Keep frontend expectations: PHOTO is an array of { url }, and also expose userphoto for marker icon.
-            "PHOTO": {
-              $cond: {
-                if: { $and: [{ $ne: ["$avatarUrl", null] }, { $ne: ["$avatarUrl", ""] }] },
-                then: [{ url: "$avatarUrl" }],
-                else: [],
-              },
-            },
-            "userphoto": "$avatarUrl",
-            "LATITUDE (NEW)": "$latitude",
-            "LONGITUDE (NEW)": "$longitude",
-          },
+          id: { $ifNull: ["$id", { $toString: "$_id" }] },
+          fields: "$fields",
           // MapboxMap expects `location.coordinates` = [lng, lat]
           location: {
             type: { $literal: "Point" },
-            coordinates: ["$longitude", "$latitude"],
+            coordinates: [
+              {
+                $convert: {
+                  input: "$fields.LONGITUDE (NEW)",
+                  to: "double",
+                  onError: null,
+                  onNull: null,
+                },
+              },
+              {
+                $convert: {
+                  input: "$fields.LATITUDE (NEW)",
+                  to: "double",
+                  onError: null,
+                  onNull: null,
+                },
+              },
+            ],
           },
-          _id: 0
-        }
+          _id: 0,
+        },
       },
       {
         $match: {
           "location.coordinates.0": { $ne: null },
-          "location.coordinates.1": { $ne: null }
-        }
+          "location.coordinates.1": { $ne: null },
+        },
       }
     );
 
