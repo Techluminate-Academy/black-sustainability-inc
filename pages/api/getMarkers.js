@@ -2,7 +2,7 @@ import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
 import { promisify } from "util";
 import zlib from "zlib";  // Compression library
-import * as mapViewerGating from "../../lib/mapViewerGating";
+import { getExcludeViewerMighty, getViewerEmail } from "../../lib/mapViewerGating";
 
 // Map should read from Mongo `mightyMembers` (Mighty Members dataset)
 const COLLECTION_NAME = "mightyMembers";
@@ -20,14 +20,6 @@ function isPaying(value) {
   return false;
 }
 
-function getGatingFns() {
-  const getViewerEmail =
-    mapViewerGating.getViewerEmail || mapViewerGating.default?.getViewerEmail || null;
-  const getExcludeViewerMighty =
-    mapViewerGating.getExcludeViewerMighty || mapViewerGating.default?.getExcludeViewerMighty || null;
-  return { getViewerEmail, getExcludeViewerMighty };
-}
-
 export default async function handler(req, res) {
   try {
     // bump key to avoid mixing payload schemas across collections
@@ -36,11 +28,6 @@ export default async function handler(req, res) {
     const collection = db.collection(COLLECTION_NAME);
 
     // --- Viewer-specific gating: identify viewer and paying status ---
-    const { getViewerEmail, getExcludeViewerMighty } = getGatingFns();
-    if (typeof getViewerEmail !== "function" || typeof getExcludeViewerMighty !== "function") {
-      return res.status(500).json({ success: false, error: "Server misconfig: viewer gating unavailable" });
-    }
-
     let viewerEmail = await getViewerEmail(req);
     const { excludeMongoId, excludeMightyId } = await getExcludeViewerMighty(req, collection);
     const excludeViewer = !!excludeMongoId || excludeMightyId != null;

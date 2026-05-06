@@ -1,25 +1,12 @@
 import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
-import * as mapViewerGating from "../../lib/mapViewerGating";
+import { getExcludeViewerMighty } from "../../lib/mapViewerGating";
 import CACHE_EXPIRY from "../../constants/CacheExpiry";
-
-function getExcludeViewerMightySafe() {
-  return (
-    mapViewerGating.getExcludeViewerMighty ||
-    mapViewerGating.default?.getExcludeViewerMighty ||
-    null
-  );
-}
 
 export default async function handler(req, res) {
   try {
     const { db } = await connectToDatabase();
     const collection = db.collection("mightyMembers");
-    const getExcludeViewerMighty = getExcludeViewerMightySafe();
-    if (typeof getExcludeViewerMighty !== "function") {
-      return res.status(500).json({ success: false, error: "Server misconfig: getExcludeViewerMighty unavailable" });
-    }
-
     const { excludeMongoId, excludeMightyId } = await getExcludeViewerMighty(req, collection);
     const excludeViewer = !!excludeMongoId || excludeMightyId != null;
     const useCache = !excludeViewer;

@@ -1,16 +1,8 @@
 import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
-import * as mapViewerGating from "../../lib/mapViewerGating";
+import { getExcludeViewerMighty } from "../../lib/mapViewerGating";
 import CACHE_EXPIRY from '../../constants/CacheExpiry'
 const COLLECTION_NAME = "mightyMembers";
-
-function getExcludeViewerMightySafe() {
-  return (
-    mapViewerGating.getExcludeViewerMighty ||
-    mapViewerGating.default?.getExcludeViewerMighty ||
-    null
-  );
-}
 
 function buildIndustryQuery(industryHouse) {
   // Expand agriculture selection to cover legacy + current variants in Mongo.
@@ -70,11 +62,6 @@ export default async function handler(req, res) {
 
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
-
-    const getExcludeViewerMighty = getExcludeViewerMightySafe();
-    if (typeof getExcludeViewerMighty !== "function") {
-      return res.status(500).json({ success: false, error: "Server misconfig: getExcludeViewerMighty unavailable" });
-    }
 
     const { excludeMongoId, excludeMightyId } = await getExcludeViewerMighty(req, collection);
     const excludeViewer = !!excludeMongoId || excludeMightyId != null;
