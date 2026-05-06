@@ -2,10 +2,10 @@ import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
 import { promisify } from "util";
 import zlib from "zlib";  // Compression library
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "./auth/[...nextauth]";
+import * as mapViewerGating from "../../lib/mapViewerGating";
 
-const COLLECTION_NAME = "airtableRecords";
+// Map should read from Mongo `mightyMembers` (Mighty Members dataset)
+const COLLECTION_NAME = "mightyMembers";
 import CACHE_EXPIRY from '../../constants/CacheExpiry';
 
 const deflate = promisify(zlib.deflate);  // Promisified zlib deflate method
@@ -20,66 +20,39 @@ function isPaying(value) {
   return false;
 }
 
-/** Get viewer email from NextAuth session or bsn_user_data cookie (trusted server-side). */
-async function getViewerEmail(req) {
-  const cookieHeader = req.headers.cookie || "";
-  const match = cookieHeader.match(/\bbsn_user_data=([^;]+)/);
-  if (match && process.env.NODE_ENV === "development") {
-    try {
-      const parsed = JSON.parse(decodeURIComponent(match[1].trim()));
-      const email = parsed?.loginEmail ?? parsed?.email;
-      if (email) {
-        const normalized = String(email).trim().toLowerCase();
-        console.log("[getMarkers] viewer from cookie (login-as):", normalized);
-        return normalized;
-      }
-    } catch {
-      // fall through to session
-    }
-  }
-
-  const session = await getServerSession(req, null, authOptions);
-  if (session?.user?.email) {
-    const fromSession = (session.user.email || "").trim().toLowerCase();
-    if (process.env.NODE_ENV === "development") {
-      console.log("[getMarkers] viewer from NextAuth session:", fromSession);
-    }
-    return fromSession;
-  }
-
-  if (!match) return null;
-  try {
-    const parsed = JSON.parse(decodeURIComponent(match[1].trim()));
-    const email = parsed?.loginEmail ?? parsed?.email;
-    return email ? String(email).trim().toLowerCase() : null;
-  } catch {
-    return null;
-  }
+function getGatingFns() {
+  const getViewerEmail =
+    mapViewerGating.getViewerEmail || mapViewerGating.default?.getViewerEmail || null;
+  const getExcludeViewerMighty =
+    mapViewerGating.getExcludeViewerMighty || mapViewerGating.default?.getExcludeViewerMighty || null;
+  return { getViewerEmail, getExcludeViewerMighty };
 }
 
 export default async function handler(req, res) {
   try {
-    const cacheKey = `map-locations1`;
+    // bump key to avoid mixing payload schemas across collections
+    const cacheKey = `map-locations:v5:${COLLECTION_NAME}`;
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 
     // --- Viewer-specific gating: identify viewer and paying status ---
+    const { getViewerEmail, getExcludeViewerMighty } = getGatingFns();
+    if (typeof getViewerEmail !== "function" || typeof getExcludeViewerMighty !== "function") {
+      return res.status(500).json({ success: false, error: "Server misconfig: viewer gating unavailable" });
+    }
+
     let viewerEmail = await getViewerEmail(req);
-    let viewerPaying = true;
-    let excludeViewerId = null;
+    const { excludeMongoId, excludeMightyId } = await getExcludeViewerMighty(req, collection);
+    const excludeViewer = !!excludeMongoId || excludeMightyId != null;
     let viewerRecord = null;
 
     if (viewerEmail) {
       viewerRecord = await collection.findOne(
-        { "fields.EMAIL ADDRESS": { $regex: new RegExp(`^${viewerEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } },
-        { projection: { id: 1, airtableId: 1, "fields.EMAIL ADDRESS": 1, "fields.Paying Member (keep current)": 1 } }
+        { email: { $regex: new RegExp(`^${viewerEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } },
+        { projection: { _id: 1, email: 1 } }
       );
-      if (viewerRecord) {
-        viewerPaying = isPaying(viewerRecord.fields?.["Paying Member (keep current)"]);
-        if (!viewerPaying) excludeViewerId = viewerRecord.id || viewerRecord.airtableId;
-        if (MAP_MARKERS_GATING_DEBUG) {
-          console.log("[getMarkers gating] viewerId=" + (excludeViewerId || "").slice(0, 12) + "… paying=" + viewerPaying + " excludeSelf=" + !!excludeViewerId);
-        }
+      if (MAP_MARKERS_GATING_DEBUG) {
+        console.log("[getMarkers gating] viewerEmail=" + (viewerEmail || "") + " excludeSelf=" + excludeViewer);
       }
     }
 
@@ -87,13 +60,12 @@ export default async function handler(req, res) {
     if (process.env.NODE_ENV === "development") {
       console.log({
         viewerEmail: viewerEmail ?? null,
-        markerEmail: viewerRecord?.fields?.["EMAIL ADDRESS"] ?? null,
-        payingFlag: viewerPaying,
-        isSelf: !!excludeViewerId,
+        markerEmail: viewerRecord?.email ?? null,
+        isSelf: excludeViewer,
       });
     }
 
-    const useCache = !excludeViewerId;
+    const useCache = !excludeViewer;
     if (useCache) {
       const cacheStart = Date.now();
       const cachedData = await redis.get(cacheKey);
@@ -105,51 +77,56 @@ export default async function handler(req, res) {
       }
     }
 
-    console.log(excludeViewerId ? "❌ Cache bypass (viewer-specific). Querying MongoDB…" : "❌ Cache miss. Querying MongoDB…");
+    console.log(excludeViewer ? "❌ Cache bypass (viewer-specific). Querying MongoDB…" : "❌ Cache miss. Querying MongoDB…");
 
     const mongoStart = Date.now();
     const pipeline = [];
 
-    if (excludeViewerId) {
-      pipeline.push({ $match: { $nor: [{ id: excludeViewerId }, { airtableId: excludeViewerId }] } });
+    if (excludeViewer) {
+      const nor = [];
+      if (excludeMongoId) nor.push({ _id: excludeMongoId });
+      if (excludeMightyId != null) nor.push({ mightyId: excludeMightyId });
+      if (nor.length) pipeline.push({ $match: { $nor: nor } });
     }
 
     pipeline.push(
       {
         $project: {
-          id: '$id',
+          id: { $toString: "$_id" },
           fields: {
-            'FIRST NAME': '$fields.FIRST NAME',
-            'LAST NAME': '$fields.LAST NAME',
-            'EMAIL ADDRESS': '$fields.EMAIL ADDRESS',
-            'WEBSITE': '$fields.WEBSITE',
-            'BIO': '$fields.BIO',
-            'MEMBER LEVEL': '$fields.MEMBER LEVEL',
-            'PRIMARY INDUSTRY HOUSE': '$fields.PRIMARY INDUSTRY HOUSE',
-            'Location (Nearest City)': '$fields.Location (Nearest City)',
-            'ORGANIZATION NAME': '$fields.ORGANIZATION NAME',
-            'PHOTO': {
+            "FIRST NAME": "$firstName",
+            "LAST NAME": "$lastName",
+            "EMAIL ADDRESS": "$email",
+            "WEBSITE": { $literal: "" },
+            "BIO": "$bio",
+            "MEMBER LEVEL": { $literal: "" },
+            "PRIMARY INDUSTRY HOUSE": "$industry",
+            "Location (Nearest City)": "$location",
+            "ORGANIZATION NAME": { $literal: "" },
+            // Keep frontend expectations: PHOTO is an array of { url }, and also expose userphoto for marker icon.
+            "PHOTO": {
               $cond: {
-                if: { $gt: [{ $size: { $ifNull: ["$fields.PHOTO", []] } }, 0] },
-                then: { $arrayElemAt: ["$fields.PHOTO.url", 0] },
-                else: null
-              }
-            }
+                if: { $and: [{ $ne: ["$avatarUrl", null] }, { $ne: ["$avatarUrl", ""] }] },
+                then: [{ url: "$avatarUrl" }],
+                else: [],
+              },
+            },
+            "userphoto": "$avatarUrl",
+            "LATITUDE (NEW)": "$latitude",
+            "LONGITUDE (NEW)": "$longitude",
           },
+          // MapboxMap expects `location.coordinates` = [lng, lat]
           location: {
-            type: { $literal: 'Point' },
-            coordinates: [
-              { $convert: { input: '$fields.LONGITUDE (NEW)', to: 'double', onError: null, onNull: null } },
-              { $convert: { input: '$fields.LATITUDE (NEW)', to: 'double', onError: null, onNull: null } }
-            ]
+            type: { $literal: "Point" },
+            coordinates: ["$longitude", "$latitude"],
           },
           _id: 0
         }
       },
       {
         $match: {
-          'location.coordinates.0': { $ne: null },
-          'location.coordinates.1': { $ne: null }
+          "location.coordinates.0": { $ne: null },
+          "location.coordinates.1": { $ne: null }
         }
       }
     );
