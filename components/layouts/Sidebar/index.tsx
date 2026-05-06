@@ -41,10 +41,10 @@ const Sidebar: React.FC<IProps> = ({
       <div className="px-5 pb-1 flex items-center justify-between">
         <span className="font-bold">{totalNumber} result(s)</span>
       </div>
-      <div className="grid 2xl:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-4 px-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 min-w-0">
         {filteredData?.map((data: any, idx: any) => (
           <UserCard
-            key={idx}
+            key={data?.id != null ? String(data.id) : idx}
             onClick={onRecordClick ? () => onRecordClick(data) : undefined}
             AFFILIATION={data.fields["AFFILIATED ENTITY"]}
             FULL_NAME={data.fields["FULL NAME"]}

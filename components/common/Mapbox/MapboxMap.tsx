@@ -170,6 +170,8 @@ function offsetDuplicateCoordinates(
   }
 }
 
+const DEFAULT_MARKER_PHOTO = "/png/default.png";
+
 const createMarkerElement = (record: any, isAuthenticated: boolean): HTMLElement => {
   // Use the original CustomIconContent for markers
   const htmlString = ReactDOMServer.renderToStaticMarkup(
@@ -177,7 +179,17 @@ const createMarkerElement = (record: any, isAuthenticated: boolean): HTMLElement
   );
   const el = document.createElement("div");
   el.innerHTML = htmlString;
-  return el.firstElementChild as HTMLElement;
+  const root = el.firstElementChild as HTMLElement;
+  // renderToStaticMarkup strips event handlers — attach fallback for Mighty/external CDNs
+  const img = root?.querySelector("img");
+  if (img) {
+    img.addEventListener("error", () => {
+      if (!img.src.endsWith(DEFAULT_MARKER_PHOTO)) {
+        img.src = DEFAULT_MARKER_PHOTO;
+      }
+    });
+  }
+  return root;
 };
 
 const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, filteredData, flyToCoordinates }) => {

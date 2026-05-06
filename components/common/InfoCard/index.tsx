@@ -1,9 +1,9 @@
 import React from "react";
 import BioWithReadMore from "@/components/common/BioWithReadMore";
 import icons from "@/icons";
-import Image from "next/image";
-import BlurImage from "../BlurImage";
 import BlurText from "../BlurText";
+
+const DEFAULT_PHOTO = "/png/default.png";
 
 interface UserProps {
   FIRST_NAME?: string;
@@ -25,19 +25,26 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, ...UserProps }) => {
   return (
     <div className="popup-info-card" style={{ maxWidth: "280px", minWidth: "250px" }}>
       <div className="flex gap-x-3 items-start ">
-        <div className="relative w-[35%] h-[100px] rounded-md overflow-hidden">
-          {!isAuthenticated ? (
-            <img
-              src={UserProps.imgUrl}
-              className={`${
-                isAuthenticated ? "blur-none" : "blur-md"
-              } w-full object-cover object-center h-full rounded-md`}
-              alt={`${UserProps.FIRST_NAME} ${UserProps.LAST_NAME}  profile image`}
-              loading="lazy"
-            />
-          ) : (
-            <img src={UserProps.imgUrl} />
-          )}
+        <div className="relative w-[35%] h-[100px] rounded-md overflow-hidden bg-[#f5f5f5]">
+          <img
+            src={
+              typeof UserProps.imgUrl === "string" && UserProps.imgUrl.trim()
+                ? UserProps.imgUrl
+                : DEFAULT_PHOTO
+            }
+            className={`w-full h-full object-cover object-center rounded-md ${
+              isAuthenticated ? "" : "blur-md"
+            }`}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              const el = e.currentTarget;
+              if (el.src.endsWith(DEFAULT_PHOTO)) return;
+              el.src = DEFAULT_PHOTO;
+            }}
+          />
         </div>
         <div className="w-[65%] flex flex-col justify-between gap-y-0.5 h-[100px] p-1 ">
           <div className="flex items-center gap-x-5">

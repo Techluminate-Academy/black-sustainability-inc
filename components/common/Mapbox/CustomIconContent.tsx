@@ -1,20 +1,23 @@
 "use client";
 import React from "react";
-import Image from "next/image";
+
+const DEFAULT_PHOTO = "/png/default.png";
 
 interface CustomIconContentProps {
   record: {
     isAuthenticated: boolean;
     fields: {
       "PRIMARY INDUSTRY HOUSE"?: string;
-      PHOTO?: { 
-        url: string;
-        thumbnails?: {
-          full?: { url: string };
-          large?: { url: string };
-          small?: { url: string };
-        };
-      }[] | string;
+      PHOTO?:
+        | {
+            url: string;
+            thumbnails?: {
+              full?: { url: string };
+              large?: { url: string };
+              small?: { url: string };
+            };
+          }[]
+        | string;
     };
   };
 }
@@ -37,13 +40,27 @@ const industryProps = [
 ];
 
 const getColorByIconTag = (iconTag?: string): string => {
-  const found = industryProps.find(item => item.label === iconTag);
+  const found = industryProps.find((item) => item.label === iconTag);
   return found ? found.bgColor : "#ccc";
 };
+
+function resolvePhotoSrc(fields: CustomIconContentProps["record"]["fields"]): string {
+  const p = fields?.PHOTO;
+  if (typeof p === "string" && p.trim()) return p.trim();
+  if (Array.isArray(p) && p.length > 0) {
+    const first = p[0];
+    if (first?.thumbnails?.full?.url) return first.thumbnails.full.url;
+    if (first?.thumbnails?.large?.url) return first.thumbnails.large.url;
+    if (first?.thumbnails?.small?.url) return first.thumbnails.small.url;
+    if (first?.url) return first.url;
+  }
+  return DEFAULT_PHOTO;
+}
 
 const CustomIconContent: React.FC<CustomIconContentProps> = ({ record }) => {
   const { isAuthenticated, fields } = record;
   const bgColor = getColorByIconTag(fields["PRIMARY INDUSTRY HOUSE"]);
+  const src = resolvePhotoSrc(fields);
 
   return (
     <div
@@ -79,23 +96,19 @@ const CustomIconContent: React.FC<CustomIconContentProps> = ({ record }) => {
             transform: "translate(-50%, -50%) rotate(35deg)",
           }}
         >
-          <Image
-           src={
-            Array.isArray(fields?.PHOTO) && fields.PHOTO.length > 0
-              ? fields.PHOTO[0].thumbnails?.full?.url || 
-                fields.PHOTO[0].thumbnails?.large?.url ||
-                fields.PHOTO[0].thumbnails?.small?.url ||
-                fields.PHOTO[0].url ||
-                "/png/default.png"
-              : typeof fields?.PHOTO === 'string'
-              ? fields.PHOTO
-              : "/png/default.png"
-          }
-          
-            alt="member"
-            width={60} // Set width and height to match the div's size
+          <img
+            src={src}
+            alt=""
+            width={60}
             height={64}
             loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              const el = e.currentTarget;
+              if (el.src.endsWith(DEFAULT_PHOTO)) return;
+              el.src = DEFAULT_PHOTO;
+            }}
             style={{
               width: "100%",
               height: "100%",
