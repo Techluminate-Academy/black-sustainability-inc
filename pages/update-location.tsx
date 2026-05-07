@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import GooglePlacesAutocomplete, {
   geocodeByPlaceId,
@@ -16,9 +17,11 @@ type SessionResp =
 
 export default function UpdateLocationPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [session, setSession] = useState<SessionResp | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [skipping, setSkipping] = useState(false);
 
   const [selection, setSelection] = useState<any>(null);
 
@@ -50,6 +53,16 @@ export default function UpdateLocationPage() {
     return f || session.user.email;
   }, [session]);
 
+  const nextPath = useMemo(() => {
+    const raw = searchParams?.get("next") || "/";
+    // Only allow relative paths for safety.
+    return raw.startsWith("/") ? raw : "/";
+  }, [searchParams]);
+
+  const isForced = useMemo(() => {
+    return (searchParams?.get("forced") || "") === "1";
+  }, [searchParams]);
+
   async function handleSave() {
     if (!selection?.value?.place_id) {
       toast.error("Please select a location from the suggestions.");
@@ -74,11 +87,29 @@ export default function UpdateLocationPage() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || "Failed to update location");
       toast.success("Location updated.");
-      router.push("/");
+      router.push(nextPath || "/");
     } catch (e: any) {
       toast.error(e?.message || "Could not update location.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDontAskAgain() {
+    setSkipping(true);
+    try {
+      const res = await fetch("/api/member/location-prompt-optout", {
+        method: "POST",
+        credentials: "include",
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Could not save preference");
+      toast.success("Got it — we won’t prompt you again.");
+      router.push(nextPath || "/");
+    } catch (e: any) {
+      toast.error(e?.message || "Could not save preference.");
+    } finally {
+      setSkipping(false);
     }
   }
 
@@ -127,9 +158,21 @@ export default function UpdateLocationPage() {
       <div className="min-h-screen flex items-center justify-center bg-[#f6f7f4] px-6">
         <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Update your location</h1>
-          <p className="text-sm text-gray-600 mb-6">
+          <p className="text-sm text-gray-600 mb-4">
             Signed in as <span className="font-semibold">{displayName}</span>.
           </p>
+
+          {isForced && (
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="text-sm font-semibold text-amber-900">
+                Action needed: add your location
+              </div>
+              <div className="mt-1 text-sm text-amber-800">
+                To appear correctly on the BSN map/directory, please confirm your location.
+                You can also choose “Don’t ask again” if you’d rather skip this.
+              </div>
+            </div>
+          )}
 
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Location
@@ -153,12 +196,23 @@ export default function UpdateLocationPage() {
             >
               {saving ? "Saving…" : "Save location"}
             </button>
-            <Link
-              href="/"
-              className="py-3 px-4 rounded-lg font-semibold uppercase text-xs tracking-wide bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors"
-            >
-              Cancel
-            </Link>
+            {isForced ? (
+              <button
+                type="button"
+                onClick={handleDontAskAgain}
+                disabled={skipping || saving}
+                className="py-3 px-4 rounded-lg font-semibold uppercase text-xs tracking-wide bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors disabled:opacity-60"
+              >
+                {skipping ? "Saving…" : "Don’t ask again"}
+              </button>
+            ) : (
+              <Link
+                href={nextPath || "/"}
+                className="py-3 px-4 rounded-lg font-semibold uppercase text-xs tracking-wide bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </Link>
+            )}
           </div>
         </div>
       </div>

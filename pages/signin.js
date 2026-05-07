@@ -34,6 +34,29 @@ export default function SignInPage() {
 
       const first = data.user?.firstName ? String(data.user.firstName).trim() : '';
       toast.success(first ? `Welcome back, ${first}!` : "You're signed in. Opening the map…");
+
+      // If the member hasn't set a location yet, redirect them to the update form (unless they opted out).
+      try {
+        const meRes = await fetch('/api/member/me', { credentials: 'include' });
+        const me = await meRes.json().catch(() => null);
+        const mongo = me?.mongo || null;
+        const optedOut = mongo?.locationPromptOptOut === true;
+        const hasCoords =
+          typeof mongo?.latitude === 'number' &&
+          Number.isFinite(mongo.latitude) &&
+          typeof mongo?.longitude === 'number' &&
+          Number.isFinite(mongo.longitude);
+        const hasLocation = typeof mongo?.location === 'string' && mongo.location.trim().length >= 2;
+
+        if (!optedOut && (!hasLocation || !hasCoords)) {
+          const dest = `/update-location?forced=1&next=${encodeURIComponent(nextPath || '/')}`;
+          await router.replace(dest);
+          return;
+        }
+      } catch {
+        // If this check fails, just continue to the intended destination.
+      }
+
       await router.replace(nextPath || '/');
     } catch (error) {
       const text = error.message || 'An unexpected error occurred.';
