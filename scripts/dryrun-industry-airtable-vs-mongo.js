@@ -1,14 +1,14 @@
 /**
- * READ-ONLY dry run: compare industry-related fields
- * — Live Airtable (same table as map / signup env)
- * — Mongo `members.airtableRecords`
- * — Mongo `members.mightyMembers`
+ * READ-ONLY dry run: compare industry-related fields across sources.
  *
- * Join key: normalized email.
- * Does not write to Airtable, Mongo, or any other store.
+ * 1) Production / legacy map Airtable — NEXT_PUBLIC_AIRTABLE_* + view
+ *    (same as utils/airtable.js: PRIMARY INDUSTRY HOUSE lives here.)
+ * 2) Mighty sync Airtable — AIRTABLE_PAT + AIRTABLE_MIGHTY_SYNC_* (Industry / Sector)
+ *
+ * Mongo: members.airtableRecords, members.mightyMembers (join on email).
+ * No writes.
  *
  * Usage: node scripts/dryrun-industry-airtable-vs-mongo.js
- * Requires .env with Airtable + Mongo (same as app).
  */
 
 require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
@@ -18,40 +18,54 @@ const DATABASE_NAME = "members";
 const COLLECTION_AIRTABLE = "airtableRecords";
 const COLLECTION_MIGHTY = "mightyMembers";
 
-/** Prefer Mighty sync PAT + base (often has table access); else public web token. */
-function resolveAirtableConfig() {
-  const mighty = {
-    label: "Mighty sync (AIRTABLE_PAT + AIRTABLE_MIGHTY_SYNC_*)",
-    apiKey:
-      process.env.AIRTABLE_PAT ||
-      process.env.AIRTABLE_ACCESS_TOKEN ||
-      null,
-    baseId: process.env.AIRTABLE_MIGHTY_SYNC_BASE_ID || null,
-    table:
-      process.env.AIRTABLE_MIGHTY_SYNC_TABLE_ID ||
-      process.env.AIRTABLE_MIGHTY_SYNC_TABLE_NAME ||
-      null,
-  };
-  const pub = {
-    label: "Public map (NEXT_PUBLIC_AIRTABLE_*)",
-    apiKey: process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN || null,
-    baseId: process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID || null,
-    table: process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME || null,
-  };
-  if (mighty.apiKey && mighty.baseId && mighty.table) return mighty;
-  if (pub.apiKey && pub.baseId && pub.table) return pub;
-  return null;
-}
-
 const MONGODB_URI = process.env.MONGODB_URI || process.env.NEXT_PUBLIC_MONGODB_URI;
 
-/** Airtable sync + legacy map field names to try */
+/** Field names to read from any Airtable row (production + Mighty layouts). */
 const AT_INDUSTRY_FIELD_CANDIDATES = [
-  "Industry / Sector",
   "PRIMARY INDUSTRY HOUSE",
+  "Industry / Sector",
+  "Primary Email",
   "Primary Industry",
   "Primary industry",
+  "EMAIL ADDRESS",
+  "Email",
 ];
+
+function resolveProductionAirtable() {
+  const apiKey = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN || null;
+  const baseId = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID || null;
+  const table = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME || null;
+  const view =
+    process.env.NEXT_PUBLIC_AIRTABLE_VIEW_ID_NOT_SORTED?.trim() ||
+    process.env.NEXT_PUBLIC_AIRTABLE_VIEW_ID?.trim() ||
+    "viwYDUY0xStG108Lv";
+  if (!apiKey || !baseId || !table) return null;
+  return {
+    label: "Production / legacy map (NEXT_PUBLIC_AIRTABLE_* + view)",
+    apiKey,
+    baseId,
+    table,
+    view,
+  };
+}
+
+function resolveMightySyncAirtable() {
+  const apiKey =
+    process.env.AIRTABLE_PAT || process.env.AIRTABLE_ACCESS_TOKEN || null;
+  const baseId = process.env.AIRTABLE_MIGHTY_SYNC_BASE_ID || null;
+  const table =
+    process.env.AIRTABLE_MIGHTY_SYNC_TABLE_ID ||
+    process.env.AIRTABLE_MIGHTY_SYNC_TABLE_NAME ||
+    null;
+  if (!apiKey || !baseId || !table) return null;
+  return {
+    label: "Mighty members sync (AIRTABLE_PAT + AIRTABLE_MIGHTY_SYNC_*)",
+    apiKey,
+    baseId,
+    table,
+    view: null,
+  };
+}
 
 function normEmail(v) {
   if (v == null || v === "") return "";
@@ -64,7 +78,7 @@ function stringifyAirtableValue(v) {
     return v
       .map((x) => {
         if (x == null) return "";
-        if (typeof x === "object" && x !== null && "name" in x) return String((x).name);
+        if (typeof x === "object" && x !== null && "name" in x) return String(x.name);
         return String(x);
       })
       .filter(Boolean)
@@ -76,7 +90,12 @@ function stringifyAirtableValue(v) {
 
 function pickIndustryFromAirtableFields(fields) {
   const out = {};
-  for (const name of AT_INDUSTRY_FIELD_CANDIDATES) {
+  for (const name of [
+    "PRIMARY INDUSTRY HOUSE",
+    "Industry / Sector",
+    "Primary Industry",
+    "Primary industry",
+  ]) {
     if (fields && Object.prototype.hasOwnProperty.call(fields, name)) {
       const s = stringifyAirtableValue(fields[name]);
       if (s) out[name] = s;
@@ -85,115 +104,71 @@ function pickIndustryFromAirtableFields(fields) {
   return out;
 }
 
+function emailFromAirtableFields(f) {
+  return (
+    normEmail(f["Primary Email"]) ||
+    normEmail(f["EMAIL ADDRESS"]) ||
+    normEmail(f["Email"]) ||
+    normEmail(f.email)
+  );
+}
+
 function primaryIndustrySummary(obj) {
   const parts = [];
-  for (const k of AT_INDUSTRY_FIELD_CANDIDATES) {
+  for (const k of ["PRIMARY INDUSTRY HOUSE", "Industry / Sector", "Primary Industry", "Primary industry"]) {
     if (obj[k]) parts.push(`${k}=${obj[k].slice(0, 80)}${obj[k].length > 80 ? "…" : ""}`);
   }
   return parts.join(" | ") || "(empty)";
 }
 
-async function fetchAllAirtableRecords(apiKey, baseId, table) {
+async function fetchAllAirtableRecords(apiKey, baseId, table, view) {
   const urlBase = `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(table)}`;
-  const all = [];
-  let offset = "";
-  do {
-    const params = new URLSearchParams({ pageSize: "100" });
-    if (offset) params.set("offset", offset);
-    const res = await fetch(`${urlBase}?${params}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-    if (!res.ok) {
-      const t = await res.text();
-      throw new Error(`Airtable ${res.status}: ${t.slice(0, 500)}`);
-    }
-    const data = await res.json();
-    all.push(...(data.records || []));
-    offset = data.offset || "";
-  } while (offset);
-  return all;
-}
 
-async function main() {
-  const atCfg = resolveAirtableConfig();
-  if (!atCfg) {
-    console.error(
-      "Missing Airtable env. Set either Mighty sync (AIRTABLE_PAT, AIRTABLE_MIGHTY_SYNC_BASE_ID, AIRTABLE_MIGHTY_SYNC_TABLE_*) or NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN + BASE + TABLE."
-    );
-    process.exit(1);
-  }
-  if (!MONGODB_URI) {
-    console.error("Missing MONGODB_URI / NEXT_PUBLIC_MONGODB_URI.");
-    process.exit(1);
+  async function pull(useView) {
+    const all = [];
+    let offset = "";
+    do {
+      const params = new URLSearchParams({ pageSize: "100" });
+      if (offset) params.set("offset", offset);
+      if (useView) params.set("view", useView);
+      const res = await fetch(`${urlBase}?${params}`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        const err = new Error(`Airtable ${res.status}: ${t.slice(0, 500)}`);
+        err.status = res.status;
+        err.body = t;
+        throw err;
+      }
+      const data = await res.json();
+      all.push(...(data.records || []));
+      offset = data.offset || "";
+    } while (offset);
+    return all;
   }
 
-  console.log("=== Industry dry run (READ ONLY) ===\n");
-  console.log("Airtable source:", atCfg.label);
-  console.log("Airtable table:", atCfg.table);
-  console.log("Mongo DB:", DATABASE_NAME, "|", COLLECTION_AIRTABLE, "+", COLLECTION_MIGHTY, "\n");
-
-  console.log("Fetching Airtable…");
-  let atRecords;
-  try {
-    atRecords = await fetchAllAirtableRecords(atCfg.apiKey, atCfg.baseId, atCfg.table);
-  } catch (e) {
-    const alt =
-      atCfg.label.startsWith("Mighty") &&
-      process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN &&
-      process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID &&
-      process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME
-        ? {
-            label: "Public map (NEXT_PUBLIC_AIRTABLE_*) [fallback]",
-            apiKey: process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN,
-            baseId: process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID,
-            table: process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME,
-          }
-        : null;
-    if (alt) {
-      console.warn("First Airtable fetch failed:", (e && e.message) || e);
-      console.warn("Retrying with", alt.label);
-      atRecords = await fetchAllAirtableRecords(alt.apiKey, alt.baseId, alt.table);
-    } else {
+  if (view) {
+    try {
+      return await pull(view);
+    } catch (e) {
+      const missingView =
+        e.body && /VIEW_ID_NOT_FOUND|view.*not found/i.test(String(e.body));
+      if (missingView) {
+        console.warn(`View "${view}" not found — fetching whole table without view.`);
+        return await pull(null);
+      }
       throw e;
     }
   }
-  console.log("Airtable rows:", atRecords.length);
+  return await pull(null);
+}
 
-  /** @type {Map<string, { industries: Record<string,string>, emailField: string }>} */
-  const byEmailAirtable = new Map();
-  let atWithAnyIndustry = 0;
-  const atFieldPresence = Object.fromEntries(AT_INDUSTRY_FIELD_CANDIDATES.map((k) => [k, 0]));
-
-  for (const rec of atRecords) {
-    const f = rec.fields || {};
-    const email =
-      normEmail(f["Primary Email"]) ||
-      normEmail(f["EMAIL ADDRESS"]) ||
-      normEmail(f["Email"]) ||
-      normEmail(f.email);
-    if (!email) continue;
-    const industries = pickIndustryFromAirtableFields(f);
-    for (const k of Object.keys(industries)) atFieldPresence[k] += 1;
-    if (Object.keys(industries).length) atWithAnyIndustry += 1;
-    const emailField =
-      f["Primary Email"] != null
-        ? "Primary Email"
-        : f["EMAIL ADDRESS"] != null
-          ? "EMAIL ADDRESS"
-          : "Email/other";
-    byEmailAirtable.set(email, { industries, emailField, recordId: rec.id });
-  }
-
-  console.log("\n--- Airtable (live) ---");
-  console.log("Rows with usable email:", byEmailAirtable.size);
-  console.log("Rows with at least one industry field (candidates):", atWithAnyIndustry);
-  console.log("Non-empty counts by field:", atFieldPresence);
-
+async function loadMongoMaps() {
   const client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 20000 });
   await client.connect();
   const db = client.db(DATABASE_NAME);
 
-  /** @type {Map<string, { primary?: string, sector?: string }>} */
   const byEmailMongoAR = new Map();
   let arTotal = 0;
   let arWithPrimary = 0;
@@ -221,20 +196,10 @@ async function main() {
     byEmailMongoAR.set(email, { primary, sector });
   }
 
-  console.log("\n--- Mongo airtableRecords ---");
-  console.log("Documents scanned:", arTotal);
-  console.log("With non-empty fields.PRIMARY INDUSTRY HOUSE:", arWithPrimary);
-  console.log("With non-empty fields.Industry / Sector:", arWithSector);
-  console.log("Unique emails indexed:", byEmailMongoAR.size);
-
-  /** @type {Map<string, { industry: string }>} */
   const byEmailMighty = new Map();
   let mmTotal = 0;
   let mmNonEmptyIndustry = 0;
-  const mmCursor = db.collection(COLLECTION_MIGHTY).find(
-    {},
-    { projection: { email: 1, industry: 1 } }
-  );
+  const mmCursor = db.collection(COLLECTION_MIGHTY).find({}, { projection: { email: 1, industry: 1 } });
   for await (const doc of mmCursor) {
     mmTotal += 1;
     const email = normEmail(doc?.email);
@@ -244,19 +209,54 @@ async function main() {
     byEmailMighty.set(email, { industry });
   }
 
-  console.log("\n--- Mongo mightyMembers ---");
-  console.log("Documents scanned:", mmTotal);
-  console.log("With non-empty industry:", mmNonEmptyIndustry);
-  console.log("Unique emails indexed:", byEmailMighty.size);
+  await client.close();
 
-  /** Airtable has industry info but mightyMembers industry empty */
+  return {
+    byEmailMongoAR,
+    arTotal,
+    arWithPrimary,
+    arWithSector,
+    byEmailMighty,
+    mmTotal,
+    mmNonEmptyIndustry,
+  };
+}
+
+function analyzePhase(phaseLabel, atCfg, atRecords, byEmailMongoAR, byEmailMighty) {
+  console.log(`\n${"=".repeat(72)}`);
+  console.log(phaseLabel);
+  console.log(`Table: ${atCfg.table}${atCfg.view ? ` | view: ${atCfg.view}` : ""}`);
+  console.log(`Rows fetched: ${atRecords.length}`);
+
+  const byEmailAirtable = new Map();
+  let atWithAnyIndustry = 0;
+  const atFieldPresence = {
+    "PRIMARY INDUSTRY HOUSE": 0,
+    "Industry / Sector": 0,
+    "Primary Industry": 0,
+    "Primary industry": 0,
+  };
+
+  for (const rec of atRecords) {
+    const f = rec.fields || {};
+    const email = emailFromAirtableFields(f);
+    if (!email) continue;
+    const industries = pickIndustryFromAirtableFields(f);
+    for (const k of Object.keys(industries)) {
+      if (atFieldPresence[k] != null) atFieldPresence[k] += 1;
+    }
+    if (Object.keys(industries).length) atWithAnyIndustry += 1;
+    byEmailAirtable.set(email, { industries, recordId: rec.id });
+  }
+
+  console.log("Rows with usable email:", byEmailAirtable.size);
+  console.log("Rows with at least one industry field (candidates):", atWithAnyIndustry);
+  console.log("Non-empty counts by field:", atFieldPresence);
+
   const atRichMmEmpty = [];
-  /** Airtable has industry info but mongo airtableRecords has both empty */
   const atRichArEmpty = [];
-  /** In mightyMembers but not in Airtable email set */
-  const mmOnly = [];
-  /** In Airtable email set but not in mightyMembers */
   const atOnly = [];
+  const mmOnly = [];
 
   for (const [email, at] of byEmailAirtable) {
     const mm = byEmailMighty.get(email);
@@ -277,10 +277,7 @@ async function main() {
     const arPrimary = ar?.primary || "";
     const arSector = ar?.sector || "";
     if (atHas && !arPrimary && !arSector) {
-      atRichArEmpty.push({
-        email,
-        airtable: primaryIndustrySummary(at.industries),
-      });
+      atRichArEmpty.push({ email, airtable: primaryIndustrySummary(at.industries) });
     }
   }
 
@@ -288,18 +285,15 @@ async function main() {
     if (!byEmailAirtable.has(email)) mmOnly.push(email);
   }
 
-  const SAMPLE = 20;
-  console.log("\n--- Gaps (dry run) ---");
+  const SAMPLE = 15;
+  console.log("\n--- Gaps vs Mongo (this Airtable source) ---");
+  console.log("Airtable industry filled but mightyMembers.industry empty:", atRichMmEmpty.length);
   console.log(
-    "Airtable has industry field(s) filled but mightyMembers.industry empty:",
-    atRichMmEmpty.length
-  );
-  console.log(
-    "Airtable has industry field(s) filled but mongo airtableRecords has no PRIMARY INDUSTRY HOUSE and no Industry / Sector:",
+    "Airtable industry filled but mongo airtableRecords missing PRIMARY + Industry / Sector:",
     atRichArEmpty.length
   );
-  console.log("Emails in Airtable (indexed) not found in mightyMembers:", atOnly.length);
-  console.log("Emails in mightyMembers not found in Airtable (indexed):", mmOnly.length);
+  console.log("In this Airtable index but not in mightyMembers:", atOnly.length);
+  console.log("In mightyMembers but not in this Airtable index:", mmOnly.length);
 
   const show = (label, arr) => {
     console.log(`\nSample (max ${SAMPLE}) — ${label}:`);
@@ -310,11 +304,66 @@ async function main() {
 
   show("Airtable industry present, mightyMembers.industry empty", atRichMmEmpty);
   show("Airtable industry present, airtableRecords industry fields empty", atRichArEmpty);
-  show("In Airtable only (no mightyMembers row)", atOnly);
-  show("In mightyMembers only (no Airtable row in this table)", mmOnly);
+  show("Airtable only (no mightyMembers)", atOnly);
+  show("mightyMembers only (not in this Airtable)", mmOnly);
+}
 
-  await client.close();
-  console.log("\nDone. No data was modified.");
+async function main() {
+  if (!MONGODB_URI) {
+    console.error("Missing MONGODB_URI / NEXT_PUBLIC_MONGODB_URI.");
+    process.exit(1);
+  }
+
+  console.log("=== Industry dry run (READ ONLY) ===\n");
+  console.log("Mongo:", DATABASE_NAME, "|", COLLECTION_AIRTABLE, "+", COLLECTION_MIGHTY);
+
+  console.log("\nLoading Mongo maps…");
+  const mongo = await loadMongoMaps();
+  console.log("airtableRecords docs:", mongo.arTotal);
+  console.log("  with fields.PRIMARY INDUSTRY HOUSE:", mongo.arWithPrimary);
+  console.log("  with fields.Industry / Sector:", mongo.arWithSector);
+  console.log("  unique emails:", mongo.byEmailMongoAR.size);
+  console.log("mightyMembers docs:", mongo.mmTotal);
+  console.log("  with non-empty industry:", mongo.mmNonEmptyIndustry);
+  console.log("  unique emails:", mongo.byEmailMighty.size);
+
+  const prod = resolveProductionAirtable();
+  const mighty = resolveMightySyncAirtable();
+
+  if (!prod && !mighty) {
+    console.error(
+      "No Airtable config: set NEXT_PUBLIC_AIRTABLE_* (production) and/or Mighty sync env vars."
+    );
+    process.exit(1);
+  }
+
+  if (prod) {
+    console.log("\nFetching production Airtable…");
+    const records = await fetchAllAirtableRecords(prod.apiKey, prod.baseId, prod.table, prod.view);
+    analyzePhase(prod.label, prod, records, mongo.byEmailMongoAR, mongo.byEmailMighty);
+  }
+
+  if (mighty) {
+    const sameAsProd =
+      prod &&
+      mighty.baseId === prod.baseId &&
+      mighty.table === prod.table;
+    if (sameAsProd) {
+      console.log("\n(Skipping second fetch: Mighty sync points at same base+table as production.)");
+    } else {
+      console.log("\nFetching Mighty sync Airtable…");
+      const records = await fetchAllAirtableRecords(
+        mighty.apiKey,
+        mighty.baseId,
+        mighty.table,
+        mighty.view
+      );
+      analyzePhase(mighty.label, mighty, records, mongo.byEmailMongoAR, mongo.byEmailMighty);
+    }
+  }
+
+  console.log("\n" + "=".repeat(72));
+  console.log("Done. No data was modified.");
 }
 
 main().catch((e) => {
