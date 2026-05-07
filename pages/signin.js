@@ -99,7 +99,7 @@ export default function SignInPage() {
                 <span>
                   Not a member yet?{' '}
                   <a
-                    href="https://maps.blacksustainability.org/signin"
+                    href="https://black-sustainability-network.mn.co/landing"
                     className="underline decoration-[#FFBF23] decoration-2 underline-offset-2 hover:text-white"
                     target="_blank"
                     rel="noopener noreferrer"
