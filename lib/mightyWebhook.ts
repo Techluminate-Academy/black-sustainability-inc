@@ -18,6 +18,10 @@ export type MightyWebhookEventType =
 
 type AnyObj = Record<string, any>;
 
+function isObject(v: unknown): v is AnyObj {
+  return !!v && typeof v === "object" && !Array.isArray(v);
+}
+
 export function getBearerToken(authHeader: unknown): string | null {
   if (typeof authHeader !== "string") return null;
   const m = authHeader.match(/^Bearer\s+(.+)\s*$/i);
@@ -37,22 +41,25 @@ export function extractEventType(payload: AnyObj): string | null {
 }
 
 export function extractEventId(payload: AnyObj): string | null {
+  // Prefer webhook event id over resource `id` (Mighty puts member id inside `payload`).
   const v =
-    payload?.id ||
-    payload?.event_id ||
-    payload?.eventId ||
-    payload?.webhook_event_id ||
+    payload?.event_id ??
+    payload?.eventId ??
+    payload?.webhook_event_id ??
+    payload?.id ??
     null;
   return typeof v === "string" || typeof v === "number" ? String(v) : null;
 }
 
 export function extractEventAt(payload: AnyObj): Date {
   const v =
-    payload?.created_at ||
-    payload?.createdAt ||
-    payload?.occurred_at ||
-    payload?.occurredAt ||
-    payload?.timestamp ||
+    payload?.event_timestamp ??
+    payload?.eventTimestamp ??
+    payload?.created_at ??
+    payload?.createdAt ??
+    payload?.occurred_at ??
+    payload?.occurredAt ??
+    payload?.timestamp ??
     null;
 
   if (typeof v === "string" || typeof v === "number") {
@@ -64,9 +71,14 @@ export function extractEventAt(payload: AnyObj): Date {
 }
 
 export function extractMemberId(payload: AnyObj): string | null {
+  const nested = isObject(payload?.payload) ? payload.payload : null;
   const candidate =
     payload?.member?.id ??
     payload?.member?.member_id ??
+    nested?.member?.id ??
+    nested?.member?.member_id ??
+    nested?.id ??
+    nested?.member_id ??
     payload?.member_id ??
     payload?.memberId ??
     payload?.user_id ??
@@ -77,8 +89,11 @@ export function extractMemberId(payload: AnyObj): string | null {
 }
 
 export function extractMemberEmail(payload: AnyObj): string | null {
+  const nested = isObject(payload?.payload) ? payload.payload : null;
   const email =
     payload?.member?.email ??
+    nested?.member?.email ??
+    nested?.email ??
     payload?.member_email ??
     payload?.email ??
     null;
@@ -87,14 +102,49 @@ export function extractMemberEmail(payload: AnyObj): string | null {
   return norm ? norm : null;
 }
 
-function isObject(v: unknown): v is AnyObj {
-  return !!v && typeof v === "object" && !Array.isArray(v);
-}
-
 function looksLikeFullMember(member: AnyObj | null | undefined): boolean {
   if (!isObject(member)) return false;
   // Heuristic: if we have basic profile fields, assume it's "full enough" to write without refetch.
   return Boolean(member.email || member.name || member.first_name || member.last_name || member.profile || member.avatar_url);
+}
+
+/**
+ * Mighty Admin API webhooks send `{ event_type, event_id, event_timestamp, payload }`
+ * where `payload` is often the member record (or contains `member` + `space`).
+ * Normalize to the flatter shape the rest of this module expects.
+ */
+function normalizeMightyWebhookBody(body: AnyObj): AnyObj {
+  if (!isObject(body)) return body;
+
+  const inner = body.payload;
+  if (!isObject(inner)) return body;
+
+  const eventType = body.event_type ?? body.type;
+  if (typeof eventType !== "string") return body;
+
+  const hasMightyEnvelope =
+    body.event_id != null || body.event_timestamp != null || body.event_type != null;
+  if (!hasMightyEnvelope) return body;
+
+  const memberFromInner = isObject(inner.member)
+    ? inner.member
+    : looksLikeFullMember(inner)
+      ? inner
+      : null;
+
+  const out: AnyObj = {
+    ...body,
+    type: body.type ?? eventType,
+    id: body.id ?? body.event_id,
+    created_at: body.created_at ?? body.event_timestamp ?? body.eventTimestamp,
+    member: body.member ?? memberFromInner,
+  };
+
+  if (body.space == null && isObject(inner.space)) out.space = inner.space;
+  if (body.plan == null && isObject(inner.plan)) out.plan = inner.plan;
+  if (body.subscription == null && isObject(inner.subscription)) out.subscription = inner.subscription;
+
+  return out;
 }
 
 function normalizeMemberDoc(member: AnyObj): AnyObj {
@@ -271,14 +321,15 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
     updatedAt: string;
   };
 }> {
-  const eventType = extractEventType(payload) || "UnknownEvent";
-  const eventId = extractEventId(payload);
-  const eventAt = extractEventAt(payload);
+  const normalized = normalizeMightyWebhookBody(payload);
+  const eventType = extractEventType(normalized) || "UnknownEvent";
+  const eventId = extractEventId(normalized);
+  const eventAt = extractEventAt(normalized);
 
-  const memberId = extractMemberId(payload);
-  const email = extractMemberEmail(payload);
+  const memberId = extractMemberId(normalized);
+  const email = extractMemberEmail(normalized);
 
-  const embeddedMember = isObject(payload?.member) ? payload.member : null;
+  const embeddedMember = isObject(normalized?.member) ? normalized.member : null;
   const member =
     looksLikeFullMember(embeddedMember) ? embeddedMember : memberId ? await fetchMightyMemberById(memberId) : embeddedMember;
 
@@ -307,8 +358,8 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
   };
 
   // Event-specific patches
-  const subscriptionPatch = deriveSubscriptionPatch(eventType, payload);
-  const spacePatch = deriveSpaceMembershipPatch(eventType, payload);
+  const subscriptionPatch = deriveSubscriptionPatch(eventType, normalized);
+  const spacePatch = deriveSpaceMembershipPatch(eventType, normalized);
 
   const update: AnyObj = {
     $set: {
@@ -324,7 +375,7 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
 
   await collection.updateOne(filter, update, { upsert: true });
 
-  const subscription = deriveSubscriptionSummary(eventType, payload);
+  const subscription = deriveSubscriptionSummary(eventType, normalized);
   const memberSummary = {
     mightyId,
     email: normalizedEmail,

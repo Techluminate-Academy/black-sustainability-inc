@@ -80,5 +80,29 @@ describe("upsertMightyMemberFromWebhook", () => {
     expect((fetchMightyMemberById as any).mock.calls.length).toBe(0);
     expect(r.subscription.isPaidActive).toBe(true);
   });
+
+  it("unwraps Mighty envelope (event_type + payload as member)", async () => {
+    const { upsertMightyMemberFromWebhook } = await import("../lib/mightyWebhook");
+    const { fetchMightyMemberById } = await import("../lib/mightyAdmin");
+
+    (fetchMightyMemberById as any).mockClear();
+
+    const body = {
+      event_id: "evt_mighty_1",
+      event_type: "MemberUpdated",
+      event_timestamp: "2026-01-15T12:00:00.000Z",
+      payload: {
+        id: 999,
+        email: "envelope@example.com",
+        first_name: "Env",
+        last_name: "Lope",
+      },
+    };
+
+    const r = await upsertMightyMemberFromWebhook(body);
+    expect((fetchMightyMemberById as any).mock.calls.length).toBe(0);
+    expect(r.matchedBy).toBe("mightyId");
+    expect(r.member.email).toBe("envelope@example.com");
+  });
 });
 

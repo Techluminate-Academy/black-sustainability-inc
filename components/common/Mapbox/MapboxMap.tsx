@@ -633,10 +633,14 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                 if (!b) return [];
                 const sw = b.getSouthWest();
                 const ne = b.getNorthEast();
+                // queryRenderedFeatures expects screen pixel bbox, not lng/lat.
+                const swPx = mapRef.current.project([sw.lng, sw.lat]);
+                const nePx = mapRef.current.project([ne.lng, ne.lat]);
                 const rendered = mapRef.current.queryRenderedFeatures(
                   [
-                    [sw.lng, sw.lat],
-                    [ne.lng, ne.lat],
+                    // top-left, bottom-right
+                    [swPx.x, nePx.y],
+                    [nePx.x, swPx.y],
                   ],
                   { layers: ["unclustered-points-hit"] }
                 );
