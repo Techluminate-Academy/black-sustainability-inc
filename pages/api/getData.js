@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     const excludeViewer = !!excludeMongoId || excludeMightyId != null;
     const useCache = !excludeViewer;
 
-    const cacheKey = `getData:v5:industry-substr:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
+    const cacheKey = `getData:v6:legacy-field:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
     if (useCache) {
       const cacheStart = Date.now();
       const cachedData = await redis.get(cacheKey);

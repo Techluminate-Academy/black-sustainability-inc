@@ -578,8 +578,15 @@ export default function Home() {
   // --------------------------------------------------------------------
   const handleLoadMore = async () => {
     const nextPage = sidebarPage + 1;
+    const industryQs =
+      selectedIndustry && selectedIndustry !== ""
+        ? `&industryHouse=${encodeURIComponent(selectedIndustry)}`
+        : "";
     try {
-      const res = await fetch(`/api/getData?page=${nextPage}&limit=100`, { credentials: "include" });
+      const res = await fetch(
+        `/api/getData?page=${nextPage}&limit=100${industryQs}`,
+        { credentials: "include" }
+      );
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
         const newRecords = result.data.filter((item: any) => item !== null);
@@ -690,7 +697,10 @@ export default function Home() {
     try {
       // Keep loading state urgent (user needs immediate feedback)
       setPreloaderSidebar(true);
-      const res = await fetch(`/api/filterData?page=1&limit=100&industryHouse=${encodeURIComponent(selectedValue)}`, { credentials: "include" });
+      const res = await fetch(
+        `/api/filterData?page=1&limit=500&industryHouse=${encodeURIComponent(selectedValue)}`,
+        { credentials: "include" }
+      );
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
         // Batch data updates to avoid blocking UI
@@ -699,6 +709,7 @@ export default function Home() {
           setTotalCount(
             typeof result.totalCount === "number" ? result.totalCount : result.data.length
           );
+          setSidebarPage(1);
         });
         // Keep loading state urgent
         setPreloaderSidebar(false);
