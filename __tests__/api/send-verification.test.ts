@@ -1,8 +1,19 @@
 import { createMocks } from 'node-mocks-http';
-import sendVerification from '../auth/send-verification';
+import sendVerification from '../../pages/api/auth/send-verification';
 import nodemailer from 'nodemailer';
+import axios from 'axios';
 
 jest.mock('nodemailer');
+jest.mock('axios');
+jest.mock('@/lib/mongodb', () => ({
+  connectToDatabase: jest.fn().mockResolvedValue({
+    db: {
+      collection: jest.fn().mockReturnValue({
+        replaceOne: jest.fn().mockResolvedValue({ acknowledged: true }),
+      }),
+    },
+  }),
+}));
 
 describe('Send Verification API', () => {
   beforeEach(() => {
@@ -10,16 +21,32 @@ describe('Send Verification API', () => {
   });
 
   it('sends verification email successfully', async () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0); // -> code "100000"
+
     const mockSendMail = jest.fn().mockResolvedValue({ messageId: 'test-id' });
     (nodemailer.createTransport as jest.Mock).mockReturnValue({
       sendMail: mockSendMail,
+    });
+
+    (axios.get as jest.Mock).mockResolvedValue({
+      data: {
+        records: [
+          {
+            id: 'rec123',
+            fields: {
+              'FIRST NAME': 'Test',
+              'LAST NAME': 'User',
+              'EMAIL ADDRESS': 'test@example.com',
+            },
+          },
+        ],
+      },
     });
 
     const { req, res } = createMocks({
       method: 'POST',
       body: {
         email: 'test@example.com',
-        code: '123456',
       },
     });
 
@@ -28,14 +55,15 @@ describe('Send Verification API', () => {
     expect(res._getStatusCode()).toBe(200);
     expect(JSON.parse(res._getData())).toEqual(
       expect.objectContaining({
-        message: 'Verification email sent successfully',
+        success: true,
+        message: 'Verification code sent to your email',
       })
     );
     expect(mockSendMail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'test@example.com',
         subject: expect.any(String),
-        html: expect.stringContaining('123456'),
+        html: expect.stringContaining('100000'),
       })
     );
   });
@@ -50,7 +78,7 @@ describe('Send Verification API', () => {
 
     expect(res._getStatusCode()).toBe(400);
     expect(JSON.parse(res._getData())).toEqual({
-      error: 'Email and verification code are required',
+      error: 'Email is required',
     });
   });
 
@@ -60,11 +88,25 @@ describe('Send Verification API', () => {
       sendMail: mockSendMail,
     });
 
+    (axios.get as jest.Mock).mockResolvedValue({
+      data: {
+        records: [
+          {
+            id: 'rec123',
+            fields: {
+              'FIRST NAME': 'Test',
+              'LAST NAME': 'User',
+              'EMAIL ADDRESS': 'test@example.com',
+            },
+          },
+        ],
+      },
+    });
+
     const { req, res } = createMocks({
       method: 'POST',
       body: {
         email: 'test@example.com',
-        code: '123456',
       },
     });
 
@@ -72,7 +114,8 @@ describe('Send Verification API', () => {
 
     expect(res._getStatusCode()).toBe(500);
     expect(JSON.parse(res._getData())).toEqual({
-      error: 'Failed to send verification email',
+      error: 'Failed to send verification code',
+      details: expect.any(String),
     });
   });
 });

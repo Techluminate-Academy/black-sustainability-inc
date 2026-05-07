@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import nodemailer from 'nodemailer';
-import { connectToDatabase } from '../../../lib/mongodb';
+import { connectToDatabase } from '@/lib/mongodb';
 import axios from 'axios';
 
 // Airtable credentials

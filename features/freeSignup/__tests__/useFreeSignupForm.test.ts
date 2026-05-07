@@ -35,22 +35,17 @@ jest.mock('react-google-places-autocomplete', () => ({
 }));
 
 describe('useFreeSignupForm', () => {
-  beforeAll(() => {
-    global.URL.createObjectURL = jest.fn(() => 'blob:mock-url');
-    global.URL.revokeObjectURL = jest.fn();
-  });
-
-  afterAll(() => {
-    (global.URL.createObjectURL as jest.Mock).mockRestore();
-    (global.URL.revokeObjectURL as jest.Mock).mockRestore();
-  });
-
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('initializes with empty form data and no errors', () => {
+  it('initializes with empty form data and no errors', async () => {
     const { result } = renderHook(() => useFreeSignupForm());
+
+    // Let the mount effect settle to avoid act() warnings
+    await waitFor(() => {
+      expect(AirtableUtils.fetchTableMetadata).toHaveBeenCalled();
+    });
 
     expect(result.current.formData).toEqual({
       firstName: '',
@@ -64,7 +59,9 @@ describe('useFreeSignupForm', () => {
       bio: '',
       photo: null,
       logo: null,
-      form: ''
+      form: '',
+      membershipStatusNotes: 'Free',
+      affiliatedEntity: '',
     });
     expect(result.current.errors).toEqual({});
   });
@@ -103,7 +100,6 @@ describe('useFreeSignupForm', () => {
     });
 
     expect(result.current.formData.photo).toBe(file);
-    expect(result.current.formData.photoUrl).toBe('blob:mock-url');
     expect(result.current.errors).toEqual({});
   });
 
@@ -144,7 +140,7 @@ describe('useFreeSignupForm', () => {
       primaryIndustry: 'Primary industry is required.',
       photo: 'Profile photo is required.'
     });
-    expect(AirtableUtils.submitToAirtable).not.toHaveBeenCalled();
+    expect(freeSignupService.sendToAirtable).not.toHaveBeenCalled();
   });
 
   it('validates email format', async () => {
@@ -181,7 +177,7 @@ describe('useFreeSignupForm', () => {
 
   it('handles submission errors', async () => {
     const mockError = new Error('Submission failed');
-    (AirtableUtils.submitToAirtable as jest.Mock).mockRejectedValueOnce(mockError);
+    mockedSignupService.sendToAirtable.mockRejectedValueOnce(mockError);
 
     const { result } = renderHook(() => useFreeSignupForm());
     const mockPhoto = new File(['photo'], 'photo.png', { type: 'image/png' });
@@ -210,7 +206,7 @@ describe('useFreeSignupForm', () => {
       await result.current.handleSubmit();
     });
 
-    expect(result.current.errors.form).toBe('Failed to submit form. Please try again.');
+    expect(result.current.errors.form).toBe('An unexpected error occurred during submission.');
     expect(result.current.isSubmitted).toBe(false);
   });
 
@@ -248,16 +244,15 @@ describe('useFreeSignupForm', () => {
     expect(result.current.errors).toEqual({});
     expect(result.current.isSubmitted).toBe(true);
     expect(freeSignupService.uploadFile).toHaveBeenCalledWith(mockPhoto);
-    expect(AirtableUtils.submitToAirtable).toHaveBeenCalledWith(expect.objectContaining({
-      'FIRST NAME': 'John',
-      'LAST NAME': 'Doe',
-      'EMAIL ADDRESS': 'john@example.com',
-      'PRIMARY INDUSTRY HOUSE': 'Technology',
-      'Address': '123 Test St',
-      'Latitude': 40.7128,
-      'Longitude': -74.0060,
-      'Featured': 'checked',
-      'PHOTO': [{ url: 'http://cloudinary.com/photo.png' }]
+    expect(freeSignupService.sendToAirtable).toHaveBeenCalledWith(expect.objectContaining({
+      firstName: 'John',
+      lastName: 'Doe',
+      email: 'john@example.com',
+      primaryIndustry: 'Technology',
+      address: '123 Test St',
+      latitude: 40.7128,
+      longitude: -74.0060,
+      photoUrl: 'http://cloudinary.com/photo.png',
     }));
   });
 }); 
