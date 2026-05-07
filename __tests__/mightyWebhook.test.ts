@@ -1,11 +1,14 @@
 import { getBearerToken } from "../lib/mightyWebhook";
 
+const mockedMongoCollection = {
+  findOne: jest.fn(async () => null),
+  updateOne: jest.fn(async () => ({})),
+};
+
 jest.mock("../lib/mongodb", () => ({
   connectToDatabase: async () => ({
     db: {
-      collection: () => ({
-        updateOne: jest.fn(async () => ({})),
-      }),
+      collection: () => mockedMongoCollection,
     },
   }),
 }));
@@ -103,6 +106,97 @@ describe("upsertMightyMemberFromWebhook", () => {
     expect((fetchMightyMemberById as any).mock.calls.length).toBe(0);
     expect(r.matchedBy).toBe("mightyId");
     expect(r.member.email).toBe("envelope@example.com");
+  });
+
+  it("does not overwrite member:self-update location/coords", async () => {
+    const { upsertMightyMemberFromWebhook } = await import("../lib/mightyWebhook");
+    mockedMongoCollection.findOne.mockResolvedValueOnce({
+      source: "member:self-update",
+      memberLocationUpdatedAt: new Date("2026-05-07T00:00:10Z"),
+      updatedAt: new Date(),
+    });
+    mockedMongoCollection.updateOne.mockClear();
+
+    const payload = {
+      type: "MemberUpdated",
+      id: "evt_2",
+      created_at: "2026-01-01T00:00:00Z",
+      member: {
+        id: 123,
+        email: "test@example.com",
+        first_name: "Test",
+        last_name: "User",
+        location: "Rio de Janeiro, Brazil",
+        latitude: -22.9,
+        longitude: -43.2,
+      },
+    };
+
+    await upsertMightyMemberFromWebhook(payload as any);
+
+    const update = mockedMongoCollection.updateOne.mock.calls[0][1];
+    expect(update?.$set?.location).toBeUndefined();
+    expect(update?.$set?.latitude).toBeUndefined();
+    expect(update?.$set?.longitude).toBeUndefined();
+    expect(update?.$set?.geo).toBeUndefined();
+  });
+
+  it("does not overwrite location when self-update timestamp is newer than webhook event", async () => {
+    const { upsertMightyMemberFromWebhook } = await import("../lib/mightyWebhook");
+    mockedMongoCollection.findOne.mockResolvedValueOnce({
+      source: "mighty:webhook",
+      memberLocationUpdatedAt: new Date("2026-05-07T00:00:10Z"),
+    });
+    mockedMongoCollection.updateOne.mockClear();
+
+    const payload = {
+      type: "MemberUpdated",
+      id: "evt_3",
+      created_at: "2026-05-07T00:00:00Z",
+      member: {
+        id: 123,
+        email: "test@example.com",
+        location: "Old Place",
+        latitude: 1,
+        longitude: 2,
+      },
+    };
+
+    await upsertMightyMemberFromWebhook(payload as any);
+
+    const update = mockedMongoCollection.updateOne.mock.calls[0][1];
+    expect(update?.$set?.location).toBeUndefined();
+    expect(update?.$set?.latitude).toBeUndefined();
+    expect(update?.$set?.longitude).toBeUndefined();
+    expect(update?.$set?.geo).toBeUndefined();
+  });
+
+  it("uses Map Location custom field text to update location (even if event is newer)", async () => {
+    process.env.MIGHTY_MAP_LOCATION_CUSTOM_FIELD_ID = "1626958";
+
+    const { upsertMightyMemberFromWebhook } = await import("../lib/mightyWebhook");
+    mockedMongoCollection.findOne.mockResolvedValueOnce({
+      source: "mighty:webhook",
+      memberLocationUpdatedAt: new Date("2026-05-07T00:00:00Z"),
+    });
+    mockedMongoCollection.updateOne.mockClear();
+
+    const payload = {
+      type: "CustomFieldResponseUpdatedHook",
+      id: "evt_cf_1",
+      created_at: "2026-05-07T00:00:10Z",
+      member: {
+        id: 123,
+        email: "test@example.com",
+        location: "Rio de Janeiro, Brazil",
+      },
+      custom_field_id: 1626958,
+      text: "Canada",
+    };
+
+    await upsertMightyMemberFromWebhook(payload as any);
+    const update = mockedMongoCollection.updateOne.mock.calls[0][1];
+    expect(update?.$set?.location).toBe("Canada");
   });
 });
 

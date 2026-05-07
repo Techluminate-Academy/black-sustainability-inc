@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { mightyGetMemberByEmail } from "../../../lib/mightyAdmin";
+import { findAirtableMightyMemberByEmail } from "../../../lib/airtableMightyMembers";
 import {
   BSN_SESSION_COOKIE,
   createBsnSessionToken,
@@ -44,10 +45,48 @@ export default async function handler(
   }
 
   if (!member) {
-    return res.status(401).json({
-      ok: false,
-      error: "No member found for that email in this Mighty network.",
-    });
+    // Fallback: allow sign-in if they exist in the Airtable Mighty Members table.
+    // This supports cases where Mighty membership is still syncing or the email lookup is limited.
+    try {
+      const airtableMember = await findAirtableMightyMemberByEmail(email);
+      if (!airtableMember) {
+        return res.status(401).json({
+          ok: false,
+          error:
+            "We couldn't find your email in Mighty or our directory records. If you believe you should have access, email jerry@techluminateacademy.com.",
+        });
+      }
+      if (typeof airtableMember.mightyId !== "number") {
+        return res.status(401).json({
+          ok: false,
+          error:
+            "Your directory record is missing a Mighty Member ID. Please email jerry@techluminateacademy.com for help.",
+        });
+      }
+
+      const token = createBsnSessionToken({
+        email: airtableMember.email || email,
+        mightyId: airtableMember.mightyId,
+        firstName: airtableMember.firstName ?? null,
+        lastName: airtableMember.lastName ?? null,
+      });
+      setSessionCookie(res, token);
+
+      return res.status(200).json({
+        ok: true,
+        user: {
+          email: airtableMember.email || email,
+          mightyId: airtableMember.mightyId,
+          firstName: airtableMember.firstName,
+          lastName: airtableMember.lastName,
+        },
+        source: "airtable",
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[auth/login] Airtable fallback lookup failed:", msg);
+      return res.status(502).json({ ok: false, error: "Member lookup failed" });
+    }
   }
 
   try {

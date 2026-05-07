@@ -118,6 +118,32 @@ function pickFiniteNumber(v: unknown): number | undefined {
   return undefined;
 }
 
+function extractCustomFieldResponse(payload: AnyObj): { customFieldId?: string; text?: string } {
+  const nested = isObject(payload?.payload) ? payload.payload : null;
+  const p = nested || payload;
+
+  const customFieldId =
+    p?.custom_field_id ??
+    p?.customFieldId ??
+    p?.custom_field?.id ??
+    p?.customField?.id ??
+    p?.custom_field_response?.custom_field_id ??
+    p?.customFieldResponse?.customFieldId ??
+    null;
+
+  const text =
+    p?.text ??
+    p?.value ??
+    p?.custom_field_response?.text ??
+    p?.customFieldResponse?.text ??
+    null;
+
+  return {
+    ...(customFieldId != null ? { customFieldId: String(customFieldId) } : {}),
+    ...(typeof text === "string" ? { text } : {}),
+  };
+}
+
 /** Mighty may omit coords; some payloads include lat/lng under various keys. */
 function extractLatLng(member: AnyObj): { latitude?: number; longitude?: number } {
   const pairs: [unknown, unknown][] = [
@@ -386,6 +412,28 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
     throw new Error("Cannot upsert member: no mightyId or email");
   }
 
+  const isCustomFieldEvent = /customfieldresponse/i.test(eventType);
+  const mapLocationCustomFieldIdRaw = process.env.MIGHTY_MAP_LOCATION_CUSTOM_FIELD_ID;
+  const mapLocationCustomFieldId = mapLocationCustomFieldIdRaw ? String(mapLocationCustomFieldIdRaw) : null;
+  const cf = isCustomFieldEvent ? extractCustomFieldResponse(normalized) : {};
+  const isMapLocationCustomFieldEvent =
+    isCustomFieldEvent &&
+    !!mapLocationCustomFieldId &&
+    typeof cf.customFieldId === "string" &&
+    cf.customFieldId === mapLocationCustomFieldId &&
+    typeof cf.text === "string" &&
+    cf.text.trim().length >= 2;
+
+  // If the event is for our Map Location custom field, use that text as the member location.
+  // This prevents stale profile `member.location` from overwriting the map source of truth.
+  if (isMapLocationCustomFieldEvent) {
+    memberDoc.location = cf.text!.trim();
+    // Force geocode to run from this new string.
+    delete memberDoc.latitude;
+    delete memberDoc.longitude;
+    delete memberDoc.geo;
+  }
+
   const hasStoredCoords =
     typeof memberDoc.latitude === "number" &&
     typeof memberDoc.longitude === "number" &&
@@ -411,6 +459,39 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
 
   const { db } = await connectToDatabase();
   const collection = db.collection("mightyMembers");
+
+  // If a member has updated their location via our self-service flow, do not let
+  // later Mighty webhooks clobber their location/coords with stale profile data.
+  // (Mighty's native `member.location` isn't reliably writable via Admin API; the
+  // custom field answer is the source for Mighty UI, while Mongo is the map source.)
+  const existing = await collection.findOne(filter, {
+    projection: { source: 1, memberLocationUpdatedAt: 1 },
+  });
+  const existingMemberLocationUpdatedAt =
+    existing?.memberLocationUpdatedAt instanceof Date
+      ? existing.memberLocationUpdatedAt
+      : typeof existing?.memberLocationUpdatedAt === "string" || typeof existing?.memberLocationUpdatedAt === "number"
+        ? new Date(existing.memberLocationUpdatedAt)
+        : null;
+
+  const protectLocation =
+    !isMapLocationCustomFieldEvent &&
+    (existing?.source === "member:self-update" ||
+      existing?.source === "member:self-service" ||
+      (existingMemberLocationUpdatedAt != null &&
+        Number.isFinite(existingMemberLocationUpdatedAt.valueOf()) &&
+        existingMemberLocationUpdatedAt.valueOf() > eventAt.valueOf()));
+
+  if (protectLocation) {
+    delete memberDoc.location;
+    delete memberDoc.latitude;
+    delete memberDoc.longitude;
+    delete memberDoc.geo;
+    delete memberDoc.source; // keep original source
+    delete coordPatch.latitude;
+    delete coordPatch.longitude;
+    delete coordPatch.geo;
+  }
 
   const setPatch: AnyObj = {
     ...memberDoc,

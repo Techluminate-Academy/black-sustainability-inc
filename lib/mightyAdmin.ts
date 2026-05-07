@@ -8,12 +8,14 @@ function requireEnv(name: string): string {
 
 function getBaseUrl(): string {
   // Allow override in case Mighty changes domains/paths.
-  return (process.env.MIGHTY_ADMIN_API_BASE_URL || "https://www.mightynetworks.com").replace(/\/$/, "");
+  // Admin API lives under api.mn.co (www.mightynetworks.com will 404).
+  return (process.env.MIGHTY_ADMIN_API_BASE_URL || "https://api.mn.co").replace(/\/$/, "");
 }
 
 export async function fetchMightyMemberById(mightyMemberId: string | number): Promise<MightyAdminMember> {
-  const apiKey = requireEnv("MIGHTY_API_KEY");
-  const networkId = requireEnv("MIGHTY_NETWORK_ID");
+  // Allow both env var names (matches `mightyGetMemberByEmail`)
+  const apiKey = getApiKey();
+  const networkId = getNetworkId();
 
   const memberId = String(mightyMemberId);
   const url = `${getBaseUrl()}/admin/v1/networks/${encodeURIComponent(networkId)}/members/${encodeURIComponent(memberId)}`;
@@ -32,6 +34,69 @@ export async function fetchMightyMemberById(mightyMemberId: string | number): Pr
   }
 
   return (await res.json()) as MightyAdminMember;
+}
+
+export async function updateMightyMemberLocation(params: {
+  mightyMemberId: string | number;
+  location: string;
+}): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
+  const apiKey = getApiKey();
+  const networkId = getNetworkId();
+
+  const memberId = String(params.mightyMemberId);
+  const url = `${getBaseUrl()}/admin/v1/networks/${encodeURIComponent(networkId)}/members/${encodeURIComponent(memberId)}`;
+
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    // Mighty Admin API expects partial fields at the top-level (not nested under `member`).
+    body: JSON.stringify({ location: params.location }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return {
+      ok: false,
+      status: res.status,
+      message: text || res.statusText,
+    };
+  }
+
+  return { ok: true };
+}
+
+export async function upsertMightyCustomFieldAnswer(params: {
+  customFieldId: string | number;
+  mightyMemberId: string | number;
+  text: string;
+}): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
+  const apiKey = getApiKey();
+  const networkId = getNetworkId();
+
+  const customFieldId = String(params.customFieldId);
+  const memberId = String(params.mightyMemberId);
+
+  const url = `${getBaseUrl()}/admin/v1/networks/${encodeURIComponent(networkId)}/custom_fields/${encodeURIComponent(customFieldId)}/members/${encodeURIComponent(memberId)}/answers`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ text: params.text }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    return { ok: false, status: res.status, message: body || res.statusText };
+  }
+  return { ok: true };
 }
 
 export type MightyMember = {

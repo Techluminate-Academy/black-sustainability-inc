@@ -3,6 +3,15 @@ type AirtableRecord = {
   fields: Record<string, any>;
 };
 
+export type AirtableMightyMemberLookup = {
+  recordId: string;
+  mightyId: number | null;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  location: string | null;
+};
+
 function getAirtableApiKey(): string | null {
   return (
     process.env.AIRTABLE_PAT ||
@@ -80,6 +89,8 @@ function pickAirtableFields(member: {
   avatarUrl?: string;
   bio?: string;
   location?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   subscription?: {
     isPaidActive?: boolean;
     planNames?: string[];
@@ -101,6 +112,12 @@ function pickAirtableFields(member: {
   if (member.bio) fields["Short Bio"] = member.bio;
   if (member.location) fields["City"] = member.location;
 
+  // Coordinates (column names can vary; allow overrides).
+  const latField = process.env.AIRTABLE_COORD_LAT_FIELD || "Latitude";
+  const lngField = process.env.AIRTABLE_COORD_LNG_FIELD || "Longitude";
+  if (typeof member.latitude === "number" && Number.isFinite(member.latitude)) fields[latField] = member.latitude;
+  if (typeof member.longitude === "number" && Number.isFinite(member.longitude)) fields[lngField] = member.longitude;
+
   // Optional subscription fields (only if your Airtable has these exact columns).
   if (typeof member.subscription?.isPaidActive === "boolean") fields["isPaidActive"] = member.subscription.isPaidActive;
   if (Array.isArray(member.subscription?.planNames) && member.subscription!.planNames!.length)
@@ -114,6 +131,43 @@ function pickAirtableFields(member: {
   return fields;
 }
 
+export async function findAirtableMightyMemberByEmail(
+  email: string
+): Promise<AirtableMightyMemberLookup | null> {
+  if (!airtableEnabled()) return null;
+  const baseId = getBaseId();
+  const table = getTableNameOrId();
+  if (!baseId || !table) return null;
+
+  const formula = buildFindFormula({ email });
+  if (!formula) return null;
+
+  const tableEncoded = encodeURIComponent(table);
+  const baseUrl = `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${tableEncoded}`;
+  const searchUrl = `${baseUrl}?maxRecords=1&filterByFormula=${encodeURIComponent(formula)}`;
+  const search = (await airtableFetchJson(searchUrl, { method: "GET" })) as { records: AirtableRecord[] };
+  const r = search.records?.[0];
+  if (!r?.id) return null;
+
+  const f = r.fields || {};
+  const mightyIdRaw = f["Mighty Member ID"];
+  const mightyId =
+    typeof mightyIdRaw === "number"
+      ? mightyIdRaw
+      : typeof mightyIdRaw === "string" && mightyIdRaw.trim() !== ""
+        ? Number(mightyIdRaw)
+        : null;
+
+  return {
+    recordId: r.id,
+    mightyId: typeof mightyId === "number" && Number.isFinite(mightyId) ? mightyId : null,
+    email: typeof f["Primary Email"] === "string" ? f["Primary Email"] : null,
+    firstName: typeof f["First Name"] === "string" ? f["First Name"] : null,
+    lastName: typeof f["Last Name"] === "string" ? f["Last Name"] : null,
+    location: typeof f["City"] === "string" ? f["City"] : null,
+  };
+}
+
 export async function upsertAirtableMightyMember(member: {
   mightyId?: number;
   email?: string | null;
@@ -122,6 +176,8 @@ export async function upsertAirtableMightyMember(member: {
   avatarUrl?: string;
   bio?: string;
   location?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   subscription?: {
     isPaidActive?: boolean;
     planNames?: string[];

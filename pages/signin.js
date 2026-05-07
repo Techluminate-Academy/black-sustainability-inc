@@ -11,6 +11,7 @@ export default function SignInPage() {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
+  const nextPath = typeof router.query?.next === 'string' ? router.query.next : '/';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,7 +34,7 @@ export default function SignInPage() {
 
       const first = data.user?.firstName ? String(data.user.firstName).trim() : '';
       toast.success(first ? `Welcome back, ${first}!` : "You're signed in. Opening the map…");
-      await router.replace('/');
+      await router.replace(nextPath || '/');
     } catch (error) {
       const text = error.message || 'An unexpected error occurred.';
       toast.error(text);
