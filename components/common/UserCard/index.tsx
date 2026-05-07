@@ -47,12 +47,12 @@ const UserCard: React.FC<IProps> = ({
 
   return (
     <div
-      className="bg-white rounded-2xl p-[7px] overflow-hidden space-y-[10px] min-w-0"
+      className="bg-white rounded-2xl p-2 sm:p-3 overflow-hidden space-y-3 min-w-0 w-full shadow-sm border border-gray-100/80"
       onClick={onClick}
       role={onClick ? "button" : undefined}
       style={onClick ? { cursor: "pointer" } : undefined}
     >
-      <div className="relative w-full aspect-[4/3] max-h-[220px] min-h-[140px] rounded-xl overflow-hidden bg-[#FFF8E5]">
+      <div className="relative w-full aspect-[4/3] max-h-[280px] sm:max-h-[260px] min-h-[160px] rounded-xl overflow-hidden bg-[#FFF8E5]">
         <img
           src={photoSrc}
           alt=""
@@ -70,22 +70,22 @@ const UserCard: React.FC<IProps> = ({
         />
       </div>
 
-      <div className="flex justify-between items-start gap-2 min-w-0">
-        <div className="px-2 space-y-[10px] min-w-0 flex-1">
+      <div className="flex justify-between items-start gap-3 min-w-0">
+        <div className="px-1 sm:px-2 space-y-2.5 min-w-0 flex-1">
           <div className="relative flex items-center gap-2">
-            <span className="w-[14px] h-[14px] shrink-0">
+            <span className="w-4 h-4 shrink-0">
               <icons.profile />
             </span>
-            <div className="group min-w-0">
+            <div className="group min-w-0 flex-1">
               {isAuthenticated ? (
                 <div>
                   <p
-                    className={`text-sm whitespace-nowrap overflow-hidden truncate max-w-[130px] group-hover:invisible w-[90%] cursor-pointer`}
+                    className={`text-sm sm:text-base font-medium truncate group-hover:invisible cursor-pointer`}
                   >
                     {FULL_NAME}
                   </p>
                   <p
-                    className={`text-sm absolute top-0 rounded-full bg-white p-[1px] whitespace-normal hidden group-hover:block z-10`}
+                    className={`text-sm sm:text-base absolute top-0 left-0 right-0 rounded-md bg-white p-1 shadow border border-gray-100 whitespace-normal hidden group-hover:block z-10`}
                   >
                     {FULL_NAME}
                   </p>
@@ -97,20 +97,20 @@ const UserCard: React.FC<IProps> = ({
           </div>
 
           <div className="flex relative items-center gap-2">
-            <span className="w-[14px] h-[14px] shrink-0">
+            <span className="w-4 h-4 shrink-0">
               <icons.email />
             </span>
 
-            <div className="group min-w-0">
+            <div className="group min-w-0 flex-1">
               {isAuthenticated ? (
                 <div>
                   <p
-                    className={`text-sm whitespace-nowrap overflow-hidden truncate max-w-[130px] w-[90%] group-hover:invisible cursor-pointer`}
+                    className={`text-sm sm:text-base truncate group-hover:invisible cursor-pointer`}
                   >
                     {EMAIL_ADDRESS}
                   </p>
                   <p
-                    className={`text-sm absolute -top-1 rounded-full bg-white p-[1px] whitespace-normal hidden group-hover:block z-10`}
+                    className={`text-sm sm:text-base absolute top-0 left-0 right-0 rounded-md bg-white p-1 shadow border border-gray-100 break-all hidden group-hover:block z-10`}
                   >
                     {EMAIL_ADDRESS}
                   </p>
@@ -121,17 +121,17 @@ const UserCard: React.FC<IProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2 min-w-0">
-            <span className="w-[14px] h-[14px] shrink-0">
+            <span className="w-4 h-4 shrink-0">
               <icons.location />
             </span>
-            <p className={`text-sm truncate`}>{Nearest_City}</p>
+            <p className={`text-sm sm:text-base truncate`}>{Nearest_City}</p>
           </div>
           <div className="flex items-center gap-2 min-w-0">
-            <span className="w-[14px] h-[14px] shrink-0">
+            <span className="w-4 h-4 shrink-0">
               <icons.organization />
             </span>
             {isAuthenticated ? (
-              <p className={`text-sm truncate`}>
+              <p className={`text-sm sm:text-base truncate`}>
                 {ORGANIZATION_NAME || "not yet updated"}
               </p>
             ) : (
