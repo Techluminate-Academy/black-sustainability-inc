@@ -41,7 +41,7 @@ const Sidebar: React.FC<IProps> = ({
       <div className="px-3 sm:px-4 pb-2 flex items-center justify-between">
         <span className="font-bold">{totalNumber} result(s)</span>
       </div>
-      <div className="grid grid-cols-1 gap-5 sm:gap-6 w-full min-w-0">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 w-full min-w-0">
         {filteredData?.map((data: any, idx: any) => (
           <UserCard
             key={data?.id != null ? String(data.id) : idx}
