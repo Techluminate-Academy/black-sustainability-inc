@@ -539,8 +539,27 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                 paint: { "text-color": "#000" },
               });
 
+              /**
+               * Invisible layer: only *rendered* unclustered points (same filter as Mapbox cluster examples).
+               * querySourceFeatures + !point_count wrongly matched ALL source leaves — teardrops stacked on
+               * cluster circles and opened InfoCard when the cluster was clicked.
+               */
+              mapRef.current.addLayer({
+                id: "unclustered-points-hit",
+                type: "circle",
+                source: "users-cluster",
+                filter: ["!", ["has", "point_count"]],
+                paint: {
+                  "circle-radius": 4,
+                  /** > 0 so GL still draws hit-testing quads (opacity 0 can skip pick). */
+                  "circle-opacity": 0.001,
+                  "circle-color": "#000000",
+                },
+              });
+
               mapRef.current.on("click", "clusters", (e) => {
                 e.preventDefault();
+                e.originalEvent?.stopPropagation?.();
                 const features = mapRef.current?.queryRenderedFeatures(e.point, { layers: ["clusters"] });
                 if (!features?.length) return;
                 
@@ -607,13 +626,36 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
               });
 
               // Function to add teardrop markers for unclustered points
+              const getRenderedUnclusteredFeatures = () => {
+                if (!mapRef.current) return [];
+                if (!mapRef.current.getLayer("unclustered-points-hit")) return [];
+                const b = mapRef.current.getBounds();
+                const sw = b.getSouthWest();
+                const ne = b.getNorthEast();
+                const rendered = mapRef.current.queryRenderedFeatures(
+                  [
+                    [sw.lng, sw.lat],
+                    [ne.lng, ne.lat],
+                  ],
+                  { layers: ["unclustered-points-hit"] }
+                );
+                const out: any[] = [];
+                const seen = new Set<string | number>();
+                for (const f of rendered) {
+                  const id = f.properties?.id;
+                  if (id == null || seen.has(id)) continue;
+                  seen.add(id);
+                  if (f.geometry?.type === "Point") {
+                    out.push(f);
+                  }
+                }
+                return out;
+              };
+
               const addTeardropMarkers = () => {
                 if (!mapRef.current) return;
                 
-                // Query for unclustered points at current zoom
-                const unclusteredFeatures = mapRef.current.querySourceFeatures("users-cluster", {
-                  filter: ['!', ['has', 'point_count']]
-                });
+                const unclusteredFeatures = getRenderedUnclusteredFeatures();
                 
                 // Clear existing individual markers in chunks
                 const markersToClean = [...markersRef.current];
@@ -676,7 +718,9 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                             .addTo(mapRef.current!);
                           
                           // Add click handler
-                          markerEl.addEventListener('click', () => {
+                          markerEl.addEventListener('click', (ev) => {
+                            ev.stopPropagation();
+                            ev.preventDefault();
                             document.querySelectorAll('.mapboxgl-popup').forEach(popup => popup.remove());
                             
                             const popup = new mapboxgl.Popup({
