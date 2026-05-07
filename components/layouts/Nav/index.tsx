@@ -65,11 +65,6 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
           <div className="hidden lg:flex items-center xl:space-x-8 space-x-3 font-inter uppercase font-semibold text-xs">
             {isAuthenticated ? (
               <>
-                <Link href="/update-profile">
-                  <button className={greenBtn}>
-                    Update Profile / Map Listing
-                  </button>
-                </Link>
                 <button type="button" className={mutedBtn} onClick={handleLogout}>
                   Log out
                 </button>
@@ -152,11 +147,6 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                 <div className="flex flex-col items-start space-y-8 uppercase font-semibold text-xs">
                   {isAuthenticated ? (
                     <>
-                      <Link href="/update-profile">
-                        <button className={greenBtn}>
-                          Update Profile / Map Listing
-                        </button>
-                      </Link>
                       <button
                         type="button"
                         className={mutedBtn}
