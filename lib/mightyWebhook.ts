@@ -1,5 +1,6 @@
 import { connectToDatabase } from "./mongodb";
 import { fetchMightyMemberById } from "./mightyAdmin";
+import { geocodePhotonFreeText } from "./geocodePhoton";
 
 export type MightyWebhookEventType =
   | "MemberUpdated"
@@ -108,6 +109,31 @@ function looksLikeFullMember(member: AnyObj | null | undefined): boolean {
   return Boolean(member.email || member.name || member.first_name || member.last_name || member.profile || member.avatar_url);
 }
 
+function pickFiniteNumber(v: unknown): number | undefined {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return undefined;
+}
+
+/** Mighty may omit coords; some payloads include lat/lng under various keys. */
+function extractLatLng(member: AnyObj): { latitude?: number; longitude?: number } {
+  const pairs: [unknown, unknown][] = [
+    [member.latitude, member.longitude],
+    [member.lat, member.lng],
+    [member.profile?.latitude, member.profile?.longitude],
+    [member.custom_profile?.latitude, member.custom_profile?.longitude],
+  ];
+  for (const [la, lo] of pairs) {
+    const latitude = pickFiniteNumber(la);
+    const longitude = pickFiniteNumber(lo);
+    if (latitude != null && longitude != null) return { latitude, longitude };
+  }
+  return {};
+}
+
 /**
  * Mighty Admin API webhooks send `{ event_type, event_id, event_timestamp, payload }`
  * where `payload` is often the member record (or contains `member` + `space`).
@@ -186,6 +212,13 @@ function normalizeMemberDoc(member: AnyObj): AnyObj {
         ? Number(member.member_id)
         : undefined;
 
+  const { latitude: latFromMember, longitude: lngFromMember } = extractLatLng(member);
+  const hasCoords =
+    latFromMember != null &&
+    lngFromMember != null &&
+    Number.isFinite(latFromMember) &&
+    Number.isFinite(lngFromMember);
+
   return {
     ...(typeof mightyId === "number" && Number.isFinite(mightyId) ? { mightyId } : {}),
     ...(email ? { email } : {}),
@@ -194,6 +227,13 @@ function normalizeMemberDoc(member: AnyObj): AnyObj {
     ...(location ? { location } : {}),
     ...(bio ? { bio } : {}),
     ...(avatarUrl ? { avatarUrl } : {}),
+    ...(hasCoords
+      ? {
+          latitude: latFromMember,
+          longitude: lngFromMember,
+          geo: { type: "Point", coordinates: [lngFromMember!, latFromMember!] },
+        }
+      : {}),
     source: "mighty:webhook",
   };
 }
@@ -346,11 +386,35 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
     throw new Error("Cannot upsert member: no mightyId or email");
   }
 
+  const hasStoredCoords =
+    typeof memberDoc.latitude === "number" &&
+    typeof memberDoc.longitude === "number" &&
+    Number.isFinite(memberDoc.latitude) &&
+    Number.isFinite(memberDoc.longitude);
+
+  let coordPatch: AnyObj = {};
+  const geocodeEnabled =
+    process.env.MIGHTY_WEBHOOK_GEOCODE !== "false" && process.env.MIGHTY_WEBHOOK_GEOCODE !== "0";
+  if (!hasStoredCoords && geocodeEnabled && typeof memberDoc.location === "string") {
+    const loc = memberDoc.location.trim();
+    if (loc.length >= 2) {
+      const g = await geocodePhotonFreeText(loc);
+      if (g) {
+        coordPatch = {
+          latitude: g.lat,
+          longitude: g.lng,
+          geo: { type: "Point", coordinates: [g.lng, g.lat] },
+        };
+      }
+    }
+  }
+
   const { db } = await connectToDatabase();
   const collection = db.collection("mightyMembers");
 
   const setPatch: AnyObj = {
     ...memberDoc,
+    ...coordPatch,
     updatedAt: new Date(),
     "webhooks.mighty.lastEventAt": eventAt,
     ...(eventId ? { "webhooks.mighty.lastEventId": eventId } : {}),
