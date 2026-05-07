@@ -72,6 +72,9 @@ export default function Home() {
   const [showScrollButtons, setShowScrollButtons] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const mapInitializedRef = useRef(false); // Track if map has been initialized
+  /** Total count for the active industry filter (so clearing search restores the right total). */
+  const industryFilteredTotalRef = useRef<number | null>(null);
+  const initialDataLoadedRef = useRef(false);
 
   // Scroll functions for mobile navigation
   const scrollUp = () => {
@@ -486,6 +489,7 @@ export default function Home() {
 
             // Use startTransition for non-critical state updates
             filterDataInChunks(result.data).then((filteredNullData) => {
+              initialDataLoadedRef.current = true;
               startTransition(() => {
                 // Save the full total count
                 setFullTotalCount(result.totalCount);
@@ -635,8 +639,12 @@ export default function Home() {
           .then((result) => {
             if (result.success && Array.isArray(result.data)) {
               const data = result.data;
+              const searchTotal =
+                typeof result.totalCount === "number" ? result.totalCount : data.length;
               startTransition(() => {
                 setFilteredData(data);
+                setTotalCount(searchTotal);
+                setSidebarPage(1);
               });
               // Fly map to first search result
               if (data.length > 0) {
@@ -650,6 +658,7 @@ export default function Home() {
               // Batch error state update
               startTransition(() => {
                 setFilteredData([]); // Ensure we clear data on error
+                setTotalCount(0);
               });
             }
           })
@@ -660,6 +669,7 @@ export default function Home() {
             // Batch error state update
             startTransition(() => {
               setFilteredData([]);
+              setTotalCount(0);
             });
           })
           .finally(() => {
@@ -668,15 +678,21 @@ export default function Home() {
             setPreloaderSidebar(false);
           });
       } else {
-        // If search query is empty, reset to original data (non-urgent)
+        // If search query is empty, reset to original data and restore list total for filters
+        if (!initialDataLoadedRef.current) return;
         startTransition(() => {
           setFilteredData(OriginalData);
+          if (selectedIndustry && industryFilteredTotalRef.current != null) {
+            setTotalCount(industryFilteredTotalRef.current);
+          } else {
+            setTotalCount(fullTotalCount);
+          }
         });
       }
     }, DEBOUNCE_DELAY);
 
     return () => clearTimeout(handler); // Cleanup previous timeout
-  }, [searchQuery, OriginalData, getRecordCoords]);
+  }, [searchQuery, OriginalData, getRecordCoords, selectedIndustry, fullTotalCount]);
 
 
   // --------------------------------------------------------------------
@@ -687,6 +703,7 @@ export default function Home() {
     // Keep selected industry update urgent (immediate UI feedback)
     setSelectedIndustry(selectedValue);
     if (selectedValue === "") {
+      industryFilteredTotalRef.current = null;
       // Batch data reset updates (non-urgent)
       startTransition(() => {
         setFilteredData(OriginalData);
@@ -703,12 +720,13 @@ export default function Home() {
       );
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
+        const tc =
+          typeof result.totalCount === "number" ? result.totalCount : result.data.length;
+        industryFilteredTotalRef.current = tc;
         // Batch data updates to avoid blocking UI
         startTransition(() => {
           setFilteredData(result.data);
-          setTotalCount(
-            typeof result.totalCount === "number" ? result.totalCount : result.data.length
-          );
+          setTotalCount(tc);
           setSidebarPage(1);
         });
         // Keep loading state urgent
@@ -1044,27 +1062,39 @@ export default function Home() {
               </div>
             ) : (
               <>
+                {searchQuery.trim() === "" &&
+                  totalCount !== null &&
+                  filteredData.length > 0 &&
+                  filteredData.length < totalCount && (
+                    <div className="hidden sm:flex justify-center px-4 pt-2 pb-1 w-full">
+                      <button
+                        type="button"
+                        onClick={handleLoadMore}
+                        className="px-6 py-3 bg-[#FFBF23] text-black font-semibold rounded-full shadow-md hover:bg-yellow-500 transition duration-200 ease-in-out"
+                      >
+                        Load more ({filteredData.length} of {totalCount})
+                      </button>
+                    </div>
+                  )}
                 <Sidebar
                   filteredData={filteredData}
                   isAuthenticated={isAuthenticated}
-                  totalNumber={
-                    searchQuery.trim() === "" && selectedIndustry === ""
-                      ? totalCount!
-                      : filteredData.length
-                  }
+                  totalNumber={totalCount!}
                   loading={loading}
                   hasSearched={hasSearched}
                   onRecordClick={handleRecordClickForMap}
                 />
-                {filteredData.length > 0 &&
+                {searchQuery.trim() === "" &&
                   totalCount !== null &&
+                  filteredData.length > 0 &&
                   filteredData.length < totalCount && (
-                    <div className="py-4">
+                    <div className="flex sm:hidden justify-center py-4 w-full">
                       <button
+                        type="button"
                         onClick={handleLoadMore}
                         className="px-6 py-3 bg-[#FFBF23] text-black font-semibold rounded-full shadow-md hover:bg-yellow-500 transition duration-200 ease-in-out"
                       >
-                        Load More
+                        Load more ({filteredData.length} of {totalCount})
                       </button>
                     </div>
                   )}
