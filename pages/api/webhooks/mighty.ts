@@ -8,14 +8,76 @@ function requireWebhookToken(): string {
   return v;
 }
 
+const CANDIDATE_HEADERS = [
+  "x-webhook-secret",
+  "x-webhook-token",
+  "x-mighty-webhook-secret",
+  "x-mighty-webhook-token",
+  "x-mighty-secret",
+  "x-mighty-token",
+];
+
+function pickStringHeader(req: NextApiRequest, name: string): string | null {
+  const v = req.headers[name];
+  if (typeof v === "string") return v.trim() || null;
+  if (Array.isArray(v) && typeof v[0] === "string") return v[0].trim() || null;
+  return null;
+}
+
+/**
+ * Return the secret token (if any) provided by the caller, trying common header styles.
+ * Mighty's webhook UI varies; we accept Bearer auth, plain Authorization, and a few
+ * vendor-style header names. The actual token value is never logged.
+ */
+function extractIncomingSecret(req: NextApiRequest): string | null {
+  const auth = pickStringHeader(req, "authorization");
+  if (auth) {
+    const bearer = getBearerToken(auth);
+    if (bearer) return bearer;
+    return auth.trim();
+  }
+  for (const h of CANDIDATE_HEADERS) {
+    const v = pickStringHeader(req, h);
+    if (v) return v;
+  }
+  return null;
+}
+
+function constantTimeEquals(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
+function logAuthHeaderShape(req: NextApiRequest) {
+  const headers = req.headers || {};
+  const seen: Record<string, boolean> = {};
+  for (const k of Object.keys(headers)) {
+    if (k.toLowerCase() === "authorization" || k.toLowerCase().startsWith("x-")) {
+      seen[k.toLowerCase()] = true;
+    }
+  }
+  console.warn("[mighty-webhook] 401 auth-mismatch", {
+    seenAuthHeaders: Object.keys(seen),
+    authStartsWithBearer: typeof headers.authorization === "string"
+      ? headers.authorization.toLowerCase().startsWith("bearer ")
+      : false,
+  });
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ ok: false, error: "Method Not Allowed" });
   }
 
-  const token = getBearerToken(req.headers.authorization);
-  if (!token || token !== requireWebhookToken()) {
+  const expected = requireWebhookToken();
+  const incoming = extractIncomingSecret(req);
+  if (!incoming || !constantTimeEquals(incoming, expected)) {
+    logAuthHeaderShape(req);
     return res.status(401).json({ ok: false, error: "Unauthorized" });
   }
 
