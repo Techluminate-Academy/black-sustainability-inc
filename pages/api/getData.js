@@ -1,7 +1,10 @@
 import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
 import { getExcludeViewerMighty } from "../../lib/mapViewerGating";
-import { applyIndustryHouseToMongoQuery } from "../../lib/buildIndustryHouseQuery";
+import {
+  applyIndustryHouseToMongoQuery,
+  normalizeIndustryHouseQueryParam,
+} from "../../lib/buildIndustryHouseQuery";
 import { toAirtableishDoc } from "../../lib/mightyMemberAirtableShape";
 
 const COLLECTION_NAME = "mightyMembers";
@@ -15,7 +18,8 @@ export default async function handler(req, res) {
   }, 10000);
 
   try {
-    const { industryHouse, page, limit } = req.query;
+    const { page, limit } = req.query;
+    const industryHouse = normalizeIndustryHouseQueryParam(req.query.industryHouse);
     const currentPage = parseInt(page) || 1;
     const recordsPerPage = parseInt(limit) || 50;
     const skip = (currentPage - 1) * recordsPerPage;
@@ -27,7 +31,7 @@ export default async function handler(req, res) {
     const excludeViewer = !!excludeMongoId || excludeMightyId != null;
     const useCache = !excludeViewer;
 
-    const cacheKey = `getData:v6:legacy-field:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
+    const cacheKey = `getData:v7:ui-mongo-alias:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
     if (useCache) {
       const cacheStart = Date.now();
       const cachedData = await redis.get(cacheKey);
