@@ -630,6 +630,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                 if (!mapRef.current) return [];
                 if (!mapRef.current.getLayer("unclustered-points-hit")) return [];
                 const b = mapRef.current.getBounds();
+                if (!b) return [];
                 const sw = b.getSouthWest();
                 const ne = b.getNorthEast();
                 const rendered = mapRef.current.queryRenderedFeatures(
