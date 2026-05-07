@@ -1,7 +1,7 @@
 import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
 import { getExcludeViewerMighty } from "../../lib/mapViewerGating";
-import { buildPrimaryIndustryHouseFilter } from "../../lib/buildIndustryHouseQuery";
+import { applyIndustryHouseToMongoQuery } from "../../lib/buildIndustryHouseQuery";
 import { toAirtableishDoc } from "../../lib/mightyMemberAirtableShape";
 import CACHE_EXPIRY from '../../constants/CacheExpiry'
 
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     const excludeViewer = !!excludeMongoId || excludeMightyId != null;
     const useCache = !excludeViewer;
 
-    const cacheKey = `filterData:v4:reparative-fix:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
+    const cacheKey = `filterData:v5:industry-substr:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
     if (useCache) {
       const cacheStart = Date.now();
       const cachedData = await redis.get(cacheKey);
@@ -31,12 +31,7 @@ export default async function handler(req, res) {
     }
 
     let query = {};
-    if (industryHouse && industryHouse !== "") {
-      const industryClause = buildPrimaryIndustryHouseFilter(industryHouse);
-      if (industryClause != null) {
-        query.industry = industryClause;
-      }
-    }
+    applyIndustryHouseToMongoQuery(query, industryHouse);
     if (excludeViewer) {
       const nor = [];
       if (excludeMongoId) nor.push({ _id: excludeMongoId });

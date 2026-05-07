@@ -696,7 +696,9 @@ export default function Home() {
         // Batch data updates to avoid blocking UI
         startTransition(() => {
           setFilteredData(result.data);
-          setTotalCount(result.data.length);
+          setTotalCount(
+            typeof result.totalCount === "number" ? result.totalCount : result.data.length
+          );
         });
         // Keep loading state urgent
         setPreloaderSidebar(false);
