@@ -931,7 +931,7 @@ export default function Home() {
 
       <div className="mt-[110px]">
         <div className="flex sm:flex-row flex-col bg-[#FFF8E5]">
-          <div className="sm:w-3/5 w-full sm:p-0 p-3 h-screen" data-tour="map-container">
+          <div className="sm:w-[55%] w-full sm:p-0 p-3 h-screen" data-tour="map-container">
             {preloaderMap ? (
               <div className="relative w-full h-screen">
                 <Image
@@ -992,7 +992,7 @@ export default function Home() {
           </div>
           <div
             ref={sidebarRef}
-            className="sm:w-2/5 w-full pb-4 flex flex-col justify-start items-center h-screen overflow-scroll"
+            className="sm:w-[45%] w-full pb-4 flex flex-col justify-start items-stretch h-screen overflow-scroll"
             data-tour="sidebar"
           >
             <div className="bg-[#FFF8E5] py-2 sticky left-0 top-0 w-full flex flex-col items-center justify-center z-10">
