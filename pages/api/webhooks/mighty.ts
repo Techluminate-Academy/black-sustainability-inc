@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getBearerToken, upsertMightyMemberFromWebhook } from "../../../lib/mightyWebhook";
 import { upsertAirtableMightyMember } from "../../../lib/airtableMightyMembers";
+import { invalidateMightyMemberCaches } from "../../../lib/mightyCacheInvalidate";
 
 function requireWebhookToken(): string {
   const v = process.env.MIGHTY_WEBHOOK_TOKEN;
@@ -100,6 +101,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
       .catch((e) => {
         console.error("Airtable upsert failed (non-fatal):", { message: (e as any)?.message });
+      });
+
+    // Fire-and-forget Redis cache busting so map/directory reflects the change quickly.
+    Promise.resolve()
+      .then(() => invalidateMightyMemberCaches())
+      .catch((e) => {
+        console.warn("Cache invalidation failed (non-fatal):", { message: (e as any)?.message });
       });
 
     return res.status(200).json({ ok: true, result });
