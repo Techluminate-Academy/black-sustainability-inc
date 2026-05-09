@@ -5,6 +5,7 @@ import * as gtag from '../lib/gtag'
 import { SessionProvider } from "next-auth/react"
 import usePerformanceMonitoring from '../hooks/usePerformanceMonitoring'
 import { Toaster } from 'react-hot-toast'
+import ImpersonationToolbar from '@/components/ImpersonationToolbar'
 import "@/styles/globals.css"
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -28,6 +29,7 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <SessionProvider session={pageProps.session}>
       <Component {...pageProps} />
+      <ImpersonationToolbar />
       <Toaster 
         position="top-right"
         toastOptions={{

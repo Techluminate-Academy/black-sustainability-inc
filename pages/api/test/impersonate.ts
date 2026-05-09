@@ -7,10 +7,9 @@ import {
   type ImpersonationMode,
 } from "@/lib/impersonation";
 
-function requireSecret(): string {
+function getSecret(): string | null {
   const s = process.env.BSN_IMPERSONATE_SECRET;
-  if (!s) throw new Error("BSN_IMPERSONATE_SECRET is not configured");
-  return s;
+  return s ? s : null;
 }
 
 function constantTimeEquals(a: string, b: string): boolean {
@@ -45,10 +44,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(403).json({ ok: false, error: "Not allowed" });
   }
 
-  const expected = requireSecret();
-  const incoming = typeof req.body?.secret === "string" ? req.body.secret : "";
-  if (!incoming || !constantTimeEquals(incoming, expected)) {
-    return res.status(401).json({ ok: false, error: "Unauthorized" });
+  // Two valid auth paths:
+  //   1. Session-based (browser/UI): allowlisted email + valid bsn_session is sufficient.
+  //      The session cookie is HttpOnly + SameSite=Lax, so cross-site fetches won't carry it.
+  //   2. Secret-based (curl/scripts): pass `secret` in the body. Required when there is no session
+  //      cookie OR when the caller explicitly provides a (possibly wrong) secret to validate.
+  const incomingSecret = typeof req.body?.secret === "string" ? req.body.secret : "";
+  if (incomingSecret) {
+    const expected = getSecret();
+    if (!expected || !constantTimeEquals(incomingSecret, expected)) {
+      return res.status(401).json({ ok: false, error: "Unauthorized" });
+    }
   }
 
   const modeRaw = typeof req.body?.mode === "string" ? req.body.mode : "";

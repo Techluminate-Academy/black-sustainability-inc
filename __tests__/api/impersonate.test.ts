@@ -40,5 +40,20 @@ describe("/api/test/impersonate", () => {
     await handler(req, res);
     expect(res.statusCode).toBe(401);
   });
+
+  it("allows session-based caller without secret (UI button path)", async () => {
+    const req = httpMocks.createRequest<NextApiRequest>({
+      method: "POST",
+      body: { mode: "paid" },
+    });
+    const res = httpMocks.createResponse<NextApiResponse>();
+    const handler = (await import("@/pages/api/test/impersonate")).default;
+
+    await handler(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.getHeader("Set-Cookie")).toEqual(
+      expect.stringContaining("bsn_impersonate=")
+    );
+  });
 });
 
