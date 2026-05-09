@@ -4,7 +4,9 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    # Run CI on every branch push so we catch regressions before a PR is opened.
+    # The merge gate is still PRs targeting `main`.
+    branches: ['**']
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
