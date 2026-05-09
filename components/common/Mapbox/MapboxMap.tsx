@@ -294,17 +294,15 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
 
               while (index < endIndex && hasTime) {
                 const item = dataArray[index];
-                features.push({
-                  type: "Feature",
-                  properties: { id: item.id },
-                  geometry: {
-                    type: "Point",
-                    coordinates: [
-                      parseFloat(item?.location?.coordinates?.[0]) || mapCenter[0],
-                      parseFloat(item?.location?.coordinates?.[1]) || mapCenter[1],
-                    ],
-                  },
-                });
+                const lng = parseFloat(item?.location?.coordinates?.[0]);
+                const lat = parseFloat(item?.location?.coordinates?.[1]);
+                if (Number.isFinite(lng) && Number.isFinite(lat)) {
+                  features.push({
+                    type: "Feature",
+                    properties: { id: item.id },
+                    geometry: { type: "Point", coordinates: [lng, lat] },
+                  });
+                }
                 index++;
               }
 
@@ -324,17 +322,19 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
             } else {
               // Fallback: process synchronously for small arrays
               if (dataArray.length <= chunkSize) {
-                resolve(dataArray.map((item: any) => ({
-                  type: "Feature",
-                  properties: { id: item.id },
-                  geometry: {
-                    type: "Point",
-                    coordinates: [
-                      parseFloat(item?.location?.coordinates?.[0]) || mapCenter[0],
-                      parseFloat(item?.location?.coordinates?.[1]) || mapCenter[1],
-                    ],
-                  },
-                })));
+                const synced: any[] = [];
+                for (const item of dataArray) {
+                  const lng = parseFloat(item?.location?.coordinates?.[0]);
+                  const lat = parseFloat(item?.location?.coordinates?.[1]);
+                  if (Number.isFinite(lng) && Number.isFinite(lat)) {
+                    synced.push({
+                      type: "Feature",
+                      properties: { id: item.id },
+                      geometry: { type: "Point", coordinates: [lng, lat] },
+                    });
+                  }
+                }
+                resolve(synced);
               } else {
                 setTimeout(() => processChunk(), 0);
               }
@@ -410,17 +410,20 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
 
                     while (index < endIndex && hasTime) {
                       const item = dataArray[index];
-                      features.push({
-                        type: "Feature",
-                        properties: { id: item.id },
-                        geometry: {
-                          type: "Point",
-                          coordinates: [
-                            parseFloat(item?.location?.coordinates?.[0]) || mapCenter[0],
-                            parseFloat(item?.location?.coordinates?.[1]) || mapCenter[1],
-                          ],
-                        },
-                      });
+                      const lng = parseFloat(item?.location?.coordinates?.[0]);
+                      const lat = parseFloat(item?.location?.coordinates?.[1]);
+                      // Skip records without valid coords; never plot them at mapCenter,
+                      // which would silently pile records onto Atlanta.
+                      if (Number.isFinite(lng) && Number.isFinite(lat)) {
+                        features.push({
+                          type: "Feature",
+                          properties: { id: item.id },
+                          geometry: {
+                            type: "Point",
+                            coordinates: [lng, lat],
+                          },
+                        });
+                      }
                       index++;
                     }
 
@@ -440,17 +443,19 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                   } else {
                     // Fallback: process synchronously for small arrays
                     if (dataArray.length <= chunkSize) {
-                      resolve(dataArray.map((item: any) => ({
-                        type: "Feature",
-                        properties: { id: item.id },
-                        geometry: {
-                          type: "Point",
-                          coordinates: [
-                            parseFloat(item?.location?.coordinates?.[0]) || mapCenter[0],
-                            parseFloat(item?.location?.coordinates?.[1]) || mapCenter[1],
-                          ],
-                        },
-                      })));
+                      const synced: any[] = [];
+                      for (const item of dataArray) {
+                        const lng = parseFloat(item?.location?.coordinates?.[0]);
+                        const lat = parseFloat(item?.location?.coordinates?.[1]);
+                        if (Number.isFinite(lng) && Number.isFinite(lat)) {
+                          synced.push({
+                            type: "Feature",
+                            properties: { id: item.id },
+                            geometry: { type: "Point", coordinates: [lng, lat] },
+                          });
+                        }
+                      }
+                      resolve(synced);
                     } else {
                       setTimeout(() => processChunk(), 0);
                     }
