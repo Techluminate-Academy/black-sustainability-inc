@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { reloadPage } from "@/lib/reloadPage";
 
 type Mode = "paid" | "unpaid" | null;
 type StatusResponse = { ok: true; allowed: boolean; mode: Mode };
@@ -58,7 +59,7 @@ export default function ImpersonationToolbar() {
         setBusy(null);
         return;
       }
-      window.location.reload();
+      reloadPage();
     } catch (err: any) {
       // eslint-disable-next-line no-alert
       alert(`Network error: ${err?.message || err}`);

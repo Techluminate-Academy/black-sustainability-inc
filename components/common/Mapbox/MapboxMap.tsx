@@ -12,6 +12,7 @@ import { FeatureCollection, Point } from 'geojson';
 import { createRoot } from "react-dom/client";
 
 import { BsiUserObjectArray } from "@/typings";
+import { toMapFeatureOrNull, buildMapFeatures } from "@/lib/mapFeatures";
 
 interface IProps {
   isAuthenticated: boolean;
@@ -293,16 +294,8 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
               const endIndex = Math.min(index + chunkSize, dataArray.length);
 
               while (index < endIndex && hasTime) {
-                const item = dataArray[index];
-                const lng = parseFloat(item?.location?.coordinates?.[0]);
-                const lat = parseFloat(item?.location?.coordinates?.[1]);
-                if (Number.isFinite(lng) && Number.isFinite(lat)) {
-                  features.push({
-                    type: "Feature",
-                    properties: { id: item.id },
-                    geometry: { type: "Point", coordinates: [lng, lat] },
-                  });
-                }
+                const feature = toMapFeatureOrNull(dataArray[index]);
+                if (feature) features.push(feature);
                 index++;
               }
 
@@ -320,21 +313,8 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
             if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
               requestIdleCallback(processChunk, { timeout: 50 });
             } else {
-              // Fallback: process synchronously for small arrays
               if (dataArray.length <= chunkSize) {
-                const synced: any[] = [];
-                for (const item of dataArray) {
-                  const lng = parseFloat(item?.location?.coordinates?.[0]);
-                  const lat = parseFloat(item?.location?.coordinates?.[1]);
-                  if (Number.isFinite(lng) && Number.isFinite(lat)) {
-                    synced.push({
-                      type: "Feature",
-                      properties: { id: item.id },
-                      geometry: { type: "Point", coordinates: [lng, lat] },
-                    });
-                  }
-                }
-                resolve(synced);
+                resolve(buildMapFeatures(dataArray));
               } else {
                 setTimeout(() => processChunk(), 0);
               }
@@ -409,21 +389,10 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                     const endIndex = Math.min(index + chunkSize, dataArray.length);
 
                     while (index < endIndex && hasTime) {
-                      const item = dataArray[index];
-                      const lng = parseFloat(item?.location?.coordinates?.[0]);
-                      const lat = parseFloat(item?.location?.coordinates?.[1]);
                       // Skip records without valid coords; never plot them at mapCenter,
                       // which would silently pile records onto Atlanta.
-                      if (Number.isFinite(lng) && Number.isFinite(lat)) {
-                        features.push({
-                          type: "Feature",
-                          properties: { id: item.id },
-                          geometry: {
-                            type: "Point",
-                            coordinates: [lng, lat],
-                          },
-                        });
-                      }
+                      const feature = toMapFeatureOrNull(dataArray[index]);
+                      if (feature) features.push(feature);
                       index++;
                     }
 
@@ -441,21 +410,8 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                   if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
                     requestIdleCallback(processChunk, { timeout: 50 });
                   } else {
-                    // Fallback: process synchronously for small arrays
                     if (dataArray.length <= chunkSize) {
-                      const synced: any[] = [];
-                      for (const item of dataArray) {
-                        const lng = parseFloat(item?.location?.coordinates?.[0]);
-                        const lat = parseFloat(item?.location?.coordinates?.[1]);
-                        if (Number.isFinite(lng) && Number.isFinite(lat)) {
-                          synced.push({
-                            type: "Feature",
-                            properties: { id: item.id },
-                            geometry: { type: "Point", coordinates: [lng, lat] },
-                          });
-                        }
-                      }
-                      resolve(synced);
+                      resolve(buildMapFeatures(dataArray));
                     } else {
                       setTimeout(() => processChunk(), 0);
                     }

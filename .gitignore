@@ -25,6 +25,7 @@ Thumbs.db
 
 # Local reports, artifacts, and tooling (stay local)
 artifacts/
+coverage/
 docs/
 recon-reports/
 reports/
