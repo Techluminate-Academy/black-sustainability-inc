@@ -59,8 +59,24 @@ export default function Signup() {
   return (
     <>
       <Head>
-        <title>Sign Up / Login to Access Member Data</title>
+        <title>Sign Up - Black Sustainability Network</title>
+        <meta name="description" content="Create your free account and join the Black Sustainability global map." />
+        <meta name="robots" content="index, follow" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="canonical" href="https://maps.blacksustainability.org/signup" />
+        
+        {/* Open Graph */}
+        <meta property="og:title" content="Sign Up - Black Sustainability Network" />
+        <meta property="og:description" content="Create your free account and join the Black Sustainability global map." />
+        <meta property="og:image" content="https://maps.blacksustainability.org/default-logo.png" />
+        <meta property="og:url" content="https://maps.blacksustainability.org/signup" />
+        <meta property="og:type" content="website" />
+        
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Sign Up - Black Sustainability Network" />
+        <meta name="twitter:description" content="Create your free account and join the Black Sustainability global map." />
+        <meta name="twitter:image" content="https://maps.blacksustainability.org/default-logo.png" />
       </Head>
       <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
         {/* About the Organization */}

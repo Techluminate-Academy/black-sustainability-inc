@@ -11,18 +11,7 @@ import { allCountries } from "country-telephone-data";
 import logo from "@/public/png/bsn-logo.png";
 import CountryCodeDropdown from "../../components/CountryCodeDropdown/CountryCodeDropdown";
 import Link from "next/link";
-// Hard-coded member level options
-const HARDCODED_MEMBER_LEVELS = [
-  { id: "recGP35SbgqyZ4FQN", name: "🏢 Entity - Black & Green Organization" },
-  { id: "recgWTcJQnfOQW0Dm", name: "👓 Enthusiast - Excited to Learn" },
-  { id: "rectzSiMASJ9OcN52", name: "🥋 Expert - Experienced Professional" },
-  { id: "recEqcQWORWPnOh3d", name: "Young Environmental Scholar" },
-];
-
-
-
-
-
+import { HARDCODED_MEMBER_LEVELS } from '@/constants/member-levels';
 
 export interface FormData {
   email: string;
@@ -92,7 +81,6 @@ const defaultFormData: FormData = {
   phoneCountryCodeTouched: false,
 };
 
-
 export interface InitialData extends FormData {
   id: string;           // Airtable record ID  
   airtableId: string;   // same as `id`, used for Mongo lookup  
@@ -103,30 +91,26 @@ interface BSNUpdateProfileFormProps {
   initialData?: InitialData;
 }
 
-
-
-// 1) Raw shape from country-telephone-data  
-interface RawCountry {
+// Define the type for the raw country data from the library
+interface CountryData {
   name: string;
   dialCode: string;
-  iso2?: string;
-}
-
-// 2) Target shape  
-interface IntlOption {
-  code: string;
-  country: string;
   iso2: string;
 }
 
-// 3) Cast + map with coalesce  
-const raw = allCountries as RawCountry[];
-const internationalOptions: IntlOption[] = raw.map((country) => ({
-  code:    `+${country.dialCode}`,
-  country: country.name,
-  iso2:    country.iso2 ?? "",       // ⬅️ MODIFIED: guarantee string
-}));
+// Define the type for our transformed country options
+interface CountryOption {
+  value: string;
+  label: string;
+  iso2: string;
+}
 
+// Transform the raw country data into the format expected by CountryCodeDropdown
+const internationalOptions: CountryOption[] = (allCountries as CountryData[]).map(country => ({
+  value: `+${country.dialCode}-${country.iso2}`,
+  label: `${country.name} (+${country.dialCode})`,
+  iso2: country.iso2.toLowerCase()
+}));
 
 // Map formData to the fields structure expected by Airtable
 const mapFormDataToAirtableFields = (formData: FormData) => {
@@ -147,27 +131,27 @@ const mapFormDataToAirtableFields = (formData: FormData) => {
     "EMAIL ADDRESS": formData.email,
     "FIRST NAME": formData.firstName,
     "LAST NAME": formData.lastName,
-    "MEMBER LEVEL": [formData.memberLevel],
+    "MEMBER LEVEL": formData.memberLevel ? [formData.memberLevel] : undefined,
     "BIO": formData.bio,
     "ORGANIZATION NAME": formData.organizationName,
-    "IDENTIFICATION": formData.identification,
-    "GENDER": formData.gender,
+    "IDENTIFICATION": formData.identification || undefined,
+    "GENDER": formData.gender || undefined,
     "WEBSITE": formData.website,
     "PHONE US/CAN ONLY": fullPhone,
-    "PRIMARY INDUSTRY HOUSE": formData.primaryIndustry,
-    "ADDITIONAL FOCUS AREAS": formData.additionalFocus,
-    "AFFILIATED ENTITY": formData.affiliatedEntity,
-    "Zip/Postal Code": formData.zipCode,
+    "PRIMARY INDUSTRY HOUSE": formData.primaryIndustry || undefined,
+    "ADDITIONAL FOCUS AREAS": (formData.additionalFocus || []).filter(Boolean).length > 0 ? formData.additionalFocus.filter(Boolean) : undefined,
+    "AFFILIATED ENTITY": formData.affiliatedEntity || undefined,
+    "Zip/Postal Code": formData.zipCode || undefined,
     YOUTUBE: formData.youtube,
-    "Location (Nearest City)": formData.nearestCity,
-    "Name (from Location)": formData.nameFromLocation,
-    "FUNDING GOAL": formData.fundingGoal,
-    "Similar Categories": formData.similarCategories.filter((cat) => cat && cat.trim() !== ""),
-    "NAICS Code": formData.naicsCode,
+    "Location (Nearest City)": formData.nearestCity || undefined,
+    "Name (from Location)": formData.nameFromLocation || undefined,
+    "FUNDING GOAL": formData.fundingGoal || undefined,
+    "Similar Categories": (formData.similarCategories || []).filter(Boolean).length > 0 ? formData.similarCategories.filter(Boolean) : undefined,
+    "NAICS Code": formData.naicsCode || undefined,
     Featured: formData.includeOnMap,
-    Latitude: formData.latitude !== null ? formData.latitude.toString() : "",
-    Longitude: formData.longitude !== null ? formData.longitude.toString() : "",
-    "Address": formData.address,
+    Latitude: formData.latitude !== null ? formData.latitude.toString() : undefined,
+    Longitude: formData.longitude !== null ? formData.longitude.toString() : undefined,
+    "Address": formData.address || undefined,
     ...(formData.photoUrl ? { "PHOTO": [{ url: formData.photoUrl }] } : {}),
     ...(formData.logoUrl ? { "LOGO": [{ url: formData.logoUrl }] } : {}),
   };
@@ -270,23 +254,22 @@ const Step1: React.FC<Step1Props> = ({
 
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-700">Phone</label>
-      <p className="text-xs text-gray-600">We want to ensure you receive BSN info via SMS (no SPAM we promise)...</p>
-      <div className="flex items-center border rounded w-full sm:w-2/3">
+      <div className="flex w-full">
         <CountryCodeDropdown
           value={formData.phoneCountryCode}
-          options={internationalOptions}
-          onChange={(newValue) => {
-            handleInputChange("phoneCountryCode", newValue);
+          onChange={(value) => {
+            handleInputChange("phoneCountryCode", value);
             handleInputChange("phoneCountryCodeTouched", true);
           }}
+          options={internationalOptions}
         />
         <input
           ref={phoneInputRef}
           type="tel"
           value={formData.phone}
           onChange={(e) => handleInputChange("phone", e.target.value)}
-          className="px-3 py-2 w-full focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-          placeholder="Enter phone number"
+          className="flex-1 px-3 py-2 border border-l-0 border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          placeholder="13125811589"
           autoComplete="off"
         />
       </div>
@@ -680,8 +663,6 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
 
   const [authenticatedUser, setAuthenticatedUser] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-
 
   useEffect(() => {
     if (!initialData) return;

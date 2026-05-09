@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /token-management/
+Disallow: /analytics-dashboard/
+Disallow: /profile/
+Disallow: /api/
+
+Sitemap: https://maps.blacksustainability.org/sitemap.xml

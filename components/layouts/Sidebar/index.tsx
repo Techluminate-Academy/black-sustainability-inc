@@ -7,6 +7,8 @@ interface IProps {
   totalNumber: any;
   loading?: boolean;
   hasSearched?: boolean;
+  /** When user clicks a result card, fly map to that marker. */
+  onRecordClick?: (record: any) => void;
 }
 
 const Sidebar: React.FC<IProps> = ({
@@ -15,6 +17,7 @@ const Sidebar: React.FC<IProps> = ({
   totalNumber,
   loading,
   hasSearched,
+  onRecordClick,
 }) => {
   // If we're still loading, don't render any search results or messages.
   if (loading) return null;
@@ -34,14 +37,15 @@ const Sidebar: React.FC<IProps> = ({
   }
 
   return (
-    <div>
-      <div className="px-5 pb-1 flex items-center justify-between">
+    <div className="w-full min-w-0 px-2 sm:px-3">
+      <div className="px-3 sm:px-4 pb-2 flex items-center justify-between">
         <span className="font-bold">{totalNumber} result(s)</span>
       </div>
-      <div className="grid 2xl:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-4 px-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 w-full min-w-0">
         {filteredData?.map((data: any, idx: any) => (
           <UserCard
-            key={idx}
+            key={data?.id != null ? String(data.id) : idx}
+            onClick={onRecordClick ? () => onRecordClick(data) : undefined}
             AFFILIATION={data.fields["AFFILIATED ENTITY"]}
             FULL_NAME={data.fields["FULL NAME"]}
             EMAIL_ADDRESS={data.fields["EMAIL ADDRESS"]}

@@ -1,2 +1,2 @@
-const CACHE_EXPIRY = 300;
-export default CACHE_EXPIRY;
+const CACHE_EXPIRY = 3600 // 1 hour expiry - balances freshness with performance
+export default CACHE_EXPIRY
