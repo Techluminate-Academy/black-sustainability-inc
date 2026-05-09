@@ -1,0 +1,66 @@
+---
+description: Branching strategy — feature branches off main, main-copy as ephemeral staging, no exceptions
+alwaysApply: true
+---
+
+# Branching strategy
+
+This repo uses a **three-branch lifecycle**: `main` (production), `feature/<slug>` (one per ticket), and `main-copy` (ephemeral staging for live testing on Render). Every change goes through the same flow — features and hotfixes alike.
+
+## The flow
+
+```
+main ──┬── feature/<slug> ──┬── (test merge into main-copy → Render smoke test)
+       │                    │
+       └────────────────────┴── (merge feature → main via PR, CI gated)
+```
+
+1. **Cut a feature branch off the latest `main`**
+   ```sh
+   git checkout main && git pull --ff-only
+   git checkout -b feature/<short-slug>
+   ```
+2. **Develop on the feature branch.** Push regularly. CI runs on every push.
+3. **Open a draft PR against `main` early** so reviewers can see progress.
+4. **When ready to test, reset `main-copy` to match `main` exactly, then merge the feature in:**
+   ```sh
+   git fetch origin
+   git checkout main-copy
+   git reset --hard origin/main
+   git merge --no-ff feature/<short-slug>
+   git push --force-with-lease origin main-copy
+   ```
+   Render auto-deploys `main-copy` for the staging smoke test.
+5. **Smoke-test on Render's staging URL.** If anything fails, fix on the feature branch and **repeat step 4** (reset main-copy from scratch — never patch staging directly).
+6. **Merge the feature branch into `main` via the PR** (NOT main-copy). CI gates the merge. Click "Merge pull request" in GitHub.
+7. **Delete the feature branch** locally and on origin after merge.
+
+## Naming
+
+- Feature branches: `feature/<short-slug>` (e.g. `feature/add-search-filter`, `feature/fix-marker-fallback`).
+- No type prefix variants (`fix/`, `chore/`) — just `feature/` for everything to keep the rule simple.
+- Slugs are kebab-case, ≤ 5 words, descriptive.
+
+## Hard rules
+
+- ❌ **Never** push directly to `main`. All changes land via merged PRs from `feature/*` branches.
+- ❌ **Never** merge `main-copy` into `main`. `main-copy` is a test arena, not a source of truth.
+- ❌ **Never** test the same feature on `main-copy` without resetting it first. Stale staging hides bugs.
+- ❌ **Never** skip the staging step ("hotfix" included). If it's urgent, it's still worth 5 minutes of Render verification.
+- ✅ Force-pushing `main-copy` is **expected and safe** (it's ephemeral). Use `--force-with-lease`, never bare `--force`.
+
+## Why
+
+- `main` stays always-deployable: CI gates every merge.
+- `main-copy` is reset every cycle, so what you test = `main` + exactly one feature, with no drift.
+- Render staging URL is permanent (testers don't track changing branches).
+- CI runs three times per feature (push to feature, test merge into main-copy, final PR merge), each catching a different class of regression.
+
+## Quick reference
+
+| Goal | Command |
+|---|---|
+| Start a new ticket | `git checkout main && git pull && git checkout -b feature/<slug>` |
+| Reset main-copy and load feature for testing | `git checkout main-copy && git reset --hard origin/main && git merge --no-ff feature/<slug> && git push --force-with-lease origin main-copy` |
+| Sync feature branch with latest main mid-development | `git checkout feature/<slug> && git fetch origin && git rebase origin/main` |
+| Clean up after merge | `git checkout main && git pull && git branch -d feature/<slug> && git push origin --delete feature/<slug>` |
