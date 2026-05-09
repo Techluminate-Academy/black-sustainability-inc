@@ -27,16 +27,39 @@ export default async function handler(req, res) {
 
     let query = {};
 
-    if (queryParams.q) {
-      const searchRegex = new RegExp(queryParams.q, "i");
-      query.$or = [
-        { firstName: searchRegex },
-        { lastName: searchRegex },
-        { email: searchRegex },
-        { industry: searchRegex },
-        { location: searchRegex },
-        { bio: searchRegex },
-      ];
+    if (queryParams.q && typeof queryParams.q === "string") {
+      // Tokenize on whitespace so multi-word queries like "Jerry Bony" match
+      // records where each token appears in at least one field (firstName=Jerry
+      // AND lastName=Bony). Also escape regex metacharacters so "." or "*" in
+      // user input don't behave as regex operators.
+      const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const tokens = queryParams.q
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 5); // safety cap on token count
+
+      if (tokens.length > 0) {
+        const buildOr = (token) => {
+          const re = new RegExp(escapeRegex(token), "i");
+          return {
+            $or: [
+              { firstName: re },
+              { lastName: re },
+              { email: re },
+              { industry: re },
+              { location: re },
+              { bio: re },
+            ],
+          };
+        };
+
+        if (tokens.length === 1) {
+          Object.assign(query, buildOr(tokens[0]));
+        } else {
+          query.$and = tokens.map(buildOr);
+        }
+      }
     }
 
     if (excludeViewer) {
