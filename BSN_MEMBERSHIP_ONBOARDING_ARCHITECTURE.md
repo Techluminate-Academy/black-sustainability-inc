@@ -1,5 +1,7 @@
 # BSN Membership Onboarding Architecture
 
+> **Canonical overview:** See [`BSN_MASTER_DOCUMENT.md`](./BSN_MASTER_DOCUMENT.md) for the full platform architecture (including current Mighty Networks integration). This file remains useful for detailed onboarding flows; the Mighty “not in codebase” statements below are **out of date**—webhooks and `mightyMembers` are implemented.
+
 ## 1. Executive Summary
 Today, BSN membership onboarding is **not one single automated pipeline**—it’s a set of connected flows:
 
