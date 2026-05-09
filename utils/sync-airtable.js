@@ -6,16 +6,19 @@ require('dotenv').config();
 const axios = require("axios");
 const { MongoClient } = require("mongodb");
 
-// Airtable configuration (using public env variables; for production consider securing these)
-// const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
-// const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
-// const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
-const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
-const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
-const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
-// Optionally, you could add a view parameter if needed:
-// const VIEW_ID = process.env.NEXT_PUBLIC_AIRTABLE_VIEW_ID_NOT_SORTED;
-console.log(AIRTABLE_API_KEY, BASE_ID, TABLE_NAME)
+// Airtable "Mighty Members" sync table (server-side tokens)
+const AIRTABLE_API_KEY =
+  process.env.AIRTABLE_PAT ||
+  process.env.AIRTABLE_ACCESS_TOKEN ||
+  process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
+const BASE_ID =
+  process.env.AIRTABLE_MIGHTY_SYNC_BASE_ID || process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
+// Prefer Table ID; fall back to name if needed
+const TABLE_NAME =
+  process.env.AIRTABLE_MIGHTY_SYNC_TABLE_ID ||
+  process.env.AIRTABLE_MIGHTY_SYNC_TABLE_NAME ||
+  process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME ||
+  "Mighty Members";
 /**
  * fetchDataFromAirtable(offset):
  *  - Makes one GET request to Airtable for up to 100 records at a time.
@@ -63,6 +66,10 @@ console.log(AIRTABLE_API_KEY, BASE_ID, TABLE_NAME)
 
 
 const fetchDataFromAirtable = async (offset = "") => {
+  if (!AIRTABLE_API_KEY || !BASE_ID || !TABLE_NAME) {
+    console.error("Missing Airtable env vars for Mighty Members sync table.");
+    return null;
+  }
   const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}`;
 
   try {
@@ -121,7 +128,7 @@ const getAllRecordsFromAirtable = async () => {
  * syncAirtableToMongoDB():
  *  - Fetches all Airtable records.
  *  - Connects to MongoDB.
- *  - Upserts each record into the specified MongoDB collection.
+ *  - Upserts records into Mongo `mightyMembers`.
  */
 const syncAirtableToMongoDB = async () => {
   // Fetch all records from Airtable
@@ -132,7 +139,7 @@ const syncAirtableToMongoDB = async () => {
   }
   
   // MongoDB configuration
-  const MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI;
+  const MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI || process.env.MONGODB_URI;
   if (!MONGODB_URI) {
     console.error("MONGODB_URI is not defined in environment variables.");
     return;
@@ -140,7 +147,7 @@ const syncAirtableToMongoDB = async () => {
   
   // Define your database and collection names
   const DATABASE_NAME = "members"; // Change if needed
-  const COLLECTION_NAME = "airtableRecords"; // Change if needed
+  const COLLECTION_NAME = "mightyMembers";
 
   const client = new MongoClient(MONGODB_URI, {
     useNewUrlParser: true,
@@ -154,14 +161,61 @@ const syncAirtableToMongoDB = async () => {
     const db = client.db(DATABASE_NAME);
     const collection = db.collection(COLLECTION_NAME);
 
-    // Prepare bulk operations: upsert each record based on a unique identifier (Airtable's record id)
-    const bulkOps = records.map((record) => ({
-      updateOne: {
-        filter: { airtableId: record.id },
-        update: { $set: record },
-        upsert: true,
-      },
-    }));
+    const normalizeEmail = (v) =>
+      typeof v === "string" ? v.trim().toLowerCase() : "";
+
+    const toNumberOrNull = (v) => {
+      if (v == null || v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    // Upsert by mightyId when present, else by email.
+    // IMPORTANT: do NOT overwrite subscription fields here (those are set by Mighty/Wix sync scripts).
+    const bulkOps = records
+      .map((record) => {
+        const f = record.fields || {};
+        const mightyId = toNumberOrNull(f["Mighty Member ID"]);
+        const email = normalizeEmail(f["Primary Email"]);
+        if (!mightyId && !email) return null;
+
+        const lat = toNumberOrNull(f["Latitude"]);
+        const lng = toNumberOrNull(f["Longitude"]);
+        const hasCoords = typeof lat === "number" && typeof lng === "number";
+
+        const doc = {
+          ...(mightyId ? { mightyId } : {}),
+          ...(email ? { email } : {}),
+          firstName: (f["First Name"] || "").toString(),
+          lastName: (f["Last Name"] || "").toString(),
+          location: (f["City"] || "").toString(),
+          bio: (f["Short Bio"] || "").toString(),
+          avatarUrl: (f["Profile Photo URL"] || "").toString(),
+          industry: (f["Industry / Sector"] || "").toString(),
+          latitude: hasCoords ? lat : null,
+          longitude: hasCoords ? lng : null,
+          geo: hasCoords ? { type: "Point", coordinates: [lng, lat] } : null,
+          accountCreatedAt: f["Account Created Date"] || null,
+          lastSyncDate: f["Last Sync Date"] || null,
+          source: "airtable:mighty_members",
+          airtable: { recordId: record.id },
+          updatedAt: new Date(),
+        };
+
+        const filter = mightyId ? { mightyId } : { email };
+
+        return {
+          updateOne: {
+            filter,
+            update: {
+              $set: doc,
+              $setOnInsert: { createdAt: new Date() },
+            },
+            upsert: true,
+          },
+        };
+      })
+      .filter(Boolean);
 
     if (bulkOps.length > 0) {
       const result = await collection.bulkWrite(bulkOps);

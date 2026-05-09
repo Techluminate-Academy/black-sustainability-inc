@@ -22,3 +22,15 @@ yarn-error.log*
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Local reports, artifacts, and tooling (stay local)
+artifacts/
+docs/
+recon-reports/
+reports/
+test-data/
+scripts/dryrun-paying-member.ts
+scripts/fix-incorrect-paying-flags.ts
+scripts/select-map-visibility-test-members.js
+scripts/sync-paying-member.ts
+scripts/test-wix-ingestion.ts

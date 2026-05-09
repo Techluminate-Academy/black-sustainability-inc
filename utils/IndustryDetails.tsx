@@ -103,6 +103,16 @@ export const IndustryHouses = [
     ),
   },
   {
+    value: "🌾 Reparative Agriculture",
+    label: (
+      <SelectOption
+        label="Reparative Agriculture"
+        color="#82DD3A"
+        source="agric"
+      />
+    ),
+  },
+  {
     value: "🗑 Waste",
     label: <SelectOption label="Waste" color="#2C4F40" source="waste" />,
   },

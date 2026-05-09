@@ -1,44 +1,55 @@
 import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
+import { getExcludeViewerMighty } from "../../lib/mapViewerGating";
+import {
+  applyIndustryHouseToMongoQuery,
+  normalizeIndustryHouseQueryParam,
+} from "../../lib/buildIndustryHouseQuery";
+import { toAirtableishDoc } from "../../lib/mightyMemberAirtableShape";
 import CACHE_EXPIRY from '../../constants/CacheExpiry'
-const COLLECTION_NAME = "airtableRecords";
+
+const COLLECTION_NAME = "mightyMembers";
 
 export default async function handler(req, res) {
   try {
-    const { industryHouse, page, limit } = req.query;
+    const { page, limit } = req.query;
+    const industryHouse = normalizeIndustryHouseQueryParam(req.query.industryHouse);
     const currentPage = parseInt(page) || 1;
     const recordsPerPage = parseInt(limit) || 50;
     const skip = (currentPage - 1) * recordsPerPage;
 
-    // Build cache key
-    const cacheKey = `filterData:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
-
-    // Check Redis cache
-    const cacheStart = Date.now();
-    const cachedData = await redis.get(cacheKey);
-    console.log(`Redis Fetch Time: ${Date.now() - cacheStart}ms`);
-    redis.keys("*").then((keys) => {
-      console.log("All keys:", keys);
-    }).catch((err) => {
-      console.error("Error fetching keys:", err);
-    });
-    if (cachedData) {
-      // console.log("✅ Serving from Cache");
-      return res.status(200).json(JSON.parse(cachedData));
-    }
-
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 
-    // Build the query object
-    let query = {};
-    if (industryHouse && industryHouse !== "") {
-      query["fields.PRIMARY INDUSTRY HOUSE"] = industryHouse;
+    const { excludeMongoId, excludeMightyId } = await getExcludeViewerMighty(req, collection);
+    const excludeViewer = !!excludeMongoId || excludeMightyId != null;
+    const useCache = !excludeViewer;
+
+    const cacheKey = `filterData:v8:primary-backfill:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
+    if (useCache) {
+      const cacheStart = Date.now();
+      const cachedData = await redis.get(cacheKey);
+      if (cachedData) {
+        return res.status(200).json(JSON.parse(cachedData));
+      }
     }
 
-    // Fetch data from MongoDB
+    let query = {};
+    applyIndustryHouseToMongoQuery(query, industryHouse);
+    if (excludeViewer) {
+      const nor = [];
+      if (excludeMongoId) nor.push({ _id: excludeMongoId });
+      if (excludeMightyId != null) nor.push({ mightyId: excludeMightyId });
+      if (nor.length) query.$nor = nor;
+    }
+
     const totalCount = await collection.countDocuments(query);
-    const data = await collection.find(query).skip(skip).limit(recordsPerPage).toArray();
+    const data = await collection
+      .find(query)
+      .skip(skip)
+      .limit(recordsPerPage)
+      .sort({ _id: 1 })
+      .toArray();
 
     const response = {
       success: true,
@@ -46,11 +57,12 @@ export default async function handler(req, res) {
       limit: recordsPerPage,
       totalPages: Math.ceil(totalCount / recordsPerPage),
       totalCount,
-      data,
+      data: data.map(toAirtableishDoc),
     };
 
-    // Store in Redis
-    await redis.setex(cacheKey, CACHE_EXPIRY, JSON.stringify(response));
+    if (useCache) {
+      await redis.setex(cacheKey, CACHE_EXPIRY, JSON.stringify(response));
+    }
 
     res.status(200).json(response);
   } catch (error) {

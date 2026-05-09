@@ -1,12 +1,19 @@
 // utils/fetchDataFromAirtable.js
+
+
+
 import axios from "axios";
 
-// Hard-coded credentials for testing (for production, use env variables)
-const AIRTABLE_API_KEY = 'pat38lz8MgA9beOdR.216dd36a6aefde7f3ac3063e11cb0ea1d645131195be277237b6e776d8f8c88f';
-const BASE_ID = 'appixDz0HieCrwdUq';
-const TABLE_NAME = 'tblYq1mA17iTZ5DRb';
-// Make sure your view ID is correct and case-sensitive. For example:
-const VIEW_ID_NOT_SORTED = 'viwYDUY0xStG108Lv'; // Adjust if needed
+// Use environment variables for security
+const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
+const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
+const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
+const VIEW_ID_NOT_SORTED = process.env.NEXT_PUBLIC_AIRTABLE_VIEW_ID || 'viwYDUY0xStG108Lv';
+
+// Validate required environment variables
+if (!AIRTABLE_API_KEY || !BASE_ID || !TABLE_NAME) {
+  throw new Error('Missing required Airtable environment variables: NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN, NEXT_PUBLIC_AIRTABLE_BASE_ID, NEXT_PUBLIC_AIRTABLE_TABLE_NAME');
+}
 
 const fetchDataFromAirtable = async (offset = '') => {
   // Construct the URL (no need for "/listRecords")

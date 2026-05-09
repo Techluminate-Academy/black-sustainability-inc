@@ -170,7 +170,8 @@ const LeafletMap: React.FC<IProps> = ({
       const southWest = bounds.getSouthWest();
       try {
         const res = await fetch(
-          `/api/getMarkers?northEastLat=${northEast.lat}&northEastLng=${northEast.lng}&southWestLat=${southWest.lat}&southWestLng=${southWest.lng}`
+          `/api/getMarkers?northEastLat=${northEast.lat}&northEastLng=${northEast.lng}&southWestLat=${southWest.lat}&southWestLng=${southWest.lng}`,
+          { credentials: "include" }
         );
         const result = await res.json();
         if (result.success) {

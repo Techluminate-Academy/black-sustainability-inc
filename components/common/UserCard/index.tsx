@@ -1,11 +1,15 @@
-import React, { useEffect } from "react";
-import Image from "next/image";
+import React from "react";
 import icons from "@/icons";
 import IndustryHouseIcons from "../IndustryHouseIcons";
-import BlurImage from "../BlurImage";
 import BlurText from "../BlurText";
 import Link from "next/link";
-import ShowMoreText from "react-show-more-text";
+
+const DEFAULT_PHOTO = "/png/default.png";
+
+function pickPhotoUrl(imgUrl: unknown): string {
+  if (typeof imgUrl === "string" && imgUrl.trim()) return imgUrl.trim();
+  return DEFAULT_PHOTO;
+}
 
 interface IProps {
   FULL_NAME: string;
@@ -22,6 +26,8 @@ interface IProps {
   isAuthenticated: boolean;
   ConnectLink?: string;
   AFFILIATION?: string;
+  /** When set, clicking the card flies the map to this member's marker. */
+  onClick?: () => void;
 }
 
 const UserCard: React.FC<IProps> = ({
@@ -35,50 +41,51 @@ const UserCard: React.FC<IProps> = ({
   isAuthenticated,
   ConnectLink,
   AFFILIATION,
-  // State_Province,
-  // NameFromLocation,
+  onClick,
 }) => {
+  const photoSrc = pickPhotoUrl(imgUrl);
+
   return (
-    <div className=" bg-white rounded-2xl p-[7px] overflow-hidden space-y-[10px]">
-      <div className="relative">
-        {isAuthenticated ? (
-          <div className="relative h-[250px] w-full bg-[#FFF8E5] rounded-xl">
-            <Image
-              src={imgUrl}
-              alt="profile image"
-              fill
-              className="rounded-xl object-top object-cover "
-              loading="lazy"
-            />
-          </div>
-        ) : (
-          <img
-              src={imgUrl}
-              className={`${
-                isAuthenticated ? "blur-none" : "blur-md"
-              } w-full object-cover object-center h-full rounded-md`}
-              alt={` profile image`}
-              loading="lazy"
-            />
-        )}
+    <div
+      className="bg-white rounded-2xl p-2 sm:p-3 overflow-hidden space-y-3 min-w-0 w-full shadow-sm border border-gray-100/80"
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      style={onClick ? { cursor: "pointer" } : undefined}
+    >
+      <div className="relative w-full aspect-[4/3] max-h-[280px] sm:max-h-[260px] min-h-[160px] rounded-xl overflow-hidden bg-[#FFF8E5]">
+        <img
+          src={photoSrc}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          className={`absolute inset-0 h-full w-full object-cover object-top rounded-xl ${
+            isAuthenticated ? "" : "blur-md"
+          }`}
+          onError={(e) => {
+            const el = e.currentTarget;
+            if (el.src.endsWith(DEFAULT_PHOTO)) return;
+            el.src = DEFAULT_PHOTO;
+          }}
+        />
       </div>
 
-      <div className="flex justify-between items-start  ">
-        <div className="px-2 space-y-[10px] w-[70%]">
+      <div className="flex justify-between items-start gap-3 min-w-0">
+        <div className="px-1 sm:px-2 space-y-2.5 min-w-0 flex-1">
           <div className="relative flex items-center gap-2">
-            <span className="w-[14px] h-[14px]">
+            <span className="w-4 h-4 shrink-0">
               <icons.profile />
             </span>
-            <div className="group">
+            <div className="group min-w-0 flex-1">
               {isAuthenticated ? (
                 <div>
                   <p
-                    className={`text-sm whitespace-nowrap overflow-hidden truncate max-w-[130px] group-hover:invisible  w-[90%] cursor-pointer`}
+                    className={`text-sm sm:text-base font-medium truncate group-hover:invisible cursor-pointer`}
                   >
                     {FULL_NAME}
                   </p>
                   <p
-                    className={`text-sm absolute top-0 rounded-full bg-white p-[1px] whitespace-normal hidden group-hover:block`}
+                    className={`text-sm sm:text-base absolute top-0 left-0 right-0 rounded-md bg-white p-1 shadow border border-gray-100 whitespace-normal hidden group-hover:block z-10`}
                   >
                     {FULL_NAME}
                   </p>
@@ -89,21 +96,21 @@ const UserCard: React.FC<IProps> = ({
             </div>
           </div>
 
-          <div className="flex relative items-center gap-2 ">
-            <span className="w-[14px] h-[14px]">
+          <div className="flex relative items-center gap-2">
+            <span className="w-4 h-4 shrink-0">
               <icons.email />
             </span>
 
-            <div className="group">
+            <div className="group min-w-0 flex-1">
               {isAuthenticated ? (
                 <div>
                   <p
-                    className={`text-sm whitespace-nowrap overflow-hidden truncate max-w-[130px] w-[90%] group-hover:invisible cursor-pointer`}
+                    className={`text-sm sm:text-base truncate group-hover:invisible cursor-pointer`}
                   >
                     {EMAIL_ADDRESS}
                   </p>
                   <p
-                    className={`text-sm absolute -top-1 rounded-full bg-white p-[1px] whitespace-normal hidden group-hover:block`}
+                    className={`text-sm sm:text-base absolute top-0 left-0 right-0 rounded-md bg-white p-1 shadow border border-gray-100 break-all hidden group-hover:block z-10`}
                   >
                     {EMAIL_ADDRESS}
                   </p>
@@ -113,18 +120,18 @@ const UserCard: React.FC<IProps> = ({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-[14px] h-[14px]">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-4 h-4 shrink-0">
               <icons.location />
             </span>
-            <p className={`text-sm whitespace-nowrap`}>{Nearest_City}</p>
+            <p className={`text-sm sm:text-base truncate`}>{Nearest_City}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-[14px] h-[14px]">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-4 h-4 shrink-0">
               <icons.organization />
             </span>
             {isAuthenticated ? (
-              <p className={`text-sm whitespace-nowrap`}>
+              <p className={`text-sm sm:text-base truncate`}>
                 {ORGANIZATION_NAME || "not yet updated"}
               </p>
             ) : (
@@ -133,17 +140,21 @@ const UserCard: React.FC<IProps> = ({
                 blurAmount={1}
               />
             )}
-    
-        </div>
-            {/* Conditionally render yellow star and affiliation */}
-            {AFFILIATION && AFFILIATION.trim() !== "" && (
-            <div className="flex items-center gap-1 mt-2">
-              <span className="text-yellow-500 text-xl">⭐</span>
-              <span className="text-sm">Affiliation - {AFFILIATION}</span>
+          </div>
+
+          {AFFILIATION && AFFILIATION.trim() !== "" && (
+            <div className="flex items-center gap-1 mt-2 min-w-0">
+              <span className="text-yellow-500 text-xl shrink-0">⭐</span>
+              <span className="text-sm break-words">
+                Affiliation - {AFFILIATION}
+              </span>
             </div>
           )}
-          </div>
-        <IndustryHouseIcons iconTag={PRIMARY_INDUSTRY_HOUSE} />
+        </div>
+
+        <div className="shrink-0 pt-0.5">
+          <IndustryHouseIcons iconTag={PRIMARY_INDUSTRY_HOUSE} />
+        </div>
       </div>
 
       <div className="bg-[#242424] h-[1px] w-full" />
@@ -163,11 +174,11 @@ const UserCard: React.FC<IProps> = ({
         </div>
 
         <Link
-          // href={ConnectLink} //UPDATE WHEN AIRTABLE IS UPDATED
           href="https://black-sustainability-network.mn.co/"
           target="_blank"
           rel="noreferrer"
           className="bg-[#FFBF23] border border-[#1A1A1A] flex justify-between items-center py-1 px-3 rounded-3xl"
+          onClick={(e) => e.stopPropagation()}
         >
           <span className="font-bold text-sm capitalize">connect</span>
           <icons.rightArrow />

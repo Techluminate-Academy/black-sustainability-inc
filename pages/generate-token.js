@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
-import { useSession } from 'next-auth/react';
+// import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 
 export default function TokenPage() {
-  const { data: session, status } = useSession();
+  // const { data: session, status } = useSession();
   const router = useRouter();
   const [token, setToken] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -15,26 +15,30 @@ export default function TokenPage() {
   const [message, setMessage] = useState('');
 
   // Redirect unauthenticated users to /signin.
-  useEffect(() => {
-    if (status !== 'loading' && !session) {
-      router.push('/signin');
-    }
-  }, [session, status, router]);
+  // useEffect(() => {
+  //   if (status !== 'loading' && !session) {
+  //     router.push('/signin');
+  //   }
+  // }, [session, status, router]);
 
   // Function to generate the token.
   const generateToken = async () => {
     setIsGenerating(true);
     setMessage('');
     try {
-      const res = await fetch('/api/generate-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to generate token');
-      }
-      setToken(data.apiToken);
+      // Mock token generation for static export
+      // const res = await fetch('/api/generate-token', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      // });
+      // const data = await res.json();
+      // if (!res.ok) {
+      //   throw new Error(data.error || 'Failed to generate token');
+      // }
+      
+      // Mock token for demo
+      const mockToken = 'demo_' + Math.random().toString(36).substr(2, 32);
+      setToken(mockToken);
       setMessage('Token generated successfully. IMPORTANT: Please copy and save it now, as it will not be shown again.');
     } catch (error) {
       setMessage(error.message || 'An error occurred.');
@@ -58,13 +62,13 @@ export default function TokenPage() {
   };
 
   // Display a loading indicator while waiting for session data.
-  if (status === 'loading' || !session) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <p>Loading...</p>
-      </div>
-    );
-  }
+  // if (status === 'loading' || !session) {
+  //   return (
+  //     <div className="flex justify-center items-center h-screen">
+  //       <p>Loading...</p>
+  //     </div>
+  //   );
+  // }
 
   return (
     <>

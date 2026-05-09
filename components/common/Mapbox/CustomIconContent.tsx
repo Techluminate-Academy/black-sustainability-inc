@@ -1,13 +1,23 @@
 "use client";
 import React from "react";
-import Image from "next/image";
+
+const DEFAULT_PHOTO = "/png/default.png";
 
 interface CustomIconContentProps {
   record: {
     isAuthenticated: boolean;
     fields: {
       "PRIMARY INDUSTRY HOUSE"?: string;
-      PHOTO?: { url: string }[] | string;
+      PHOTO?:
+        | {
+            url: string;
+            thumbnails?: {
+              full?: { url: string };
+              large?: { url: string };
+              small?: { url: string };
+            };
+          }[]
+        | string;
     };
   };
 }
@@ -22,6 +32,7 @@ const industryProps = [
   { label: "♻️ Green Lifestyle", source: "Green", bgColor: "#009845" },
   { label: "🆘 Survival/Preparedness", source: "Preparedness", bgColor: "#C4391D" },
   { label: "🌾 Agriculture/Sustainable Food Production / Land Management", source: "agric", bgColor: "#82DD3A" },
+  { label: "🌾 Reparative Agriculture", source: "agric", bgColor: "#82DD3A" },
   { label: "🗑 Waste", source: "waste", bgColor: "#2C4F40" },
   { label: "💧Water", source: "water", bgColor: "#8CB1CF" },
   { label: "🧘🏿‍♀️ Wholistic Health", source: "wholistic", bgColor: "#ED751C" },
@@ -29,13 +40,27 @@ const industryProps = [
 ];
 
 const getColorByIconTag = (iconTag?: string): string => {
-  const found = industryProps.find(item => item.label === iconTag);
+  const found = industryProps.find((item) => item.label === iconTag);
   return found ? found.bgColor : "#ccc";
 };
+
+function resolvePhotoSrc(fields: CustomIconContentProps["record"]["fields"]): string {
+  const p = fields?.PHOTO;
+  if (typeof p === "string" && p.trim()) return p.trim();
+  if (Array.isArray(p) && p.length > 0) {
+    const first = p[0];
+    if (first?.thumbnails?.full?.url) return first.thumbnails.full.url;
+    if (first?.thumbnails?.large?.url) return first.thumbnails.large.url;
+    if (first?.thumbnails?.small?.url) return first.thumbnails.small.url;
+    if (first?.url) return first.url;
+  }
+  return DEFAULT_PHOTO;
+}
 
 const CustomIconContent: React.FC<CustomIconContentProps> = ({ record }) => {
   const { isAuthenticated, fields } = record;
   const bgColor = getColorByIconTag(fields["PRIMARY INDUSTRY HOUSE"]);
+  const src = resolvePhotoSrc(fields);
 
   return (
     <div
@@ -71,19 +96,19 @@ const CustomIconContent: React.FC<CustomIconContentProps> = ({ record }) => {
             transform: "translate(-50%, -50%) rotate(35deg)",
           }}
         >
-          <Image
-           src={
-            Array.isArray(fields?.PHOTO) && fields.PHOTO.length > 0
-              ? fields.PHOTO[0].url || "/png/default.png"  // If it's an array, use the first item's URL
-              : typeof fields?.PHOTO === 'string'
-              ? fields.PHOTO  // If it's a string, use the string directly
-              : "/png/default.png"  // Fallback if PHOTO is not available or doesn't match any case
-          }
-          
-            alt="member"
-            width={60} // Set width and height to match the div's size
+          <img
+            src={src}
+            alt=""
+            width={60}
             height={64}
             loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              const el = e.currentTarget;
+              if (el.src.endsWith(DEFAULT_PHOTO)) return;
+              el.src = DEFAULT_PHOTO;
+            }}
             style={{
               width: "100%",
               height: "100%",
