@@ -48,11 +48,15 @@ export const fetchTableMetadata = async () => {
   }>;
 };
 
-const updateRecord = async (recordId: string, dataToUpdate: Record<string, unknown>) => {
+const updateRecord = async (
+  recordId: string,
+  dataToUpdate: Record<string, unknown>,
+  ownerEmail: string
+) => {
   const res = await fetch(`${apiBase()}/api/airtable/free-signup-record`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ recordId, fields: dataToUpdate }),
+    body: JSON.stringify({ recordId, ownerEmail, fields: dataToUpdate }),
   });
   const data = await parseJsonResponse(res);
   if (!res.ok) {

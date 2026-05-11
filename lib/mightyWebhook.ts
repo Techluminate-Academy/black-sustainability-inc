@@ -103,6 +103,44 @@ export function extractMemberEmail(payload: AnyObj): string | null {
   return norm ? norm : null;
 }
 
+/** Network / community scope when Mighty reuses ids across resources. */
+export function extractSpaceId(payload: AnyObj): string | null {
+  const nested = isObject(payload?.payload) ? payload.payload : null;
+  const candidate =
+    payload?.space?.id ??
+    payload?.space_id ??
+    payload?.spaceId ??
+    payload?.community?.id ??
+    nested?.space?.id ??
+    nested?.space_id ??
+    nested?.spaceId ??
+    nested?.community?.id ??
+    null;
+  return typeof candidate === "string" || typeof candidate === "number" ? String(candidate) : null;
+}
+
+const DEDUPE_SEP = "\x1f";
+
+/**
+ * Unique per logical webhook delivery. Mighty may reuse `event_id` across event kinds
+ * or entities, so the key must include event type and optional member/space scope.
+ */
+export function buildMightyWebhookDedupeKey(normalized: AnyObj): string | null {
+  const eventId = extractEventId(normalized);
+  if (!eventId) return null;
+  const eventType = extractEventType(normalized) || "UnknownEvent";
+  const parts: string[] = [String(eventType), String(eventId)];
+  const memberId = extractMemberId(normalized);
+  if (memberId != null && String(memberId).length > 0) {
+    parts.push(`m:${String(memberId)}`);
+  }
+  const spaceId = extractSpaceId(normalized);
+  if (spaceId != null && String(spaceId).length > 0) {
+    parts.push(`s:${String(spaceId)}`);
+  }
+  return parts.join(DEDUPE_SEP);
+}
+
 function looksLikeFullMember(member: AnyObj | null | undefined): boolean {
   if (!isObject(member)) return false;
   // Heuristic: if we have basic profile fields, assume it's "full enough" to write without refetch.
@@ -394,11 +432,19 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
   const eventAt = extractEventAt(normalized);
 
   const { db } = await connectToDatabase();
-  if (eventId) {
+  const dedupeKey = buildMightyWebhookDedupeKey(normalized);
+  if (dedupeKey) {
     const evCol = db.collection("mightyWebhookEvents");
     const claim = await evCol.updateOne(
-      { eventId: String(eventId) },
-      { $setOnInsert: { eventId: String(eventId), receivedAt: new Date() } },
+      { dedupeKey },
+      {
+        $setOnInsert: {
+          dedupeKey,
+          eventId: String(eventId),
+          eventType: String(eventType),
+          receivedAt: new Date(),
+        },
+      },
       { upsert: true }
     );
     if (claim.upsertedCount === 0) {

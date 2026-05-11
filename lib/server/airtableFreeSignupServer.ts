@@ -47,6 +47,56 @@ async function airtableFetch(url: string, init: RequestInit): Promise<Response> 
   });
 }
 
+/**
+ * Field names the public free-signup API may write. Everything else is dropped
+ * so callers cannot escalate to arbitrary Airtable columns.
+ */
+export const FREE_SIGNUP_PUBLIC_WRITABLE_FIELD_NAMES = new Set<string>([
+  "ADDITIONAL FOCUS AREAS",
+  "Address",
+  "AFFILIATED ENTITY",
+  "BIO",
+  "EMAIL ADDRESS",
+  "Featured",
+  "FIRST NAME",
+  "FUNDING GOAL",
+  "GENDER",
+  "IDENTIFICATION",
+  "LAST NAME",
+  "LATITUDE (NEW)",
+  "Latitude",
+  "Location (Nearest City)",
+  "LOGO",
+  "LONGITUDE (NEW)",
+  "Longitude",
+  "MEMBER LEVEL",
+  "Membership Status Notes",
+  "MembershipType",
+  "Name (from Location)",
+  "NAICS Code",
+  "ORGANIZATION NAME",
+  "PHONE NON-US/CAN",
+  "PHONE US/CAN ONLY",
+  "PHOTO",
+  "PRIMARY INDUSTRY HOUSE",
+  "Similar Categories",
+  "WEBSITE",
+  "YOUTUBE",
+  "Zip/Postal Code",
+]);
+
+export function pickPublicWritableFreeSignupFields(
+  fields: Record<string, unknown>
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(fields)) {
+    if (FREE_SIGNUP_PUBLIC_WRITABLE_FIELD_NAMES.has(key)) {
+      out[key] = fields[key];
+    }
+  }
+  return out;
+}
+
 export type FreeSignupFieldMeta = {
   fieldName: string;
   fieldType: string;
@@ -94,6 +144,27 @@ export async function fetchFreeSignupTableFieldMetadata(): Promise<FreeSignupFie
       options,
     };
   });
+}
+
+export async function fetchFreeSignupRecordById(
+  recordId: string
+): Promise<{ id: string; fields: Record<string, unknown> } | null> {
+  const baseId = getBaseId();
+  const tableName = getTableName();
+  const url = `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(tableName)}/${encodeURIComponent(recordId)}`;
+  const res = await airtableFetch(url, { method: "GET" });
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Airtable read error (${res.status}): ${text || res.statusText}`);
+  }
+  const data = (await res.json()) as { id?: string; fields?: Record<string, unknown> };
+  if (!data.id) {
+    return null;
+  }
+  return { id: data.id, fields: data.fields || {} };
 }
 
 export async function createFreeSignupRecord(fields: Record<string, unknown>): Promise<unknown> {
