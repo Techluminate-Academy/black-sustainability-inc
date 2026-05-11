@@ -1,10 +1,11 @@
-# PRs to main/develop only. Branch protection requires "CI / Lint, Typecheck, Test, Build".
-# Push-only runs live in ci-push.yml so that name is not split into (push)/(pull_request).
-name: CI
+# Same steps as CI, but only on push. Keeps feedback on feature/** branches without
+# duplicating the PR-required check name "CI / Lint, Typecheck, Test, Build" (GitHub
+# otherwise reports suffixed variants and branch protection never sees the bare name).
+name: CI (push)
 
 on:
-  pull_request:
-    branches: [main, develop]
+  push:
+    branches: [main, develop, "feature/**"]
 
 jobs:
   test-and-lint:
