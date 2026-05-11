@@ -32,7 +32,6 @@
     "icons/index.js",
     ".next/types/**/*.ts",
     "components/common/LeafletMap/index.tsx",
-    "lib/updateMember.js",
     "pages/api/submitForm.js"
   ],
   "exclude": ["node_modules", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx", "**/__tests__/**"]

@@ -4,6 +4,7 @@ import { getBsnSessionFromReq } from "@/lib/bsnSession";
 import { invalidateMightyMemberCaches } from "@/lib/mightyCacheInvalidate";
 import { upsertAirtableMightyMember } from "@/lib/airtableMightyMembers";
 import { upsertMightyCustomFieldAnswer } from "@/lib/mightyAdmin";
+import { persistMemberLocationSelfUpdate } from "@/lib/domain/location/memberLocationUpdate.service";
 
 function isFiniteNumber(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
@@ -38,29 +39,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const mightyId = session.mightyId;
   const email = session.email;
-  const now = new Date();
 
-  // 1) Update Mongo (source of truth for map)
   const { db } = await connectToDatabase();
-  const coll = db.collection("mightyMembers");
-  await coll.updateOne(
-    { mightyId },
-    {
-      $set: {
-        email,
-        mightyId,
-        location,
-        latitude,
-        longitude,
-        geo: { type: "Point", coordinates: [longitude, latitude] },
-        memberLocationUpdatedAt: now,
-        updatedAt: now,
-        source: "member:self-update",
-      },
-      $setOnInsert: { createdAt: new Date() },
-    },
-    { upsert: true }
-  );
+  await persistMemberLocationSelfUpdate(db, session, { location, latitude, longitude });
 
   // 2) Best-effort update Airtable (Mighty Members table)
   Promise.resolve()

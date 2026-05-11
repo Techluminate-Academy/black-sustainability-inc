@@ -72,6 +72,12 @@ describe("/api/searchData", () => {
     capture = emptyCapture();
   });
 
+  it("applies a hard limit of 500 to the find cursor", async () => {
+    wireMocks({ findDocs: [] });
+    await callHandler({ q: "test" });
+    expect(capture.findLimits).toEqual([500]);
+  });
+
   it("builds a single $or with regexes across all searched fields for a one-word query", async () => {
     wireMocks({ findDocs: [{ _id: "a", firstName: "Jerry" }] });
 

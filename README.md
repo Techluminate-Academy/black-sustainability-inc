@@ -4,6 +4,10 @@
 
 Member directory and map for Black Sustainability Inc., powered by a Mighty Networks integration.
 
+## Documentation
+
+Design notes, architecture, and historical references are in **[documentation/](documentation/)**. Start with [documentation/ARCHITECTURE.md](documentation/ARCHITECTURE.md) for data flows and source-of-truth boundaries, and [documentation/FOLDER_LAYOUT.md](documentation/FOLDER_LAYOUT.md) for where feature slices (`features/`), shared UI (`components/`), and domain code (`lib/domain/`) live.
+
 ## Stack
 
 - [Next.js](https://nextjs.org/) (Pages router) + TypeScript

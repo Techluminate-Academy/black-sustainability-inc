@@ -1,0 +1,17 @@
+---
+description: Vertical feature slices (features/) vs shared UI vs lib/domain for server logic
+alwaysApply: true
+---
+
+# Feature-based folders (vertical slices)
+
+This app uses **vertical slices under `features/<slice>/`** for product UI (components, hooks, client-side services that call `/api/*`, colocated tests).
+
+- **Put new UI for a specific user journey** (e.g. onboarding, upgrade, a future dashboard section) in **`features/<slice>/`**, not scattered under `pages/` or mixed into unrelated folders.
+- **Put reusable building blocks** used across features in **`components/`** (`common/`, `layouts/`, `admin/`, etc.).
+- **Keep `pages/*.tsx` thin**: compose `features/*` + `components/*`.
+- **Keep `pages/api/*` thin**: parse input → call **`lib/domain/`** or **`lib/*`** → respond. Do not add Mongo/webhook orchestration inside feature folders or page files when it belongs in domain services.
+
+**No React** under `lib/domain/`. **No direct DB/cache secrets** in `features/` — use API routes and server `lib/`.
+
+Canonical doc: [documentation/FOLDER_LAYOUT.md](documentation/FOLDER_LAYOUT.md).

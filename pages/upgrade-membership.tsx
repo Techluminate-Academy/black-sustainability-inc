@@ -579,7 +579,7 @@ export default function TestBSNRegistration({ formConfig }: TestBSNRegistrationP
         if (searchData.data) {
           // Record exists, update it using AirtableUtils
           const recordId = searchData.data.id;
-          result = await AirtableUtils.updateRecord(recordId, airtableFields);
+          result = await AirtableUtils.updateRecord(recordId, airtableFields, values.email);
           toast.success('Profile updated successfully!');
         } else {
           // No existing record, create new one using AirtableUtils

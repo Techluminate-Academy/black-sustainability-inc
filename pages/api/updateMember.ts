@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from "@/lib/mongodb";
 import AirtableUtils from "./submitForm";
-import redis from "../../lib/redis";
+import { invalidateMightyMemberCaches } from "@/lib/mightyCacheInvalidate";
 
 type Data = {
   success: boolean;
@@ -65,17 +65,13 @@ export default async function handler(
         console.warn(`[updateMember] MongoDB: Document with airtableId ${airtableId} not found and not upserted.`);
     }
 
-    // 3) Delete all search:* cache keys from Redis
-    console.log("[updateMember] Clearing Redis search cache.");
-    const searchKeys = await redis.keys("search:*");
-    if (searchKeys && searchKeys.length > 0) {
-      console.log(`[updateMember] Found Redis keys to delete: ${searchKeys.join(", ")}`);
-      for (const key of searchKeys) {
-        await redis.del(key);
-      }
-      console.log("[updateMember] Redis search cache cleared.");
-    } else {
-      console.log("[updateMember] No 'search:*' keys found in Redis to clear.");
+    // 3) Invalidate map/list/search caches (includes search:v3:* patterns)
+    console.log("[updateMember] Invalidating member map/list/search caches.");
+    try {
+      const { totalDeleted } = await invalidateMightyMemberCaches();
+      console.log("[updateMember] Cache invalidation cleared key count:", totalDeleted);
+    } catch (e: unknown) {
+      console.warn("[updateMember] Cache invalidation failed (non-fatal):", e);
     }
 
     // 4) Respond with updated data

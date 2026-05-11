@@ -1,14 +1,19 @@
-import { getBearerToken } from "../lib/mightyWebhook";
+import { buildMightyWebhookDedupeKey, getBearerToken } from "../lib/mightyWebhook";
 
 const mockedMongoCollection = {
   findOne: jest.fn(async () => null),
   updateOne: jest.fn(async () => ({})),
 };
 
+const mockedWebhookEventsCollection = {
+  updateOne: jest.fn(async () => ({ upsertedCount: 1, matchedCount: 0 })),
+};
+
 jest.mock("../lib/mongodb", () => ({
   connectToDatabase: async () => ({
     db: {
-      collection: () => mockedMongoCollection,
+      collection: (name: string) =>
+        name === "mightyWebhookEvents" ? mockedWebhookEventsCollection : mockedMongoCollection,
     },
   }),
 }));
@@ -27,6 +32,31 @@ jest.mock("../lib/airtableMightyMembers", () => ({
   upsertAirtableMightyMember: jest.fn(async () => ({ skipped: false, action: "updated", recordId: "rec1" })),
 }));
 
+describe("buildMightyWebhookDedupeKey", () => {
+  it("differs by event type for the same upstream id", () => {
+    const base = { id: "up_1", member: { id: 1, email: "a@b.co" } };
+    const k1 = buildMightyWebhookDedupeKey({ ...base, type: "MemberUpdated" } as any);
+    const k2 = buildMightyWebhookDedupeKey({
+      ...base,
+      type: "MemberSubscriptionRenewed",
+    } as any);
+    expect(k1).not.toBe(k2);
+    expect(k1).toContain("MemberUpdated");
+    expect(k2).toContain("MemberSubscriptionRenewed");
+  });
+
+  it("includes member and space scope when present", () => {
+    const k = buildMightyWebhookDedupeKey({
+      type: "MemberJoined",
+      id: "e1",
+      member_id: 42,
+      space: { id: "space_9" },
+    } as any);
+    expect(k).toContain("m:42");
+    expect(k).toContain("s:space_9");
+  });
+});
+
 describe("getBearerToken", () => {
   it("returns null when missing/invalid", () => {
     expect(getBearerToken(undefined)).toBeNull();
@@ -41,9 +71,28 @@ describe("getBearerToken", () => {
 });
 
 describe("upsertMightyMemberFromWebhook", () => {
+  beforeEach(() => {
+    mockedWebhookEventsCollection.updateOne.mockReset();
+    mockedWebhookEventsCollection.updateOne.mockResolvedValue({
+      upsertedCount: 1,
+      matchedCount: 0,
+    });
+    mockedMongoCollection.findOne.mockReset();
+    mockedMongoCollection.findOne.mockResolvedValue(null);
+    mockedMongoCollection.updateOne.mockClear();
+  });
+
   it("handles partial payload by fetching member", async () => {
     const { upsertMightyMemberFromWebhook } = await import("../lib/mightyWebhook");
     const { fetchMightyMemberById } = await import("../lib/mightyAdmin");
+
+    let claimN = 0;
+    mockedWebhookEventsCollection.updateOne.mockImplementation(async () => {
+      claimN += 1;
+      return claimN === 1
+        ? { upsertedCount: 1, matchedCount: 0 }
+        : { upsertedCount: 0, matchedCount: 1 };
+    });
 
     const payload = {
       type: "MemberUpdated",
@@ -53,12 +102,45 @@ describe("upsertMightyMemberFromWebhook", () => {
     };
 
     const r1 = await upsertMightyMemberFromWebhook(payload);
-    const r2 = await upsertMightyMemberFromWebhook(payload); // idempotent: should not throw
+    const r2 = await upsertMightyMemberFromWebhook(payload);
 
     expect(r1.matchedBy).toBe("mightyId");
-    expect(r2.matchedBy).toBe("mightyId");
     expect(r1.member.email).toBe("test@example.com");
+    expect(r2.deduped).toBe(true);
     expect((fetchMightyMemberById as any).mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("does not dedupe different event types that share the same event id", async () => {
+    const { upsertMightyMemberFromWebhook } = await import("../lib/mightyWebhook");
+
+    mockedWebhookEventsCollection.updateOne.mockResolvedValue({
+      upsertedCount: 1,
+      matchedCount: 0,
+    });
+
+    const base = {
+      id: "shared_upstream_1",
+      created_at: "2026-01-01T00:00:00Z",
+      member: {
+        id: 123,
+        email: "test@example.com",
+        first_name: "Test",
+        last_name: "User",
+      },
+    };
+
+    const r1 = await upsertMightyMemberFromWebhook({ ...base, type: "MemberUpdated" } as any);
+    const r2 = await upsertMightyMemberFromWebhook({
+      ...base,
+      type: "MemberSubscriptionRenewed",
+    } as any);
+
+    expect(r1.deduped).toBeUndefined();
+    expect(r2.deduped).toBeUndefined();
+    expect(mockedWebhookEventsCollection.updateOne).toHaveBeenCalledTimes(2);
+    expect(mockedWebhookEventsCollection.updateOne.mock.calls[0][0].dedupeKey).not.toBe(
+      mockedWebhookEventsCollection.updateOne.mock.calls[1][0].dedupeKey
+    );
   });
 
   it("does not fetch when payload includes member object", async () => {

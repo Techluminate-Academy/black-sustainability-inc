@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { connectToDatabase } from '@/lib/mongodb';
+import { getAdminJwtSecret } from '@/lib/adminJwtSecret';
 import jwt from 'jsonwebtoken';
 import { ObjectId } from 'mongodb';
 
@@ -51,10 +52,7 @@ async function handleGetUsers(req: NextApiRequest, res: NextApiResponse) {
 
   try {
     // Verify JWT token
-    const decoded = jwt.verify(
-      token, 
-      process.env.JWT_SECRET || 'fallback-secret'
-    ) as TokenPayload;
+    const decoded = jwt.verify(token, getAdminJwtSecret()) as TokenPayload;
 
     // Check if token is expired
     if (decoded.exp < Date.now() / 1000) {
@@ -142,10 +140,7 @@ async function handleAddUser(req: NextApiRequest, res: NextApiResponse) {
 
   try {
     // Verify JWT token
-    const decoded = jwt.verify(
-      token, 
-      process.env.JWT_SECRET || 'fallback-secret'
-    ) as TokenPayload;
+    const decoded = jwt.verify(token, getAdminJwtSecret()) as TokenPayload;
 
     // Check if token is expired
     if (decoded.exp < Date.now() / 1000) {
