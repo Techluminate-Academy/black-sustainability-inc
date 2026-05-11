@@ -1,9 +1,10 @@
 import { connectToDatabase } from '../lib/mongodb.js';
 import redis from '../lib/redis.js';
 
-const MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI || process.env.NEXT_PUBLIC_MONGODB_URI;
 const MONGODB_DB = "members";
-const COLLECTION_NAME = "airtableRecords";
+/** Runtime map/directory collection (aligned with getData / filterData / searchData). */
+const COLLECTION_NAME = "mightyMembers";
 
 // Cache expiry time (2 hours)
 const CACHE_EXPIRY = 7200;

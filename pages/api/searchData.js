@@ -5,6 +5,8 @@ import { toAirtableishDoc } from "../../lib/mightyMemberAirtableShape";
 import CACHE_EXPIRY from "../../constants/CacheExpiry";
 
 const COLLECTION_NAME = "mightyMembers";
+/** Hard cap on rows returned (avoids unbounded memory on broad queries). */
+const SEARCH_RESULT_LIMIT = 500;
 
 export default async function handler(req, res) {
   try {
@@ -69,7 +71,11 @@ export default async function handler(req, res) {
       if (nor.length) query.$nor = nor;
     }
 
-    const data = await collection.find(query).sort({ _id: 1 }).toArray();
+    const data = await collection
+      .find(query)
+      .sort({ _id: 1 })
+      .limit(SEARCH_RESULT_LIMIT)
+      .toArray();
     const totalCount = data.length;
 
     const responseData = {

@@ -370,6 +370,7 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
   matchedBy: "mightyId" | "email";
   mightyId?: number;
   email?: string;
+  deduped?: boolean;
   member: {
     mightyId?: number;
     email?: string;
@@ -391,6 +392,24 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
   const eventType = extractEventType(normalized) || "UnknownEvent";
   const eventId = extractEventId(normalized);
   const eventAt = extractEventAt(normalized);
+
+  const { db } = await connectToDatabase();
+  if (eventId) {
+    const evCol = db.collection("mightyWebhookEvents");
+    const claim = await evCol.updateOne(
+      { eventId: String(eventId) },
+      { $setOnInsert: { eventId: String(eventId), receivedAt: new Date() } },
+      { upsert: true }
+    );
+    if (claim.upsertedCount === 0) {
+      return {
+        matchedBy: "mightyId",
+        deduped: true,
+        member: {},
+        subscription: { statuses: [], updatedAt: new Date().toISOString() },
+      };
+    }
+  }
 
   const memberId = extractMemberId(normalized);
   const email = extractMemberEmail(normalized);
@@ -457,7 +476,6 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
     }
   }
 
-  const { db } = await connectToDatabase();
   const collection = db.collection("mightyMembers");
 
   // If a member has updated their location via our self-service flow, do not let

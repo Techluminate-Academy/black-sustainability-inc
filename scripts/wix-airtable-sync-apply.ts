@@ -1,12 +1,14 @@
 /**
- * Apply Wix → Airtable sync updates.
+ * LEGACY: Apply Wix → Airtable sync updates (staff mirror only; not map billing truth).
+ * Requires explicit opt-in: ALLOW_WIX_AIRTABLE_APPLY=1
+ *
  * Uses diff engine; only updates when wixAuthorized !== airtablePaying.
  * Equity-protected emails are never modified.
  *
- * Run: npm run wix-airtable-sync-apply
+ * Run: ALLOW_WIX_AIRTABLE_APPLY=1 npm run wix-airtable-sync-apply
  *
  * With CSV fallback:
- *   npx ts-node -r tsconfig-paths/register scripts/wix-airtable-sync-apply.ts --csv ./path/to/wix-export.csv
+ *   ALLOW_WIX_AIRTABLE_APPLY=1 npx ts-node -r tsconfig-paths/register scripts/wix-airtable-sync-apply.ts --csv ./path/to/wix-export.csv
  */
 import dotenv from "dotenv";
 import path from "path";
@@ -61,6 +63,15 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function main() {
+  if (process.env.ALLOW_WIX_AIRTABLE_APPLY !== "1") {
+    console.error(
+      "Refusing to run: Wix → Airtable apply is legacy and gated.\n" +
+        "Map/directory paid status is driven by Mighty → MongoDB (mightyMembers), not Wix.\n" +
+        "To proceed anyway, set: ALLOW_WIX_AIRTABLE_APPLY=1\n"
+    );
+    process.exit(2);
+  }
+
   const { csvPath } = parseArgs();
 
   const apiKey = requireEnv("AIRTABLE_API_KEY");

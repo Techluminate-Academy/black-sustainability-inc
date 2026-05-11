@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getBsnSessionFromReq } from "@/lib/bsnSession";
+import { getMemberMeForSession } from "@/lib/domain/members/memberMe.service";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -14,31 +15,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const { db } = await connectToDatabase();
-  const coll = db.collection("mightyMembers");
-
-  const mightyId = session.mightyId;
-  const email = session.email;
-
-  const member = await coll.findOne(
-    { $or: [{ mightyId }, { email }] },
-    {
-      projection: {
-        _id: 0,
-        mightyId: 1,
-        email: 1,
-        location: 1,
-        latitude: 1,
-        longitude: 1,
-        geo: 1,
-        memberLocationUpdatedAt: 1,
-        locationPromptOptOut: 1,
-        locationPromptOptOutAt: 1,
-        updatedAt: 1,
-        createdAt: 1,
-        source: 1,
-      },
-    }
-  );
+  const member = await getMemberMeForSession(db, session);
 
   return res.status(200).json({
     ok: true,

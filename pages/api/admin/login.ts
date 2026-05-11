@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { connectToDatabase } from '@/lib/mongodb';
+import { getAdminJwtSecret } from '@/lib/adminJwtSecret';
 import jwt from 'jsonwebtoken';
 
 interface AdminUser {
@@ -66,7 +67,6 @@ export default async function handler(
       });
     }
 
-    // Generate JWT token
     const token = jwt.sign(
       {
         id: admin._id,
@@ -74,7 +74,7 @@ export default async function handler(
         name: admin.name,
         role: admin.role
       },
-      process.env.JWT_SECRET || 'fallback-secret',
+      getAdminJwtSecret(),
       { expiresIn: '24h' }
     );
 

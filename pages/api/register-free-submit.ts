@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import AirtableUtils from '@/features/freeSignup/airtableUtils';
+import { createFreeSignupRecord } from '@/lib/server/airtableFreeSignupServer';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -41,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       airtableFields["LOGO"] = [{ url: formData.logo }];
     }
 
-    await AirtableUtils.submitToAirtable(airtableFields);
+    await createFreeSignupRecord(airtableFields);
 
     return res.status(200).json({ success: true, message: 'Data successfully submitted to Airtable' });
 

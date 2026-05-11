@@ -5,10 +5,15 @@ const mockedMongoCollection = {
   updateOne: jest.fn(async () => ({})),
 };
 
+const mockedWebhookEventsCollection = {
+  updateOne: jest.fn(async () => ({ upsertedCount: 1, matchedCount: 0 })),
+};
+
 jest.mock("../lib/mongodb", () => ({
   connectToDatabase: async () => ({
     db: {
-      collection: () => mockedMongoCollection,
+      collection: (name: string) =>
+        name === "mightyWebhookEvents" ? mockedWebhookEventsCollection : mockedMongoCollection,
     },
   }),
 }));
@@ -41,9 +46,28 @@ describe("getBearerToken", () => {
 });
 
 describe("upsertMightyMemberFromWebhook", () => {
+  beforeEach(() => {
+    mockedWebhookEventsCollection.updateOne.mockReset();
+    mockedWebhookEventsCollection.updateOne.mockResolvedValue({
+      upsertedCount: 1,
+      matchedCount: 0,
+    });
+    mockedMongoCollection.findOne.mockReset();
+    mockedMongoCollection.findOne.mockResolvedValue(null);
+    mockedMongoCollection.updateOne.mockClear();
+  });
+
   it("handles partial payload by fetching member", async () => {
     const { upsertMightyMemberFromWebhook } = await import("../lib/mightyWebhook");
     const { fetchMightyMemberById } = await import("../lib/mightyAdmin");
+
+    let claimN = 0;
+    mockedWebhookEventsCollection.updateOne.mockImplementation(async () => {
+      claimN += 1;
+      return claimN === 1
+        ? { upsertedCount: 1, matchedCount: 0 }
+        : { upsertedCount: 0, matchedCount: 1 };
+    });
 
     const payload = {
       type: "MemberUpdated",
@@ -53,11 +77,11 @@ describe("upsertMightyMemberFromWebhook", () => {
     };
 
     const r1 = await upsertMightyMemberFromWebhook(payload);
-    const r2 = await upsertMightyMemberFromWebhook(payload); // idempotent: should not throw
+    const r2 = await upsertMightyMemberFromWebhook(payload);
 
     expect(r1.matchedBy).toBe("mightyId");
-    expect(r2.matchedBy).toBe("mightyId");
     expect(r1.member.email).toBe("test@example.com");
+    expect(r2.deduped).toBe(true);
     expect((fetchMightyMemberById as any).mock.calls.length).toBeGreaterThanOrEqual(1);
   });
 

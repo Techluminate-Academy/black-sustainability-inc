@@ -20,10 +20,11 @@ export const authOptions = {
           user: process.env.EMAIL_SERVER_USER,
           pass: process.env.EMAIL_SERVER_PASSWORD,
         },
-        secure: false, // Use TLS
+        secure: false,
+        // Default: verify TLS (production-safe). For local/dev SMTP with self-signed certs, set EMAIL_TLS_REJECT_UNAUTHORIZED=0
         tls: {
-          rejectUnauthorized: false
-        }
+          rejectUnauthorized: process.env.EMAIL_TLS_REJECT_UNAUTHORIZED !== "0",
+        },
       },
       from: process.env.EMAIL_FROM || "noreply@blacksustainability.org",
     }),

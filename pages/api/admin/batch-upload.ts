@@ -77,7 +77,14 @@ const mapToAirtableFields = (row: BatchUploadRow) => {
   if (row.latitude) fields["LATITUDE (NEW)"] = row.latitude;
   if (row.longitude) fields["LONGITUDE (NEW)"] = row.longitude;
   if (row.memberLevel) fields["MEMBER LEVEL"] = [row.memberLevel];
-  if (row.payingMember) fields["Paying Member (keep current)"] = row.payingMember === "Yes" || row.payingMember === "TRUE" || row.payingMember === "true";
+  // Staff mirror only; map paid status is Mighty → Mongo. Opt-in to write this Airtable column from CSV:
+  if (
+    row.payingMember &&
+    process.env.ALLOW_STAFF_BATCH_PAYING_AIRTABLE === "1"
+  ) {
+    fields["Paying Member (keep current)"] =
+      row.payingMember === "Yes" || row.payingMember === "TRUE" || row.payingMember === "true";
+  }
   if (row.equityMember) fields["Equity Member (keep current)"] = row.equityMember === "Yes" || row.equityMember === "TRUE" || row.equityMember === "true";
   if (row.membershipNotes) fields["Membership Status Notes"] = row.membershipNotes;
   if (row.sendPaymentEmail) fields["Send Need Payment Email"] = row.sendPaymentEmail === "Yes" || row.sendPaymentEmail === "TRUE" || row.sendPaymentEmail === "true";

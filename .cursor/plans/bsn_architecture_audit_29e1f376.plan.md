@@ -7,7 +7,7 @@ todos:
     status: pending
   - id: phase1-fence
     content: "Phase 1: Legacy fence — gate Wix→Airtable apply, document SoT, add import/architecture guard tests"
-    status: pending
+    status: in_progress
   - id: phase2-adapters
     content: "Phase 2: Extract lib/integrations for Mongo, Redis, Mighty, Airtable; single connection patterns"
     status: pending

@@ -4,6 +4,12 @@ node_modules/
 # Next.js build output
 .next/
 
+# Transpiled / ad-hoc output (do not commit)
+dist/
+
+# Accidental duplicate Next.js type stub (keep next-env.d.ts only)
+next-env.d 2.ts
+
 # Next.js static export folder (if you use it)
 out/
 
@@ -26,6 +32,7 @@ Thumbs.db
 # Local reports, artifacts, and tooling (stay local)
 artifacts/
 coverage/
+# Tracked docs live in documentation/; ignore stray docs/ if recreated locally
 docs/
 recon-reports/
 reports/

@@ -38,6 +38,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ ok: false, error: "Method not allowed" });
   }
 
+  if (process.env.NODE_ENV === "production" && process.env.BSN_IMPERSONATE_ALLOW_PRODUCTION !== "1") {
+    return res.status(404).json({ ok: false, error: "Not found" });
+  }
+
   const session = getBsnSessionFromReq(req);
   if (!session) return res.status(401).json({ ok: false, error: "Not authenticated" });
   if (!isImpersonationAllowedForEmail(session.email)) {

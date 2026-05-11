@@ -11,6 +11,7 @@
 
 export type Capture = {
   findCalls: any[];
+  findLimits: number[];
   countCalls: any[];
   aggregateCalls: any[];
   findOneCalls: any[];
@@ -43,7 +44,10 @@ export function makeFakeCollection(opts: {
     chain = {
       sort: (_: any) => chain,
       skip: (_: number) => chain,
-      limit: (_: number) => chain,
+      limit: (n: number) => {
+        capture.findLimits.push(n);
+        return chain;
+      },
       project: (_: any) => chain,
       toArray: async () => docs,
     };
@@ -100,6 +104,7 @@ export function makeFakeRedis(opts: { capture: Capture; getResult?: string | nul
 export function emptyCapture(): Capture {
   return {
     findCalls: [],
+    findLimits: [],
     countCalls: [],
     aggregateCalls: [],
     findOneCalls: [],

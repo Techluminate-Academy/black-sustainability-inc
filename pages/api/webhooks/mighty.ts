@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getBearerToken, upsertMightyMemberFromWebhook } from "../../../lib/mightyWebhook";
-import { upsertAirtableMightyMember } from "../../../lib/airtableMightyMembers";
-import { invalidateMightyMemberCaches } from "../../../lib/mightyCacheInvalidate";
+import { runMightyWebhookSideEffects } from "../../../lib/domain/sync/mightyWebhookSideEffects";
 
 function requireWebhookToken(): string {
   const v = process.env.MIGHTY_WEBHOOK_TOKEN;
@@ -88,26 +87,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ ok: false, error: "Invalid JSON body" });
     }
 
+    const correlationId =
+      (typeof req.headers["x-request-id"] === "string" && req.headers["x-request-id"]) ||
+      `mwh_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
     const result = await upsertMightyMemberFromWebhook(payload as Record<string, any>);
 
-    // Fire-and-forget Airtable upsert so webhook responds quickly.
-    // Mongo is the source of truth; Airtable is best-effort near-real-time.
-    Promise.resolve()
-      .then(async () => {
-        await upsertAirtableMightyMember({
-          ...result.member,
-          subscription: result.subscription,
-        });
-      })
-      .catch((e) => {
-        console.error("Airtable upsert failed (non-fatal):", { message: (e as any)?.message });
-      });
+    if (result.deduped) {
+      console.log(JSON.stringify({ msg: "mighty_webhook_deduped", correlationId }));
+      return res.status(200).json({ ok: true, result });
+    }
 
-    // Fire-and-forget Redis cache busting so map/directory reflects the change quickly.
+    console.log(
+      JSON.stringify({
+        msg: "mighty_webhook_upsert_ok",
+        correlationId,
+        matchedBy: result.matchedBy,
+        mightyId: result.mightyId,
+        email: result.email,
+      })
+    );
+
     Promise.resolve()
-      .then(() => invalidateMightyMemberCaches())
+      .then(() => runMightyWebhookSideEffects(result))
       .catch((e) => {
-        console.warn("Cache invalidation failed (non-fatal):", { message: (e as any)?.message });
+        console.error(
+          JSON.stringify({
+            msg: "mighty_webhook_side_effects_failed",
+            correlationId,
+            error: (e as Error)?.message,
+          })
+        );
       });
 
     return res.status(200).json({ ok: true, result });

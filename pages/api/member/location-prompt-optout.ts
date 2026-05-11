@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getBsnSessionFromReq } from "@/lib/bsnSession";
 import { invalidateMightyMemberCaches } from "@/lib/mightyCacheInvalidate";
+import { persistLocationPromptOptOut } from "@/lib/domain/location/locationPromptOptout.service";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -15,24 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const { db } = await connectToDatabase();
-  const coll = db.collection("mightyMembers");
-  const now = new Date();
-
-  await coll.updateOne(
-    { mightyId: session.mightyId },
-    {
-      $set: {
-        email: session.email,
-        mightyId: session.mightyId,
-        locationPromptOptOut: true,
-        locationPromptOptOutAt: now,
-        updatedAt: now,
-        source: "member:location-prompt-optout",
-      },
-      $setOnInsert: { createdAt: now },
-    },
-    { upsert: true }
-  );
+  await persistLocationPromptOptOut(db, session);
 
   // Best-effort cache invalidation.
   Promise.resolve()
