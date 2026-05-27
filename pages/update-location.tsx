@@ -10,6 +10,7 @@ import GooglePlacesAutocomplete, {
   geocodeByPlaceId,
   getLatLng,
 } from "react-google-places-autocomplete";
+import { buildMapFocusAfterSaveUrl } from "@/lib/domain/location/memberLocationPrompt";
 
 type SessionResp =
   | { authenticated: false; user: null }
@@ -87,7 +88,7 @@ export default function UpdateLocationPage() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || "Failed to update location");
       toast.success("Location updated.");
-      router.push(nextPath || "/");
+      router.push(buildMapFocusAfterSaveUrl(nextPath || "/", lat, lng));
     } catch (e: any) {
       toast.error(e?.message || "Could not update location.");
     } finally {
@@ -163,7 +164,10 @@ export default function UpdateLocationPage() {
           </p>
 
           {isForced && (
-            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <div
+              data-testid="update-location-forced-banner"
+              className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
+            >
               <div className="text-sm font-semibold text-amber-900">
                 Action needed: add your location
               </div>
@@ -190,6 +194,7 @@ export default function UpdateLocationPage() {
           <div className="mt-6 flex gap-3">
             <button
               type="button"
+              data-testid="save-location-btn"
               onClick={handleSave}
               disabled={saving}
               className="flex-1 py-3 rounded-lg font-semibold uppercase text-xs tracking-wide bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-60"
@@ -199,6 +204,7 @@ export default function UpdateLocationPage() {
             {isForced ? (
               <button
                 type="button"
+                data-testid="dont-ask-again-btn"
                 onClick={handleDontAskAgain}
                 disabled={skipping || saving}
                 className="py-3 px-4 rounded-lg font-semibold uppercase text-xs tracking-wide bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors disabled:opacity-60"

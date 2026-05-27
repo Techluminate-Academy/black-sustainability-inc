@@ -65,10 +65,22 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
           <div className="hidden lg:flex items-center xl:space-x-8 space-x-3 font-inter uppercase font-semibold text-xs">
             {isAuthenticated ? (
               <>
+                <Link
+                  href="/update-location?next=/"
+                  data-testid="nav-my-location"
+                  className={mutedBtn}
+                >
+                  My location
+                </Link>
                 <button type="button" className={mutedBtn} onClick={handleLogout}>
                   Log out
                 </button>
-                <div className="flex space-x-2">
+                <Link
+                  href="/update-location?next=/"
+                  data-testid="nav-profile-photo"
+                  className="flex space-x-2 rounded-full focus:outline-none focus:ring-2 focus:ring-green-600"
+                  aria-label="Update my map location"
+                >
                   <div className="relative w-7 h-7">
                     <Image
                       src={parsedUser?.profile?.profilePhoto?.url ? decodeURIComponent(parsedUser.profile.profilePhoto.url) : "/png/default.png"}
@@ -77,7 +89,7 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                       className="rounded-full object-cover"
                     />
                   </div>
-                </div>
+                </Link>
               </>
             ) : (
               <button className={greenBtn} onClick={() => router.push("/signin")}>
@@ -147,6 +159,14 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                 <div className="flex flex-col items-start space-y-8 uppercase font-semibold text-xs">
                   {isAuthenticated ? (
                     <>
+                      <Link
+                        href="/update-location?next=/"
+                        data-testid="nav-my-location"
+                        className={mutedBtn}
+                        onClick={() => toggleMobileNav()}
+                      >
+                        My location
+                      </Link>
                       <button
                         type="button"
                         className={mutedBtn}
@@ -157,7 +177,13 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                       >
                         Log out
                       </button>
-                      <div className="flex space-x-2">
+                      <Link
+                        href="/update-location?next=/"
+                        data-testid="nav-profile-photo"
+                        className="flex space-x-2 rounded-full"
+                        aria-label="Update my map location"
+                        onClick={() => toggleMobileNav()}
+                      >
                         <div className="relative w-4 h-4">
                           <Image
                             src={parsedUser?.profile?.profilePhoto?.url ? decodeURIComponent(parsedUser.profile.profilePhoto.url) : "/png/default.png"}
@@ -166,7 +192,7 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                             className="rounded-full object-cover"
                           />
                         </div>
-                      </div>
+                      </Link>
                     </>
                   ) : (
                     <button

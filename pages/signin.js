@@ -5,6 +5,10 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import toast from 'react-hot-toast';
+import {
+  memberNeedsLocationPrompt,
+  buildUpdateLocationUrl,
+} from '@/lib/domain/location/memberLocationPrompt';
 
 export default function SignInPage() {
   const router = useRouter();
@@ -40,17 +44,9 @@ export default function SignInPage() {
         const meRes = await fetch('/api/member/me', { credentials: 'include' });
         const me = await meRes.json().catch(() => null);
         const mongo = me?.mongo || null;
-        const optedOut = mongo?.locationPromptOptOut === true;
-        const hasCoords =
-          typeof mongo?.latitude === 'number' &&
-          Number.isFinite(mongo.latitude) &&
-          typeof mongo?.longitude === 'number' &&
-          Number.isFinite(mongo.longitude);
-        const hasLocation = typeof mongo?.location === 'string' && mongo.location.trim().length >= 2;
 
-        if (!optedOut && (!hasLocation || !hasCoords)) {
-          const dest = `/update-location?forced=1&next=${encodeURIComponent(nextPath || '/')}`;
-          await router.replace(dest);
+        if (memberNeedsLocationPrompt(mongo)) {
+          await router.replace(buildUpdateLocationUrl(nextPath || '/'));
           return;
         }
       } catch {

@@ -1,20 +1,21 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getBsnSessionFromReq } from "../../../lib/bsnSession";
+import { connectToDatabase } from "@/lib/mongodb";
+import { getBsnSessionFromReq } from "@/lib/bsnSession";
+import { buildSessionMemberProfile } from "@/lib/domain/members/memberSessionProfile.service";
 
-/** Public session shape for the map UI (matches Nav expectations loosely). */
-function sessionUserFromPayload(payload: NonNullable<ReturnType<typeof getBsnSessionFromReq>>) {
+function sessionUserFromProfile(profile: Awaited<ReturnType<typeof buildSessionMemberProfile>>) {
   return {
-    email: payload.email,
-    mightyId: payload.mightyId,
-    firstName: payload.firstName,
-    lastName: payload.lastName,
+    email: profile.email,
+    mightyId: profile.mightyId,
+    firstName: profile.firstName,
+    lastName: profile.lastName,
     profile: {
-      profilePhoto: { url: "" as string },
+      profilePhoto: { url: profile.avatarUrl || "" },
     },
   };
 }
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return res.status(405).json({ authenticated: false });
@@ -25,8 +26,24 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ authenticated: false, user: null });
   }
 
-  return res.status(200).json({
-    authenticated: true,
-    user: sessionUserFromPayload(session),
-  });
+  try {
+    const { db } = await connectToDatabase();
+    const profile = await buildSessionMemberProfile(db, session);
+    return res.status(200).json({
+      authenticated: true,
+      user: sessionUserFromProfile(profile),
+    });
+  } catch (e) {
+    console.warn("[auth/session] profile load failed:", (e as Error)?.message);
+    return res.status(200).json({
+      authenticated: true,
+      user: {
+        email: session.email,
+        mightyId: session.mightyId,
+        firstName: session.firstName ?? null,
+        lastName: session.lastName ?? null,
+        profile: { profilePhoto: { url: "" } },
+      },
+    });
+  }
 }

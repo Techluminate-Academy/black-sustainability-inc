@@ -9,7 +9,11 @@ import Head from "next/head";
 import { IndustryHouses } from "@/utils/IndustryDetails";
 import dynamic from "next/dynamic";
 import icons from "@/icons";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  memberNeedsLocationPrompt,
+  buildUpdateLocationUrl,
+} from "@/lib/domain/location/memberLocationPrompt";
 import Image from "next/image";
 import { BsiUserObjectArray } from "@/typings";
 import Loader from "@/components/common/loader";
@@ -68,6 +72,9 @@ export default function Home() {
   // Modification: totalCount now initialized as null instead of 0.
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const route = useRouter();
+  const searchParams = useSearchParams();
+  const locationPromptCheckedRef = useRef(false);
+  const [mapSelfFocusApplied, setMapSelfFocusApplied] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [showScrollButtons, setShowScrollButtons] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -351,6 +358,34 @@ export default function Home() {
     };
   }, []);
 
+  // Redirect authenticated members missing location (return visits, not only sign-in).
+  useEffect(() => {
+    if (!isAuthenticated) {
+      locationPromptCheckedRef.current = false;
+      return;
+    }
+    if (locationPromptCheckedRef.current) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const meRes = await fetch("/api/member/me", { credentials: "include" });
+        const me = await meRes.json().catch(() => null);
+        if (cancelled) return;
+        locationPromptCheckedRef.current = true;
+        if (memberNeedsLocationPrompt(me?.mongo)) {
+          route.replace(buildUpdateLocationUrl("/"));
+        }
+      } catch {
+        if (!cancelled) locationPromptCheckedRef.current = true;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, route]);
+
   // Guided Tour Initialization - Removed automatic trigger
   // Tour will now only be triggered manually by user clicking the menu option
 
@@ -423,6 +458,21 @@ export default function Home() {
       fetchMapLocations();
     }
   }, [isAuthenticated, fetchMapLocations]);
+
+  // After saving location, fly map to the member's new pin (?focus=self&lat=&lng=).
+  useEffect(() => {
+    const focus = searchParams?.get("focus");
+    if (focus !== "self") return;
+
+    const lat = Number(searchParams?.get("lat"));
+    const lng = Number(searchParams?.get("lng"));
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    setFlyToCoordinates({ lat, lng, ts: Date.now() });
+    setMapSelfFocusApplied(true);
+    void fetchMapLocations();
+    route.replace("/", { scroll: false });
+  }, [searchParams, route, fetchMapLocations]);
 
   // --------------------------------------------------------------------
   // 1. Initial Data Fetch for Map & Sidebar
@@ -962,7 +1012,11 @@ export default function Home() {
 
       <div className="mt-[110px]">
         <div className="flex sm:flex-row flex-col bg-[#FFF8E5]">
-          <div className="sm:w-[52%] w-full sm:p-0 p-3 h-screen" data-tour="map-container">
+          <div
+            className="sm:w-[52%] w-full sm:p-0 p-3 h-screen"
+            data-tour="map-container"
+            data-testid={mapSelfFocusApplied ? "map-self-focus-active" : "map-container"}
+          >
             {preloaderMap ? (
               <div className="relative w-full h-screen">
                 <Image
