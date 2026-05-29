@@ -286,6 +286,46 @@ export default function Home() {
         },
       },
     },
+    {
+      target: '[data-tour="nav-member-engagement"]',
+      content: (
+        <div>
+          <h3 style={{ marginBottom: '10px', color: '#2D3748' }}>Your profile &amp; map help</h3>
+          <ul style={{ margin: 0, paddingLeft: '18px', lineHeight: '1.55', color: '#2D3748' }}>
+            <li style={{ marginBottom: '8px' }}>
+              <strong>Profile photo</strong> — opens a preview of what others see on the map
+              (name, email, location, organization, bio, and member level). Sign in to use this
+              when logged out.
+            </li>
+            <li style={{ marginBottom: '8px' }}>
+              <strong>ℹ Info</strong> — inside that profile popup, tap the info icon at the top
+              to learn how to update your full profile in the Black Sustainability Network.
+            </li>
+            <li>
+              <strong>Help (?)</strong> — report map issues or confusion; we create a support
+              ticket and email you a ticket number.
+            </li>
+          </ul>
+        </div>
+      ),
+      placement: 'bottom-end' as const,
+      disableBeacon: true,
+      showCloseButton: true,
+      styles: {
+        options: {
+          primaryColor: '#FFBF23',
+        },
+        tooltip: {
+          borderRadius: '12px',
+          padding: '20px',
+          maxWidth: '340px',
+        },
+        buttonClose: {
+          color: '#718096',
+          fontSize: '14px',
+        },
+      },
+    },
   ];
 
   // Track component mount status to prevent hydration issues
@@ -1008,6 +1048,8 @@ export default function Home() {
         isAuthenticated={isAuthenticated}
         authenticatedUser={authenticatedUser}
         startTour={startTour}
+        runTour={runTour}
+        tourStepIndex={stepIndex}
       />
 
       <div className="mt-[110px]">

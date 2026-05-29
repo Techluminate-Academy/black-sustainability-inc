@@ -17,11 +17,22 @@ interface IProps {
   isAuthenticated: boolean;
   authenticatedUser: any;
   startTour?: () => void;
+  /** When the guided tour highlights nav tools (step index 4), open mobile menu on small screens. */
+  runTour?: boolean;
+  tourStepIndex?: number;
 }
 
 const MOBILE_MENU_MS = 300;
 
-const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }) => {
+const NAV_MEMBER_ENGAGEMENT_TOUR_STEP = 4;
+
+const Nav: React.FC<IProps> = ({
+  isAuthenticated,
+  authenticatedUser,
+  startTour,
+  runTour = false,
+  tourStepIndex = 0,
+}) => {
   const pathname = usePathname();
   const [isMobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileMenuMounted, setMobileMenuMounted] = useState(false);
@@ -72,6 +83,13 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
     const timer = window.setTimeout(() => setMobileMenuMounted(false), MOBILE_MENU_MS);
     return () => clearTimeout(timer);
   }, [isMobileNavOpen, mobileMenuMounted]);
+
+  useEffect(() => {
+    if (!runTour || tourStepIndex !== NAV_MEMBER_ENGAGEMENT_TOUR_STEP) return;
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      openMobileNav();
+    }
+  }, [runTour, tourStepIndex]);
 
   useEffect(() => {
     if (!isMobileNavOpen) return;
@@ -238,8 +256,27 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                   >
                     Log out
                   </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className={desktopNavGreen}
+                  onClick={() => router.push("/signin")}
+                >
+                  Login
+                </button>
+              )}
+
+              <div
+                data-tour="nav-member-engagement"
+                className="flex flex-wrap items-center gap-2 xl:gap-2.5 pr-2 xl:pr-3 border-r border-gray-200"
+                role="group"
+                aria-label="Profile preview, help, and support"
+              >
+                {isAuthenticated && (
                   <button
                     type="button"
+                    data-tour="nav-profile-photo"
                     data-testid="nav-profile-photo"
                     className="inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-gray-200 bg-gray-50 transition hover:border-green-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-1"
                     aria-label="View my map profile"
@@ -259,24 +296,11 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                       />
                     </div>
                   </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className={desktopNavGreen}
-                  onClick={() => router.push("/signin")}
-                >
-                  Login
-                </button>
-              )}
+                )}
 
-              <div
-                className="flex flex-wrap items-center gap-2 xl:gap-2.5"
-                role="group"
-                aria-label="Help and site links"
-              >
                 <button
                   type="button"
+                  data-tour="nav-map-help"
                   data-testid="nav-map-help"
                   className={desktopHelpBtn}
                   aria-label="Map help and support"
@@ -286,11 +310,18 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                 >
                   <MapHelpIcon />
                 </button>
+              </div>
 
+              <div
+                className="flex flex-wrap items-center gap-2 xl:gap-2.5"
+                role="group"
+                aria-label="Tour and site links"
+              >
                 {startTour && (
                   <div className="relative group">
                     <button
                       type="button"
+                      data-tour="nav-take-tour"
                       onClick={startTour}
                       className={desktopNavAccent}
                       aria-label="Take a guided tour of the map features"
@@ -410,64 +441,92 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
                       >
                         Log out
                       </button>
-                      <button
-                        type="button"
-                        data-testid="nav-profile-photo"
-                        className={`mt-1 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 shadow-sm transition hover:bg-gray-50 ${mobileMenuItemAnim(150).className}`}
-                        style={mobileMenuItemAnim(150).style}
-                        aria-label="View my map profile"
-                        aria-haspopup="dialog"
-                        onClick={() => {
-                          closeMobileNav();
-                          openProfileModal();
-                        }}
+                      <div
+                        data-tour="nav-member-engagement"
+                        className="flex w-full flex-col gap-2"
+                        role="group"
+                        aria-label="Profile preview and map help"
                       >
-                        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full">
-                          <Image
-                            src={
-                              parsedUser?.profile?.profilePhoto?.url
-                                ? decodeURIComponent(parsedUser.profile.profilePhoto.url)
-                                : "/png/default.png"
-                            }
-                            alt=""
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-800">
-                          View profile
-                        </span>
-                      </button>
+                        <button
+                          type="button"
+                          data-tour="nav-profile-photo"
+                          data-testid="nav-profile-photo"
+                          className={`mt-1 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 shadow-sm transition hover:bg-gray-50 ${mobileMenuItemAnim(150).className}`}
+                          style={mobileMenuItemAnim(150).style}
+                          aria-label="View my map profile"
+                          aria-haspopup="dialog"
+                          onClick={() => {
+                            closeMobileNav();
+                            openProfileModal();
+                          }}
+                        >
+                          <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full">
+                            <Image
+                              src={
+                                parsedUser?.profile?.profilePhoto?.url
+                                  ? decodeURIComponent(parsedUser.profile.profilePhoto.url)
+                                  : "/png/default.png"
+                              }
+                              alt=""
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-800">
+                            View profile
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          data-tour="nav-map-help"
+                          data-testid="nav-map-help-mobile"
+                          className={`${mobileNavLink} ${mobileMenuItemAnim(200).className}`}
+                          style={mobileMenuItemAnim(200).style}
+                          aria-label="Map help and support"
+                          aria-haspopup="dialog"
+                          onClick={() => {
+                            closeMobileNav();
+                            openHelpModal();
+                          }}
+                        >
+                          <MapHelpIcon />
+                          <span>Map help</span>
+                        </button>
+                      </div>
                     </>
                   ) : (
-                    <button
-                      type="button"
-                      className={`${mobileNavGreen} ${mobileMenuItemAnim(0).className}`}
-                      style={mobileMenuItemAnim(0).style}
-                      onClick={() => {
-                        closeMobileNav();
-                        router.push("/signin");
-                      }}
-                    >
-                      Login
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className={`${mobileNavGreen} ${mobileMenuItemAnim(0).className}`}
+                        style={mobileMenuItemAnim(0).style}
+                        onClick={() => {
+                          closeMobileNav();
+                          router.push("/signin");
+                        }}
+                      >
+                        Login
+                      </button>
+                      <div data-tour="nav-member-engagement" className="w-full">
+                        <button
+                          type="button"
+                          data-tour="nav-map-help"
+                          data-testid="nav-map-help-mobile"
+                          className={`${mobileNavLink} ${mobileMenuItemAnim(50).className}`}
+                          style={mobileMenuItemAnim(50).style}
+                          aria-label="Map help and support"
+                          aria-haspopup="dialog"
+                          onClick={() => {
+                            closeMobileNav();
+                            openHelpModal();
+                          }}
+                        >
+                          <MapHelpIcon />
+                          <span>Map help</span>
+                        </button>
+                      </div>
+                    </>
                   )}
-
-                  <button
-                    type="button"
-                    data-testid="nav-map-help-mobile"
-                    className={`${mobileNavLink} ${mobileMenuItemAnim(isAuthenticated ? 200 : 50).className}`}
-                    style={mobileMenuItemAnim(isAuthenticated ? 200 : 50).style}
-                    aria-label="Map help and support"
-                    aria-haspopup="dialog"
-                    onClick={() => {
-                      closeMobileNav();
-                      openHelpModal();
-                    }}
-                  >
-                    <MapHelpIcon />
-                    <span>Map help</span>
-                  </button>
 
                   {startTour && (
                     <button

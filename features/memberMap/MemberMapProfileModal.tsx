@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import BioWithReadMore from "@/components/common/BioWithReadMore";
+import MapProfileInfoHint from "@/components/common/MapProfileInfoHint";
 import MemberLevelVisibilityHint from "@/components/common/MemberLevelVisibilityHint";
 import icons from "@/icons";
 import type { MemberMapProfileView } from "@/lib/domain/members/memberMapProfileView.service";
@@ -18,7 +19,9 @@ type FetchStatus = "idle" | "loading" | "success" | "error";
 type Props = {
   isOpen: boolean;
   onClose: () => void;
+  /** @deprecated Links removed from modal; kept for Nav call-site compatibility. */
   onEditProfile?: () => void;
+  /** @deprecated Links removed from modal; kept for Nav call-site compatibility. */
   onOpenUpdateLocation?: () => void;
   sessionUser: {
     firstName?: string | null;
@@ -59,8 +62,6 @@ function ProfileField({
 export default function MemberMapProfileModal({
   isOpen,
   onClose,
-  onEditProfile,
-  onOpenUpdateLocation,
   sessionUser,
 }: Props) {
   const [mounted, setMounted] = useState(false);
@@ -159,12 +160,15 @@ export default function MemberMapProfileModal({
       >
         <div className="p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="flex items-start justify-between gap-3 mb-4">
-            <h2
-              id="member-map-profile-title"
-              className="text-lg font-semibold text-gray-900 pr-2"
-            >
-              Your map profile
-            </h2>
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <h2
+                id="member-map-profile-title"
+                className="text-lg font-semibold text-gray-900"
+              >
+                Your map profile
+              </h2>
+              <MapProfileInfoHint />
+            </div>
             <button
               type="button"
               onClick={onClose}
@@ -175,45 +179,10 @@ export default function MemberMapProfileModal({
             </button>
           </div>
 
-          <p
-            className="text-xs text-gray-600 mb-4 leading-relaxed"
-            data-testid="member-map-profile-guidance"
-          >
-            Preview of what members see on the map. Update your{" "}
-            <strong className="font-semibold text-gray-800">name, organization, and bio</strong> with{" "}
-            {onEditProfile ? (
-              <button
-                type="button"
-                className="font-semibold text-green-700 hover:text-green-800 underline underline-offset-2"
-                data-testid="member-map-profile-edit-link"
-                onClick={() => {
-                  onClose();
-                  onEditProfile();
-                }}
-              >
-                Edit profile
-              </button>
-            ) : (
-              <span className="font-semibold text-gray-800">Edit profile</span>
-            )}
-            . Move your{" "}
-            <strong className="font-semibold text-gray-800">map pin</strong> with{" "}
-            {onOpenUpdateLocation ? (
-              <button
-                type="button"
-                className="font-semibold text-green-700 hover:text-green-800 underline underline-offset-2"
-                data-testid="member-map-profile-location-link"
-                onClick={() => {
-                  onClose();
-                  onOpenUpdateLocation();
-                }}
-              >
-                My location
-              </button>
-            ) : (
-              <span className="font-semibold text-gray-800">My location</span>
-            )}{" "}
-            in the menu. Member level is set by BSN and cannot be edited here.
+          <p className="text-xs text-gray-600 mb-4 leading-relaxed">
+            Preview of what other members see on the map. Use{" "}
+            <span className="font-semibold text-gray-800">My location</span> in the menu to move
+            your pin. Member level is set by BSN and cannot be edited here.
           </p>
 
           {showLoading && (

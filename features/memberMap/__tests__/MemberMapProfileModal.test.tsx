@@ -82,9 +82,14 @@ describe("MemberMapProfileModal", () => {
     expect(bsnLink).toHaveAttribute("href", "https://www.blacksustainability.org/");
     expect(bsnLink).toHaveAttribute("target", "_blank");
     expect(bsnLink).toHaveTextContent("Visit the Black Sustainability Network");
-    fireEvent.click(screen.getByTestId("member-map-profile-edit-link"));
-    expect(onClose).toHaveBeenCalled();
-    expect(onEditProfile).toHaveBeenCalled();
+    expect(screen.getByTestId("member-map-profile-info-hint")).toBeInTheDocument();
+  });
+
+  it("shows profile info tooltip on hint click", async () => {
+    render(<MemberMapProfileModal isOpen onClose={onClose} sessionUser={sessionUser} />);
+    await screen.findByTestId("member-map-profile-name");
+    fireEvent.click(screen.getByTestId("member-map-profile-info-hint"));
+    expect(screen.getByTestId("member-map-profile-info-tooltip")).toHaveClass("block");
   });
 
   it("shows BSN home link while loading", async () => {
