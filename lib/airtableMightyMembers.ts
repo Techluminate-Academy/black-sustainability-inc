@@ -10,6 +10,7 @@ export type AirtableMightyMemberLookup = {
   firstName: string | null;
   lastName: string | null;
   location: string | null;
+  subscriptionStatuses: string[];
 };
 
 function getAirtableApiKey(): string | null {
@@ -81,6 +82,11 @@ async function airtableFetchJson(url: string, init: RequestInit) {
   return res.json();
 }
 
+function getAirtableOrganizationFieldName(): string | null {
+  const name = (process.env.AIRTABLE_MIGHTY_ORG_FIELD || "Organization").trim();
+  return name.length ? name : null;
+}
+
 function pickAirtableFields(member: {
   mightyId?: number;
   email?: string;
@@ -89,6 +95,8 @@ function pickAirtableFields(member: {
   avatarUrl?: string;
   bio?: string;
   location?: string;
+  organizationName?: string;
+  accountStatus?: string;
   latitude?: number | null;
   longitude?: number | null;
   subscription?: {
@@ -111,6 +119,8 @@ function pickAirtableFields(member: {
   if (member.avatarUrl) fields["Profile Photo URL"] = member.avatarUrl;
   if (member.bio) fields["Short Bio"] = member.bio;
   if (member.location) fields["City"] = member.location;
+  const orgField = getAirtableOrganizationFieldName();
+  if (orgField && member.organizationName) fields[orgField] = member.organizationName;
 
   // Coordinates (column names can vary; allow overrides).
   const latField = process.env.AIRTABLE_COORD_LAT_FIELD || "Latitude";
@@ -158,6 +168,13 @@ export async function findAirtableMightyMemberByEmail(
         ? Number(mightyIdRaw)
         : null;
 
+  const statusesRaw = f["subscriptionStatuses"];
+  const subscriptionStatuses = Array.isArray(statusesRaw)
+    ? statusesRaw.filter((s): s is string => typeof s === "string")
+    : typeof statusesRaw === "string" && statusesRaw.trim()
+      ? [statusesRaw]
+      : [];
+
   return {
     recordId: r.id,
     mightyId: typeof mightyId === "number" && Number.isFinite(mightyId) ? mightyId : null,
@@ -165,6 +182,7 @@ export async function findAirtableMightyMemberByEmail(
     firstName: typeof f["First Name"] === "string" ? f["First Name"] : null,
     lastName: typeof f["Last Name"] === "string" ? f["Last Name"] : null,
     location: typeof f["City"] === "string" ? f["City"] : null,
+    subscriptionStatuses,
   };
 }
 
@@ -176,6 +194,8 @@ export async function upsertAirtableMightyMember(member: {
   avatarUrl?: string;
   bio?: string;
   location?: string;
+  organizationName?: string;
+  accountStatus?: string;
   latitude?: number | null;
   longitude?: number | null;
   subscription?: {

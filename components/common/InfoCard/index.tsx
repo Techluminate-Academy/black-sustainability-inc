@@ -1,5 +1,8 @@
+"use client";
+
 import React from "react";
 import BioWithReadMore from "@/components/common/BioWithReadMore";
+import MemberLevelVisibilityHint from "@/components/common/MemberLevelVisibilityHint";
 import icons from "@/icons";
 import BlurText from "../BlurText";
 
@@ -107,14 +110,17 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, ...UserProps }) => {
           />
         )}
         <div className="h-[1px] bg-black w-full my-1.5"></div>
-        <p className={`text-xs`}>
-          <span className="font-bold">Member Level </span>{" "}
-          {UserProps.MEMBER_LEVEL == "recgWTcJQnfOQW0Dm" &&
-            "👓 Enthusiast -Excited to Learn"}
-          {UserProps.MEMBER_LEVEL == "rectzSiMASJ9OcN52" &&
-            "🥋 Expert - Experienced Professional"}
-          {UserProps.MEMBER_LEVEL == "recGP35SbgqyZ4FQN" &&
-            "🏢 Entity - Black & Green Organization"}
+        <p className="text-xs flex flex-wrap items-center gap-x-1 gap-y-0.5">
+          <span className="font-bold">Member Level</span>
+          <MemberLevelVisibilityHint />
+          <span>
+            {UserProps.MEMBER_LEVEL == "recgWTcJQnfOQW0Dm" &&
+              "👓 Enthusiast -Excited to Learn"}
+            {UserProps.MEMBER_LEVEL == "rectzSiMASJ9OcN52" &&
+              "🥋 Expert - Experienced Professional"}
+            {UserProps.MEMBER_LEVEL == "recGP35SbgqyZ4FQN" &&
+              "🏢 Entity - Black & Green Organization"}
+          </span>
         </p>
 
         <a

@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import type { NextApiRequest } from "next";
+import type { NextApiRequest, NextApiResponse } from "next";
 
 export const BSN_SESSION_COOKIE = "bsn_session";
 
@@ -14,6 +14,20 @@ function getSecret(): string {
   const s = process.env.SESSION_SECRET;
   if (!s) throw new Error("SESSION_SECRET is not configured");
   return s;
+}
+
+/** Set HttpOnly `bsn_session` on an API response (30-day lifetime). */
+export function setBsnSessionCookie(res: NextApiResponse, token: string): void {
+  const maxAge = 60 * 60 * 24 * 30;
+  const parts = [
+    `${BSN_SESSION_COOKIE}=${token}`,
+    "Path=/",
+    `Max-Age=${maxAge}`,
+    "HttpOnly",
+    "SameSite=Lax",
+  ];
+  if (process.env.NODE_ENV === "production") parts.push("Secure");
+  res.setHeader("Set-Cookie", parts.join("; "));
 }
 
 export function createBsnSessionToken(payload: BsnSessionPayload): string {

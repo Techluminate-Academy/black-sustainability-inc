@@ -41,7 +41,7 @@ describe("signin → location prompt integration", () => {
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith(
-        "/update-location?forced=1&next=%2Fdirectory"
+        "/?updateLocation=1&forced=1&next=%2Fdirectory"
       );
     });
   });
