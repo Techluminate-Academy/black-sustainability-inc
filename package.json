@@ -19,6 +19,7 @@
     "case-study:screenshots": "playwright test e2e/case-study-screenshots.spec.ts",
     "typecheck": "tsc --noEmit",
     "setup-master-forms": "ts-node -r tsconfig-paths/register scripts/setup-master-forms.ts",
+    "setup-support-tickets": "ts-node -r tsconfig-paths/register scripts/setup-support-tickets-collection.ts",
     "wix-fetch": "ts-node -r tsconfig-paths/register scripts/wix-fetch-subscriptions.ts",
     "wix-airtable-sync-dryrun": "tsx scripts/wix-airtable-sync-dryrun.ts",
     "wix-airtable-sync-apply": "tsx scripts/wix-airtable-sync-apply.ts"

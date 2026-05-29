@@ -501,7 +501,11 @@ const Nav: React.FC<IProps> = ({ isAuthenticated, authenticatedUser, startTour }
         </div>
       </div>
     </nav>
-    <MapHelpModal isOpen={helpModalOpen} onClose={() => setHelpModalOpen(false)} />
+    <MapHelpModal
+      isOpen={helpModalOpen}
+      onClose={() => setHelpModalOpen(false)}
+      sessionUser={parsedUser}
+    />
     {isAuthenticated && (
       <>
         <MemberMapProfileModal

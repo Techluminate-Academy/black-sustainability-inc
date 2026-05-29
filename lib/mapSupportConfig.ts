@@ -4,10 +4,48 @@ export const MAP_HELP_INTRO = "Running into any issues? Let us know here:";
 /** Main Black Sustainability Network site (member-facing). */
 export const BLACK_SUSTAINABILITY_NETWORK_HOME_URL = "https://www.blacksustainability.org/";
 
-/** Fallback until NEXT_PUBLIC_MAP_SUPPORT_FORM_URL is set (e.g. Google Form). */
-const DEFAULT_MAP_SUPPORT_FORM_URL = "https://www.blacksustainability.org/support";
+/** Mongo collection that stores member-submitted support tickets. */
+export const SUPPORT_TICKETS_COLLECTION = "supportTickets";
 
-export function getMapSupportFormUrl(): string {
-  const url = process.env.NEXT_PUBLIC_MAP_SUPPORT_FORM_URL?.trim();
-  return url || DEFAULT_MAP_SUPPORT_FORM_URL;
+/** Prefix for human-facing ticket numbers, e.g. BSN-000123. */
+export const SUPPORT_TICKET_PREFIX = "BSN";
+
+const DEFAULT_SUPPORT_TICKET_TO = [
+  "jerry@techluminateacademy.com",
+  "kelyce@blacksustainability.org",
+];
+
+const DEFAULT_SUPPORT_TICKET_CC = ["raina@blacksustainability.org"];
+
+function parseEmailList(raw: string | undefined): string[] {
+  if (!raw?.trim()) return [];
+  return raw
+    .split(/[,\n]/g)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/**
+ * Staff To: recipients for new-ticket alerts.
+ * Override with SUPPORT_TICKET_RECIPIENTS (comma-separated) if needed.
+ */
+export function getSupportTicketRecipients(): string[] {
+  const list = parseEmailList(process.env.SUPPORT_TICKET_RECIPIENTS);
+  if (list.length) return list;
+  return [...DEFAULT_SUPPORT_TICKET_TO];
+}
+
+/**
+ * Staff CC on every support ticket email (staff alert + member confirmation).
+ * Override with SUPPORT_TICKET_CC (comma-separated). Raina is always included by default.
+ */
+export function getSupportTicketCcRecipients(): string[] {
+  const fromEnv = parseEmailList(process.env.SUPPORT_TICKET_CC);
+  const merged = new Set([...DEFAULT_SUPPORT_TICKET_CC, ...fromEnv]);
+  return [...merged];
+}
+
+/** Format a sequential number into a padded ticket number (BSN-000123). */
+export function formatSupportTicketNumber(seq: number): string {
+  return `${SUPPORT_TICKET_PREFIX}-${String(seq).padStart(6, "0")}`;
 }

@@ -1,21 +1,30 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { createPortal } from "react-dom";
-import { getMapSupportFormUrl, MAP_HELP_INTRO } from "@/lib/mapSupportConfig";
+import SupportTicketForm, {
+  type SupportTicketSessionUser,
+} from "@/features/memberMap/SupportTicketForm";
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
+  sessionUser?: SupportTicketSessionUser;
 };
 
-export default function MapHelpModal({ isOpen, onClose }: Props) {
+export default function MapHelpModal({ isOpen, onClose, sessionUser }: Props) {
   const [mounted, setMounted] = useState(false);
-  const supportFormUrl = getMapSupportFormUrl();
+  // Remount the form each time the modal opens so it resets to a clean state.
+  const [formKey, setFormKey] = useState(0);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (isOpen) setFormKey((k) => k + 1);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -67,23 +76,21 @@ export default function MapHelpModal({ isOpen, onClose }: Props) {
             </button>
           </div>
 
-          <p className="text-sm text-gray-700 leading-relaxed mb-5" data-testid="map-help-intro">
-            {MAP_HELP_INTRO}
-          </p>
-
-          <a
-            href={supportFormUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex w-full sm:w-auto items-center justify-center rounded-md bg-green-600 px-5 py-3 text-sm font-semibold uppercase text-white hover:bg-green-700 transition-colors min-h-[44px]"
-            data-testid="map-help-form-link"
-          >
-            Open support form
-          </a>
-
-          <p className="text-xs text-gray-500 mt-4 leading-relaxed">
-            The form opens in a new tab so you can keep using the map. BSN staff review submissions
-            from the linked form.
+          <SupportTicketForm
+            key={formKey}
+            sessionUser={sessionUser}
+            onDone={onClose}
+            doneLabel="Done"
+          />
+          <p className="mt-4 text-center text-xs text-gray-500">
+            Prefer a full-page form?{" "}
+            <Link
+              href="/support"
+              className="font-semibold text-green-700 underline underline-offset-2 hover:text-green-800"
+              onClick={onClose}
+            >
+              Open public support page
+            </Link>
           </p>
         </div>
       </div>

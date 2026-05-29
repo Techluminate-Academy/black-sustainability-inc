@@ -74,6 +74,12 @@ const Footer = memo(() => {
                   JOIN MAP
                 </Link>
                 <Link
+                  href="/support"
+                  className="text-base font-normal hover:underline transition-colors"
+                >
+                  MAP SUPPORT
+                </Link>
+                <Link
                   href="https://www.blacksustainability.org/join-our-network"
                   target="_blank"
                   className="text-base font-normal hover:underline transition-colors"

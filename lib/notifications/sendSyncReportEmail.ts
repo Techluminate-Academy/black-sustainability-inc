@@ -3,7 +3,7 @@
  * Uses Gmail SMTP (EMAIL_USER, EMAIL_PASSWORD).
  * Never throws - email failures are logged and do not block sync.
  */
-import nodemailer from "nodemailer";
+import { getGmailTransport } from "@/lib/notifications/gmailTransport";
 
 const TO_RECIPIENTS = ["kelyce@blacksustainability.org"] as const;
 const CC_RECIPIENTS = ["info@blacksustainability.org"] as const;
@@ -231,12 +231,13 @@ ${summary.errors.length > MAX_LIST_ITEMS ? `(+${summary.errors.length - MAX_LIST
 export async function sendSyncReportEmail(
   summary: SyncReportPayload | SyncRunSummary
 ): Promise<void> {
-  const emailUser = process.env.EMAIL_USER?.trim();
-  const emailPassword = process.env.EMAIL_PASSWORD?.trim();
+  const transport = getGmailTransport();
   const configuredFrom = process.env.SYNC_REPORT_FROM?.trim();
   const fromEmail = configuredFrom || DEFAULT_FROM_EMAIL;
-  if (!emailUser || !emailPassword) {
-    console.warn("EMAIL_USER or EMAIL_PASSWORD not configured, skipping sync report email");
+  if (!transport) {
+    console.warn(
+      "Set EMAIL_USER and EMAIL_PASSWORD in .env (Gmail App Password) to send sync report emails"
+    );
     return;
   }
 
@@ -253,13 +254,7 @@ export async function sendSyncReportEmail(
   const text = buildPlainTextBody(normalizedSummary);
 
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: emailUser,
-        pass: emailPassword,
-      },
-    });
+    const { transporter } = transport;
 
     await transporter.sendMail({
       from: `"Black Sustainability, Inc. (Imara)" <${fromEmail}>`,

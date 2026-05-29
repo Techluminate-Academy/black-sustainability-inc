@@ -2,7 +2,7 @@ import { test, expect, devices } from "@playwright/test";
 import { expectOnMapHome } from "./helpers";
 
 test.describe("Map help modal", () => {
-  test("help icon opens modal with support form link on desktop", async ({ page }) => {
+  test("help icon opens modal with internal ticket form on desktop", async ({ page }) => {
     await page.goto("/");
     await expectOnMapHome(page);
 
@@ -12,7 +12,8 @@ test.describe("Map help modal", () => {
     await expect(page.getByTestId("map-help-intro")).toContainText(
       "Running into any issues? Let us know here:"
     );
-    await expect(page.getByTestId("map-help-form-link")).toBeVisible();
+    await expect(page.getByTestId("map-help-message")).toBeVisible();
+    await expect(page.getByTestId("map-help-submit")).toBeVisible();
 
     await page.getByRole("button", { name: "Close help" }).click();
     await expect(page.getByTestId("map-help-overlay")).toBeHidden();
@@ -30,7 +31,7 @@ test.describe("Map help modal", () => {
     await page.getByTestId("nav-map-help-mobile").click();
 
     await expect(page.getByTestId("map-help-modal")).toBeVisible();
-    await expect(page.getByTestId("map-help-form-link")).toBeVisible();
+    await expect(page.getByTestId("map-help-message")).toBeVisible();
 
     await context.close();
   });
