@@ -3,10 +3,9 @@
  * Credentials: EMAIL_USER + EMAIL_PASSWORD from .env (Gmail App Password).
  */
 import nodemailer from "nodemailer";
-import type Transporter from "nodemailer";
 
 export type GmailTransportConfig = {
-  transporter: Transporter;
+  transporter: ReturnType<typeof nodemailer.createTransport>;
   /** Authenticated Gmail account (EMAIL_USER). Used as the SMTP From address. */
   authUser: string;
 };
