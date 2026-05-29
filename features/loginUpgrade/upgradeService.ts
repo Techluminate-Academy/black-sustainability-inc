@@ -1,5 +1,4 @@
 import axios from "axios";
-import AirtableUtils from "@/pages/api/submitForm";
 import { UpgradeFormData } from "./types";
 
 export interface UpgradeAirtableFields {
@@ -95,7 +94,18 @@ export async function submitUpgrade(formData: UpgradeFormData, photoUrl?: string
     }];
   }
 
-  await AirtableUtils.submitToAirtable(airtableFields);
+  const res = await fetch("/api/airtable/roster-record", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: formData.email,
+      fields: airtableFields,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || "Failed to submit to directory");
+  }
 }
 
 /**

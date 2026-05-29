@@ -6,7 +6,6 @@ import { parsePhoneNumberFromString, CountryCode } from "libphonenumber-js";
 import { allCountries } from "country-telephone-data";
 import logo from '@/public/png/bsn-logo.png';
 import CountryCodeDropdown from "../../components/CountryCodeDropdown/CountryCodeDropdown";
-import AirtableUtils from "@/pages/api/submitForm";
 import { UpgradeFormData, FreeUserData } from "./types";
 import { submitUpgrade, uploadFile } from "./upgradeService";
 
@@ -94,7 +93,9 @@ const UpgradeForm: React.FC<UpgradeFormProps> = ({ userData, onLogout }) => {
   useEffect(() => {
     const fetchDropdownOptions = async () => {
       try {
-        const dropdownData = await AirtableUtils.fetchTableMetadata();
+        const metaRes = await fetch("/api/airtable/roster-metadata");
+        if (!metaRes.ok) throw new Error("Failed to load form metadata");
+        const dropdownData = await metaRes.json();
         
         // Member Level options
         const memberLevelField = dropdownData.find((f: any) => f.fieldName === "MEMBER LEVEL");

@@ -1,12 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { connectToDatabase } from '../../../lib/mongodb';
 import nodemailer from 'nodemailer';
-import axios from 'axios';
-
-// Airtable credentials
-const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
-const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
-const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
+import { findDirectoryMemberByEmail } from '@/lib/server/memberDirectoryLookup';
 
 // Create Gmail transporter configuration
 const transporter = nodemailer.createTransport({
@@ -16,36 +11,6 @@ const transporter = nodemailer.createTransport({
     pass: process.env.GMAIL_APP_PASSWORD
   }
 });
-
-// Check if user exists in Airtable
-async function checkUserInAirtable(email: string) {
-  try {
-    const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}`;
-    const response = await axios.get(url, {
-      headers: {
-        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-      },
-      params: {
-        filterByFormula: `{EMAIL ADDRESS} = '${email}'`,
-        maxRecords: 1
-      }
-    });
-
-    if (response.data.records.length > 0) {
-      const record = response.data.records[0];
-      return {
-        id: record.id,
-        firstName: record.fields['FIRST NAME'],
-        lastName: record.fields['LAST NAME'],
-        email: record.fields['EMAIL ADDRESS']
-      };
-    }
-    return null;
-  } catch (error) {
-    console.error('Error checking user in Airtable:', error);
-    return null;
-  }
-}
 
 // Send verification email using Gmail SMTP
 async function sendVerificationEmail(email: string, code: string, firstName?: string) {
@@ -119,16 +84,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    console.log('🔍 Checking if user exists in Airtable:', email);
-    
-    // 1. Check if user exists in Airtable
-    const airtableUser = await checkUserInAirtable(email);
-    if (!airtableUser) {
-      console.log('❌ User not found in Airtable');
+    console.log('🔍 Checking directory for email:', email);
+
+    const member = await findDirectoryMemberByEmail(email);
+    if (!member) {
+      console.log('❌ User not found in directory');
       return res.status(404).json({ error: 'Email not found in our records' });
     }
 
-    console.log('✅ User found in Airtable:', airtableUser.firstName, airtableUser.lastName);
+    console.log('✅ User found:', member.firstName, member.lastName, `(${member.source})`);
 
     // 2. Generate 6-digit verification code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -146,9 +110,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         attempts: 0,
         verified: false,
         userData: {
-          firstName: airtableUser.firstName,
-          lastName: airtableUser.lastName,
-          recordId: airtableUser.id
+          firstName: member.firstName,
+          lastName: member.lastName,
+          recordId: member.recordId
         }
       },
       { upsert: true }
@@ -157,13 +121,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('💾 Stored verification code in MongoDB');
 
     // 4. Send verification email
-    await sendVerificationEmail(email, code, airtableUser.firstName);
+    await sendVerificationEmail(email, code, member.firstName);
     console.log('📧 Verification email sent successfully');
 
     res.status(200).json({ 
       success: true, 
       message: 'Verification code sent to your email',
-      firstName: airtableUser.firstName 
+      firstName: member.firstName
     });
 
   } catch (error: any) {

@@ -42,12 +42,11 @@ export function extractEventType(payload: AnyObj): string | null {
 }
 
 export function extractEventId(payload: AnyObj): string | null {
-  // Prefer webhook event id over resource `id` (Mighty puts member id inside `payload`).
+  // Use only explicit webhook event ids — never `payload.id` (often the member id), which breaks dedupe.
   const v =
     payload?.event_id ??
     payload?.eventId ??
     payload?.webhook_event_id ??
-    payload?.id ??
     null;
   return typeof v === "string" || typeof v === "number" ? String(v) : null;
 }

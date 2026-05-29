@@ -82,6 +82,8 @@ export default function Home() {
   /** Total count for the active industry filter (so clearing search restores the right total). */
   const industryFilteredTotalRef = useRef<number | null>(null);
   const initialDataLoadedRef = useRef(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const prevAuthenticatedRef = useRef<boolean | null>(null);
 
   // Scroll functions for mobile navigation
   const scrollUp = () => {
@@ -391,6 +393,8 @@ export default function Home() {
           setAuthenticatedUser(null);
           setIsAuthenticated(false);
         }
+      } finally {
+        if (!cancelled) setSessionChecked(true);
       }
     })();
     return () => {
@@ -488,16 +492,21 @@ export default function Home() {
     setMapLocations(json.data ?? []);
   }, []);
 
+  // Fetch markers once after session is known; refetch only when user signs in during the visit (gating changes).
   useEffect(() => {
-    fetchMapLocations();
-  }, [fetchMapLocations]);
+    if (!sessionChecked) return;
 
-  // Refetch map markers when user signs in so the map shows the correct list (e.g. P1 sees themselves)
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchMapLocations();
+    const prev = prevAuthenticatedRef.current;
+    prevAuthenticatedRef.current = isAuthenticated;
+
+    if (prev === null) {
+      void fetchMapLocations();
+      return;
     }
-  }, [isAuthenticated, fetchMapLocations]);
+    if (prev === false && isAuthenticated) {
+      void fetchMapLocations();
+    }
+  }, [sessionChecked, isAuthenticated, fetchMapLocations]);
 
   // After saving location, fly map to the member's new pin (?focus=self&lat=&lng=).
   useEffect(() => {
@@ -724,7 +733,7 @@ export default function Home() {
         setLoading(true);
         setPreloaderSidebar(true);
 
-        fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}&_t=${Date.now()}`, { credentials: "include" })
+        fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}`, { credentials: "include" })
           .then((response) => response.json())
           .then((result) => {
             if (result.success && Array.isArray(result.data)) {

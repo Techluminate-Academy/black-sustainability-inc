@@ -9,7 +9,6 @@ import GooglePlacesAutocomplete, {
 import { allCountries } from "country-telephone-data";
 import CountryCodeDropdown from "@/components/CountryCodeDropdown/CountryCodeDropdown";
 import { HARDCODED_MEMBER_LEVELS } from '@/constants/member-levels';
-import AirtableUtils from "@/pages/api/submitForm";
 
 // Helper function to strip emojis and spaces for sorting
 const stripEmojisAndSpaces = (str: string) => {
@@ -144,7 +143,9 @@ export default function BatchUploadPage() {
   useEffect(() => {
     const fetchDropdownOptions = async () => {
       try {
-        const dropdownData = await AirtableUtils.fetchTableMetadata();
+        const metaRes = await fetch("/api/airtable/roster-metadata");
+        if (!metaRes.ok) throw new Error("Failed to load form metadata");
+        const dropdownData = await metaRes.json();
         
         const identificationField = dropdownData.find((f: any) => f.fieldName === "IDENTIFICATION");
         if (identificationField) {

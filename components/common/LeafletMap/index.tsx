@@ -15,13 +15,9 @@ import { LatLngBounds } from "leaflet";
 interface MapEventHandlerProps {
   onBoundsChange: (bounds: LatLngBounds) => void;
 }
-function MapEventHandler({ onBoundsChange }: MapEventHandlerProps) {
-  const map = useMapEvents({
-    moveend: () => {
-      const bounds = map.getBounds();
-      onBoundsChange(bounds);
-    },
-  });
+/** Map bounds handler disabled — getMarkers returns full dataset; moveend refetch caused API storms. */
+function MapEventHandler() {
+  useMapEvents({});
   return null;
 }
 
@@ -164,29 +160,7 @@ const LeafletMap: React.FC<IProps> = ({
 }) => {
   const mapCenter: LatLngExpression = [33.7488, -84.3877];
 
-    // Function to fetch markers using the new endpoint based on the map bounds
-    const fetchMarkersByBounds = async (bounds: LatLngBounds) => {
-      const northEast = bounds.getNorthEast();
-      const southWest = bounds.getSouthWest();
-      try {
-        const res = await fetch(
-          `/api/getMarkers?northEastLat=${northEast.lat}&northEastLng=${northEast.lng}&southWestLat=${southWest.lat}&southWestLng=${southWest.lng}`,
-          { credentials: "include" }
-        );
-        const result = await res.json();
-        if (result.success) {
-          // Update state with new markers here; for demo, we log the data.
-          console.log("Fetched markers:", result.data);
-          // e.g., setFilteredData(result.data);
-        } else {
-          console.error("Failed to fetch markers:", result);
-        }
-      } catch (error) {
-        console.error("Error fetching markers:", error);
-      }
-    }
-
-  const customIcon = (props: any) =>
+    const customIcon = (props: any) =>
     L.divIcon({
       html: customIconHtml(props, isAuthenticated),
     });
@@ -205,8 +179,7 @@ const LeafletMap: React.FC<IProps> = ({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
 
-   {/* Use the MapEventHandler to fetch markers on viewport change */}
-   <MapEventHandler onBoundsChange={fetchMarkersByBounds} />
+   <MapEventHandler />
       <MarkerClusterGroup chunkedLoading>
         {filteredData?.map((data: any) => {
           return (
