@@ -28,7 +28,8 @@ test.describe("Member location prompt flows", () => {
 
     await loginAs(page);
 
-    await expect(page).toHaveURL(/\/update-location\?forced=1/);
+    await expectOnMapHome(page);
+    await expect(page.getByTestId("update-location-modal")).toBeVisible();
     await expect(page.getByTestId("update-location-forced-banner")).toBeVisible();
     await expect(page.getByText(/action needed: add your location/i)).toBeVisible();
   });
@@ -41,10 +42,11 @@ test.describe("Member location prompt flows", () => {
     await applyMemberFixture(request, "clearOptOut");
 
     await loginAs(page);
-    await expect(page).toHaveURL(/\/update-location/);
+    await expect(page.getByTestId("update-location-modal")).toBeVisible();
 
     await page.goto("/");
-    await expect(page).toHaveURL(/\/update-location\?forced=1/);
+    await expectOnMapHome(page);
+    await expect(page.getByTestId("update-location-modal")).toBeVisible();
   });
 
   test("sign-in goes to map when test location is set", async ({
@@ -68,7 +70,7 @@ test.describe("Member location prompt flows", () => {
     await applyMemberFixture(request, "clearOptOut");
 
     await loginAs(page);
-    await expect(page).toHaveURL(/\/update-location/);
+    await expect(page.getByTestId("update-location-modal")).toBeVisible();
 
     await page.getByTestId("dont-ask-again-btn").click();
     await expectOnMapHome(page);
@@ -91,7 +93,8 @@ test.describe("Member location prompt flows", () => {
 
     await expect(page.getByTestId("nav-my-location")).toBeVisible();
     await page.getByTestId("nav-my-location").click();
-    await expect(page).toHaveURL(/\/update-location/);
+    await expect(page.getByTestId("update-location-modal")).toBeVisible();
+    await expect(page).not.toHaveURL(/\/update-location/);
   });
 
   test("map focuses self after save via focus query params", async ({
@@ -108,11 +111,15 @@ test.describe("Member location prompt flows", () => {
     await expect(page.getByTestId("map-self-focus-active")).toBeVisible();
   });
 
-  test("profile photo link opens update-location", async ({ page, request }) => {
+  test("profile photo opens read-only map profile popup", async ({ page, request }) => {
     await applyMemberFixture(request, "setTestLocation");
 
     await loginAs(page);
+    await expectOnMapHome(page);
     await page.getByTestId("nav-profile-photo").click();
-    await expect(page).toHaveURL(/\/update-location/);
+    await expect(page.getByTestId("member-map-profile-backdrop")).toBeVisible();
+    await expect(page.getByTestId("member-map-profile-modal")).toBeVisible();
+    await expect(page.getByText("Your map profile")).toBeVisible();
+    await expect(page).not.toHaveURL(/\/update-location/);
   });
 });

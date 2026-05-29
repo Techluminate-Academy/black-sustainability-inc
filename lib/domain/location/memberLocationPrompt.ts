@@ -5,7 +5,7 @@ export type MemberLocationMongo = {
   locationPromptOptOut?: boolean;
 };
 
-/** True when the member should be sent to /update-location (unless they opted out). */
+/** True when the member should be prompted to update location (unless they opted out). */
 export function memberNeedsLocationPrompt(
   mongo: MemberLocationMongo | null | undefined
 ): boolean {
@@ -23,9 +23,14 @@ export function memberNeedsLocationPrompt(
   return !hasLocation || !hasCoords;
 }
 
+/** Opens the update-location modal on the map home page (`/?updateLocation=1&forced=1`). */
 export function buildUpdateLocationUrl(nextPath = "/"): string {
   const next = nextPath.startsWith("/") ? nextPath : "/";
-  return `/update-location?forced=1&next=${encodeURIComponent(next)}`;
+  const params = new URLSearchParams();
+  params.set("updateLocation", "1");
+  params.set("forced", "1");
+  if (next !== "/") params.set("next", next);
+  return `/?${params.toString()}`;
 }
 
 /** After saving location, return to the map and fly to the member's pin. */

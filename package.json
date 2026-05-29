@@ -16,6 +16,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
+    "case-study:screenshots": "playwright test e2e/case-study-screenshots.spec.ts",
     "typecheck": "tsc --noEmit",
     "setup-master-forms": "ts-node -r tsconfig-paths/register scripts/setup-master-forms.ts",
     "wix-fetch": "ts-node -r tsconfig-paths/register scripts/wix-fetch-subscriptions.ts",

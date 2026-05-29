@@ -36,6 +36,68 @@ export async function fetchMightyMemberById(mightyMemberId: string | number): Pr
   return (await res.json()) as MightyAdminMember;
 }
 
+/** Fields allowed on PUT /members/{id}/ per Mighty Admin API (MemberUpdateRequest). */
+export type MightyMemberProfilePatch = {
+  first_name?: string;
+  last_name?: string;
+};
+
+export async function patchMightyMemberProfile(params: {
+  mightyMemberId: string | number;
+  patch: MightyMemberProfilePatch;
+}): Promise<
+  | { ok: true; member: MightyAdminMember }
+  | { ok: false; status: number; message: string }
+> {
+  const apiKey = getApiKey();
+  const networkId = getNetworkId();
+  const memberId = String(params.mightyMemberId);
+  const url = `${getBaseUrl()}/admin/v1/networks/${encodeURIComponent(networkId)}/members/${encodeURIComponent(memberId)}`;
+
+  const body: MightyMemberProfilePatch = {};
+  if (typeof params.patch.first_name === "string") body.first_name = params.patch.first_name;
+  if (typeof params.patch.last_name === "string") body.last_name = params.patch.last_name;
+
+  if (!Object.keys(body).length) {
+    return { ok: false, status: 400, message: "No profile fields to update" };
+  }
+
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+
+  let res = await fetch(url, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  // Some Mighty deployments accept PUT for partial profile updates but not PATCH.
+  if (res.status === 405 || res.status === 404) {
+    res = await fetch(url, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(body),
+    });
+  }
+
+  const text = await res.text().catch(() => "");
+  if (!res.ok) {
+    return { ok: false, status: res.status, message: text || res.statusText };
+  }
+
+  try {
+    const json = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+    const member = (json.member ?? json) as MightyAdminMember;
+    return { ok: true, member };
+  } catch {
+    const member = await fetchMightyMemberById(memberId);
+    return { ok: true, member };
+  }
+}
+
 export async function updateMightyMemberLocation(params: {
   mightyMemberId: string | number;
   location: string;
@@ -67,6 +129,40 @@ export async function updateMightyMemberLocation(params: {
   }
 
   return { ok: true };
+}
+
+/** Latest text answer for a member on a network custom field (GET answers). */
+export async function getMightyCustomFieldAnswerText(params: {
+  customFieldId: string | number;
+  mightyMemberId: string | number;
+}): Promise<string | null> {
+  const apiKey = getApiKey();
+  const networkId = getNetworkId();
+  const customFieldId = String(params.customFieldId);
+  const memberId = String(params.mightyMemberId);
+  const url = `${getBaseUrl()}/admin/v1/networks/${encodeURIComponent(networkId)}/custom_fields/${encodeURIComponent(customFieldId)}/members/${encodeURIComponent(memberId)}/answers`;
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
+    },
+  });
+
+  if (!res.ok) return null;
+
+  try {
+    const json = (await res.json()) as Record<string, unknown>;
+    const items = (json.items ?? json.data ?? []) as Record<string, unknown>[];
+    if (!Array.isArray(items) || !items.length) return null;
+    const text = items[0]?.text;
+    if (typeof text !== "string") return null;
+    const t = text.trim();
+    return t.length ? t : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function upsertMightyCustomFieldAnswer(params: {

@@ -33,8 +33,14 @@ export async function loginAs(
   await page.goto("/signin?next=/");
   await page.getByLabel("Email").fill(email);
   await page.getByRole("button", { name: /continue to map/i }).click();
-  // Wait for post-login navigation (map or forced location).
-  await page.waitForURL(/\/(update-location)?/, { timeout: 60_000 });
+  // Wait for post-login navigation (map home; location modal may open on /).
+  await page.waitForURL(
+    (url) => {
+      const path = new URL(url).pathname;
+      return path === "/" || path === "/update-location";
+    },
+    { timeout: 60_000 }
+  );
 }
 
 export async function logoutViaApi(request: APIRequestContext): Promise<void> {

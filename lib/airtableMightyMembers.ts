@@ -81,6 +81,11 @@ async function airtableFetchJson(url: string, init: RequestInit) {
   return res.json();
 }
 
+function getAirtableOrganizationFieldName(): string | null {
+  const name = (process.env.AIRTABLE_MIGHTY_ORG_FIELD || "Organization").trim();
+  return name.length ? name : null;
+}
+
 function pickAirtableFields(member: {
   mightyId?: number;
   email?: string;
@@ -89,6 +94,7 @@ function pickAirtableFields(member: {
   avatarUrl?: string;
   bio?: string;
   location?: string;
+  organizationName?: string;
   latitude?: number | null;
   longitude?: number | null;
   subscription?: {
@@ -111,6 +117,8 @@ function pickAirtableFields(member: {
   if (member.avatarUrl) fields["Profile Photo URL"] = member.avatarUrl;
   if (member.bio) fields["Short Bio"] = member.bio;
   if (member.location) fields["City"] = member.location;
+  const orgField = getAirtableOrganizationFieldName();
+  if (orgField && member.organizationName) fields[orgField] = member.organizationName;
 
   // Coordinates (column names can vary; allow overrides).
   const latField = process.env.AIRTABLE_COORD_LAT_FIELD || "Latitude";

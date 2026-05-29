@@ -29,8 +29,11 @@ describe("memberLocationPrompt", () => {
     ).toBe(false);
   });
 
-  it("builds update-location URL with forced flag", () => {
-    expect(buildUpdateLocationUrl("/")).toBe("/update-location?forced=1&next=%2F");
+  it("builds map URL that opens update-location modal with forced flag", () => {
+    expect(buildUpdateLocationUrl("/")).toBe("/?updateLocation=1&forced=1");
+    expect(buildUpdateLocationUrl("/directory")).toBe(
+      "/?updateLocation=1&forced=1&next=%2Fdirectory"
+    );
   });
 
   it("builds map focus URL after save", () => {

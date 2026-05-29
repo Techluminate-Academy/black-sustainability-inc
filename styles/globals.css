@@ -34,6 +34,12 @@ body {
   touch-action: pan-y;
   overscroll-behavior: contain;
 }
+/* Headless UI portals (dialogs) must sit above map controls (z-index ~1000) and nav */
+#headlessui-portal-root {
+  position: relative;
+  z-index: 100000;
+}
+
 /* Reset Mapbox popup styles */
 .mapboxgl-popup.custom-popup .mapboxgl-popup-content {
   padding: 0 !important;
