@@ -6,7 +6,7 @@
 import type { MemberAuthorization } from "../billing/aggregateAuthorization";
 import type { AirtableMember } from "./airtableClient";
 
-const EQUITY_PROTECTED_EMAILS = new Set(
+export const EQUITY_PROTECTED_EMAILS = new Set(
   [
     "uniquepassion1@gmail.com",
     "greenacresfarm679@gmail.com",

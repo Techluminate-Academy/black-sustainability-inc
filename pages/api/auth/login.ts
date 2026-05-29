@@ -1,23 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { mightyGetMemberByEmail } from "../../../lib/mightyAdmin";
 import { findAirtableMightyMemberByEmail } from "../../../lib/airtableMightyMembers";
-import {
-  BSN_SESSION_COOKIE,
-  createBsnSessionToken,
-} from "../../../lib/bsnSession";
-
-function setSessionCookie(res: NextApiResponse, token: string) {
-  const maxAge = 60 * 60 * 24 * 30;
-  const parts = [
-    `${BSN_SESSION_COOKIE}=${token}`,
-    "Path=/",
-    `Max-Age=${maxAge}`,
-    "HttpOnly",
-    "SameSite=Lax",
-  ];
-  if (process.env.NODE_ENV === "production") parts.push("Secure");
-  res.setHeader("Set-Cookie", parts.join("; "));
-}
+import { createBsnSessionToken, setBsnSessionCookie } from "../../../lib/bsnSession";
 
 export default async function handler(
   req: NextApiRequest,
@@ -70,7 +54,7 @@ export default async function handler(
         firstName: airtableMember.firstName ?? null,
         lastName: airtableMember.lastName ?? null,
       });
-      setSessionCookie(res, token);
+      setBsnSessionCookie(res, token);
 
       return res.status(200).json({
         ok: true,
@@ -96,7 +80,7 @@ export default async function handler(
       firstName: member.first_name ?? null,
       lastName: member.last_name ?? null,
     });
-    setSessionCookie(res, token);
+    setBsnSessionCookie(res, token);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[auth/login] Session error:", msg);
