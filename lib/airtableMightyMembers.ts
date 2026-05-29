@@ -10,6 +10,7 @@ export type AirtableMightyMemberLookup = {
   firstName: string | null;
   lastName: string | null;
   location: string | null;
+  subscriptionStatuses: string[];
 };
 
 function getAirtableApiKey(): string | null {
@@ -95,6 +96,7 @@ function pickAirtableFields(member: {
   bio?: string;
   location?: string;
   organizationName?: string;
+  accountStatus?: string;
   latitude?: number | null;
   longitude?: number | null;
   subscription?: {
@@ -166,6 +168,13 @@ export async function findAirtableMightyMemberByEmail(
         ? Number(mightyIdRaw)
         : null;
 
+  const statusesRaw = f["subscriptionStatuses"];
+  const subscriptionStatuses = Array.isArray(statusesRaw)
+    ? statusesRaw.filter((s): s is string => typeof s === "string")
+    : typeof statusesRaw === "string" && statusesRaw.trim()
+      ? [statusesRaw]
+      : [];
+
   return {
     recordId: r.id,
     mightyId: typeof mightyId === "number" && Number.isFinite(mightyId) ? mightyId : null,
@@ -173,6 +182,7 @@ export async function findAirtableMightyMemberByEmail(
     firstName: typeof f["First Name"] === "string" ? f["First Name"] : null,
     lastName: typeof f["Last Name"] === "string" ? f["Last Name"] : null,
     location: typeof f["City"] === "string" ? f["City"] : null,
+    subscriptionStatuses,
   };
 }
 
@@ -184,6 +194,8 @@ export async function upsertAirtableMightyMember(member: {
   avatarUrl?: string;
   bio?: string;
   location?: string;
+  organizationName?: string;
+  accountStatus?: string;
   latitude?: number | null;
   longitude?: number | null;
   subscription?: {
