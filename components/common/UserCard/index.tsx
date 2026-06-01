@@ -3,6 +3,7 @@ import icons from "@/icons";
 import IndustryHouseIcons from "../IndustryHouseIcons";
 import BlurText from "../BlurText";
 import Link from "next/link";
+import MemberAccessModal from "../MemberAccessModal";
 import {
   BSN_PLATFORM_ICON,
   isPlatformIconUrl,
@@ -45,6 +46,7 @@ const UserCard: React.FC<IProps> = ({
   AFFILIATION,
   onClick,
 }) => {
+  const [accessModalOpen, setAccessModalOpen] = useState(false);
   const resolvedSrc = pickPhotoUrl(imgUrl);
   const [photoSrc, setPhotoSrc] = useState(resolvedSrc);
   const isPlatformIcon = isPlatformIconUrl(photoSrc);
@@ -151,9 +153,13 @@ const UserCard: React.FC<IProps> = ({
           {AFFILIATION && AFFILIATION.trim() !== "" && (
             <div className="flex items-center gap-1 mt-2 min-w-0">
               <span className="text-yellow-500 text-xl shrink-0">⭐</span>
-              <span className="text-sm break-words">
-                Affiliation - {AFFILIATION}
-              </span>
+              {isAuthenticated ? (
+                <span className="text-sm break-words">
+                  Affiliation - {AFFILIATION}
+                </span>
+              ) : (
+                <BlurText text={`Affiliation - ${AFFILIATION}`} blurAmount={1} />
+              )}
             </div>
           )}
         </div>
@@ -179,17 +185,37 @@ const UserCard: React.FC<IProps> = ({
           </p>
         </div>
 
-        <Link
-          href="https://black-sustainability-network.mn.co/"
-          target="_blank"
-          rel="noreferrer"
-          className="bg-[#FFBF23] border border-[#1A1A1A] flex justify-between items-center py-1 px-3 rounded-3xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <span className="font-bold text-sm capitalize">connect</span>
-          <icons.rightArrow />
-        </Link>
+        {isAuthenticated ? (
+          <Link
+            href="https://black-sustainability-network.mn.co/"
+            target="_blank"
+            rel="noreferrer"
+            className="bg-[#FFBF23] border border-[#1A1A1A] flex justify-between items-center py-1 px-3 rounded-3xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="font-bold text-sm capitalize">connect</span>
+            <icons.rightArrow />
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className="bg-[#FFBF23] border border-[#1A1A1A] flex w-full justify-between items-center py-1 px-3 rounded-3xl min-h-[36px]"
+            onClick={(e) => {
+              e.stopPropagation();
+              setAccessModalOpen(true);
+            }}
+          >
+            <span className="font-bold text-sm capitalize">connect</span>
+            <icons.rightArrow />
+          </button>
+        )}
       </div>
+
+      <MemberAccessModal
+        isOpen={accessModalOpen}
+        onClose={() => setAccessModalOpen(false)}
+        showLogo={false}
+      />
     </div>
   );
 };

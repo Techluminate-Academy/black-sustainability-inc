@@ -661,13 +661,21 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                           const displayName = authStatus ? fullName : 'Member';
                           const nameStyle = !authStatus ? 'filter: blur(4px); user-select: none;' : '';
                           
+                          const orgName = record.fields["ORGANIZATION NAME"] || "";
+                          const orgDisplay = authStatus
+                            ? orgName || "No organization"
+                            : "Members only";
+                          const orgStyle = !authStatus
+                            ? "filter: blur(4px); user-select: none;"
+                            : "";
+                          
                           return `
                             <div style="background-color: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px;">
                               <div style="font-weight: bold; margin-bottom: 4px; color: #000; font-size: 16px; ${nameStyle}">
                                 ${displayName}
                               </div>
-                              <div style="color: #666; font-size: 14px;">
-                                ${record.fields["ORGANIZATION NAME"] || 'No organization'}
+                              <div style="color: #666; font-size: 14px; ${orgStyle}">
+                                ${orgDisplay}
                               </div>
                             </div>
                           `;

@@ -5,6 +5,7 @@ import BioWithReadMore from "@/components/common/BioWithReadMore";
 import MemberLevelVisibilityHint from "@/components/common/MemberLevelVisibilityHint";
 import icons from "@/icons";
 import BlurText from "../BlurText";
+import MemberAccessInlineHint from "../MemberAccessInlineHint";
 import {
   BSN_PLATFORM_ICON,
   getMemberDisplayImage,
@@ -122,7 +123,7 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, fields, ...UserProps }
         <div className="h-[1px] bg-black w-full my-1.5"></div>
         <p className="text-xs flex flex-wrap items-center gap-x-1 gap-y-0.5">
           <span className="font-bold">Member Level</span>
-          <MemberLevelVisibilityHint />
+          {isAuthenticated ? <MemberLevelVisibilityHint /> : null}
           <span>
             {UserProps.MEMBER_LEVEL == "recgWTcJQnfOQW0Dm" &&
               "👓 Enthusiast -Excited to Learn"}
@@ -133,21 +134,19 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, fields, ...UserProps }
           </span>
         </p>
 
-        <a
-          href={UserProps.WEBSITE}
-          target="_blank"
-          className=" mt-1.5 text-xs flex items-center space-x-1 border-none outline-none"
-        >
-          <icons.web_link />
-          {isAuthenticated ? (
+        {isAuthenticated ? (
+          <a
+            href={UserProps.WEBSITE}
+            target="_blank"
+            rel="noopener noreferrer"
+            className=" mt-1.5 text-xs flex items-center space-x-1 border-none outline-none"
+          >
+            <icons.web_link />
             <span>{UserProps.WEBSITE || "not yet provided"}</span>
-          ) : (
-            <BlurText
-              text={UserProps.WEBSITE || "not yet provided"}
-              blurAmount={1}
-            />
-          )}
-        </a>
+          </a>
+        ) : (
+          <MemberAccessInlineHint className="mt-2" />
+        )}
       </div>
     </div>
   );

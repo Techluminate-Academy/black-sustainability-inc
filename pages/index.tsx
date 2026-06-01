@@ -17,6 +17,7 @@ import {
 import Image from "next/image";
 import { BsiUserObjectArray } from "@/typings";
 import Loader from "@/components/common/loader";
+import MemberAccessModal from "@/components/common/MemberAccessModal";
 import { LatLngBounds } from "leaflet";
 import { testPerformanceMonitoring } from "@/lib/testPerformance";
 
@@ -1235,67 +1236,7 @@ export default function Home() {
         </div>
       </div>
 
-      {isPopUpActive && (
-        <div 
-          className="fixed w-full h-screen bg-filter left-0 -top-0 z-[9999]"
-          onClick={handlePopupClose}
-        >
-          <div 
-            className="h-full flex justify-center items-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="bg-white rounded-xl md:px-10 px-2 py-7 mx-4 relative">
-              <div
-                className="text-lg rounded-full p-2 flex h-fit items-center cursor-pointer justify-center bg-[#EB4335] font-bold absolute right-4 top-5"
-                onClick={handlePopupClose}
-              >
-                <icons.close />
-              </div>
-              <div className="flex justify-between gap-x-5 items-center">
-                <div className="flex flex-col gap-y-2 justify-center items-center">
-                  <Image
-                    src="/png/LOGO.png"
-                    alt="company logo"
-                    width={286}
-                    height={92}
-                  />
-                  <p className="md:max-w-md w-full sm:text-base text-xs text-center text-black sm:leading-[20px] leading-3">
-                    Are you encountering issues viewing profile pictures?
-                  </p>
-                  <p className="md:max-w-md w-full sm:text-base text-xs text-center text-black sm:leading-[20px] leading-3">
-                    Consider becoming a member to view our members' profile pictures.
-                  </p>
-                  <div className="mt-2 flex flex-col sm:flex-row gap-2 justify-center items-stretch sm:items-center max-w-md mx-auto">
-                    <button
-                      type="button"
-                      onClick={() => route.push("/signin")}
-                      className="flex gap-x-2 items-center justify-center w-full sm:px-5 p-2.5 bg-green-600 text-white rounded-full hover:bg-green-700"
-                    >
-                      <span className="text-white font-semibold sm:text-base text-sm">
-                        Member sign in
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        route.push("https://www.blacksustainability.org/")
-                      }
-                      className="flex gap-x-2 items-center justify-center w-full sm:px-5 p-2.5 bg-[#FFBF23] rounded-full"
-                    >
-                      <span className="sm:block hidden">
-                        <icons.signup />
-                      </span>
-                      <span className="text-black font-semibold sm:text-base text-sm">
-                        Become a member
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <MemberAccessModal isOpen={isPopUpActive} onClose={handlePopupClose} />
       <Footer />
       
       {/* Scroll Navigation Buttons - Mobile Only */}
