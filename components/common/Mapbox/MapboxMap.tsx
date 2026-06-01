@@ -20,6 +20,7 @@ interface IProps {
   hideCounter: boolean;
   filteredData: any[];
   onMarkerHover: (bounds: LatLngBounds) => void;
+  onBoundsChange?: (bounds: LatLngBounds) => void;
   /** When set, map flies to this point (e.g. after search or clicking a sidebar card). ts forces re-fly when same coords. */
   flyToCoordinates?: { lng: number; lat: number; ts?: number } | null;
 }
@@ -193,10 +194,67 @@ const createMarkerElement = (record: any, isAuthenticated: boolean): HTMLElement
   return root;
 };
 
-const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, filteredData, flyToCoordinates }) => {
+const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, filteredData, flyToCoordinates, onBoundsChange }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<MarkerWithId[]>([]);
+  const onBoundsChangeRef = useRef(onBoundsChange);
+  onBoundsChangeRef.current = onBoundsChange;
+  const onMarkerHoverRef = useRef(onMarkerHover);
+  onMarkerHoverRef.current = onMarkerHover;
+  const updateMarkersRef = useRef<(data: any[]) => void>(() => {});
+  const filteredDataRef = useRef(filteredData);
+  const lastMarkerDataRef = useRef<any[] | null>(null);
+  const lastAuthRef = useRef(isAuthenticated);
+  filteredDataRef.current = filteredData;
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  isAuthenticatedRef.current = isAuthenticated;
+  const teardropRunIdRef = useRef(0);
+  const teardropTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const teardropIdleHandlerRef = useRef<(() => void) | null>(null);
+
+  const isMapReadyForMarkers = (map: mapboxgl.Map | null): map is mapboxgl.Map => {
+    if (!map) return false;
+    try {
+      return map.loaded() && !!map.getCanvasContainer()?.isConnected;
+    } catch {
+      return false;
+    }
+  };
+
+  const cancelTeardropMarkerWork = () => {
+    teardropRunIdRef.current += 1;
+    if (teardropTimerRef.current) {
+      clearTimeout(teardropTimerRef.current);
+      teardropTimerRef.current = null;
+    }
+    const map = mapRef.current;
+    if (map && teardropIdleHandlerRef.current) {
+      map.off("idle", teardropIdleHandlerRef.current);
+      teardropIdleHandlerRef.current = null;
+    }
+    if (markersRef.current.length > 0) {
+      markersRef.current.forEach(({ marker, popupRoot }) => {
+        try {
+          marker.remove();
+        } catch {
+          // Map may be mid-zoom when teardrops are cleared.
+        }
+        if (popupRoot) popupRoot.unmount();
+      });
+      markersRef.current = [];
+    }
+  };
+
+  const safeAddMarkerToMap = (marker: mapboxgl.Marker): boolean => {
+    if (!isMapReadyForMarkers(mapRef.current)) return false;
+    try {
+      marker.addTo(mapRef.current!);
+      return true;
+    } catch {
+      return false;
+    }
+  };
   const mapCenter: [number, number] = [-84.3877, 33.7488];
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -234,6 +292,19 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
     // Function to update markers with new data
     const updateMarkers = (data: any[]) => {
       if (!mapRef.current) return;
+
+      // Cancel any in-flight teardrop marker work (async chunks can outlive zoom events).
+      cancelTeardropMarkerWork();
+
+      const map = mapRef.current;
+      const preservedView = map.loaded()
+        ? {
+            center: map.getCenter(),
+            zoom: map.getZoom(),
+            bearing: map.getBearing(),
+            pitch: map.getPitch(),
+          }
+        : null;
 
       // Clean up existing markers in chunks to avoid blocking
       const cleanupMarkers = () => {
@@ -330,6 +401,9 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                 features,
               };
               source.setData(geoJsonData);
+              if (preservedView) {
+                mapRef.current.jumpTo(preservedView);
+              }
             }
           });
         });
@@ -340,11 +414,13 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
       setLoading(false);
     };
 
+    updateMarkersRef.current = updateMarkers;
+
     const initMap = async () => {
       try {
         setLoading(true);
 
-        fetchedLocations = filteredData;
+        fetchedLocations = filteredDataRef.current;
         
         // Process coordinates in background (non-blocking)
         // For small datasets, process immediately; for large ones, process in chunks
@@ -370,10 +446,6 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
             // Re-detect mobile for this scope
             const realTimeMobile = window.innerWidth < 768 || /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             const effectiveIsMobile = isMobile || realTimeMobile;
-            const maxIndividualMarkers = effectiveIsMobile ? 20 : fetchedLocations.length;
-            const dataToProcess = fetchedLocations.slice(0, maxIndividualMarkers);
-
-            // For clustering, use all data for both mobile and desktop
             const dataForClustering = fetchedLocations;
             
             // Create GeoJSON data - process in chunks to avoid blocking
@@ -550,7 +622,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                   });
                   
                   const popupContainer = document.createElement("div");
-                  const authStatus = isAuthenticated;
+                  const authStatus = isAuthenticatedRef.current;
                   popupContainer.innerHTML = `
                     <div style="background-color: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: 500px;">
                       <h3 style="margin: 0 0 12px 0; font-size: 18px; font-weight: bold; color: #000;">${pointCount} Members at this location</h3>
@@ -582,15 +654,21 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                   `;
                   
                   popup.setDOMContent(popupContainer);
-                  popup.setLngLat(coordinates).addTo(mapRef.current!);
+                  if (isMapReadyForMarkers(mapRef.current)) {
+                    try {
+                      popup.setLngLat(coordinates).addTo(mapRef.current!);
+                    } catch {
+                      // Map may be mid-transition when cluster popup opens.
+                    }
+                  }
                 });
               });
 
               // Function to add teardrop markers for unclustered points
               const getRenderedUnclusteredFeatures = () => {
-                if (!mapRef.current) return [];
-                if (!mapRef.current.getLayer("unclustered-points-hit")) return [];
-                const b = mapRef.current.getBounds();
+                if (!isMapReadyForMarkers(mapRef.current)) return [];
+                if (!mapRef.current!.getLayer("unclustered-points-hit")) return [];
+                const b = mapRef.current!.getBounds();
                 if (!b) return [];
                 const sw = b.getSouthWest();
                 const ne = b.getNorthEast();
@@ -619,7 +697,8 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
               };
 
               const addTeardropMarkers = () => {
-                if (!mapRef.current) return;
+                if (!isMapReadyForMarkers(mapRef.current)) return;
+                const runId = ++teardropRunIdRef.current;
                 
                 const unclusteredFeatures = getRenderedUnclusteredFeatures();
                 
@@ -628,6 +707,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                 markersRef.current = [];
                 
                 const cleanupChunk = (deadline?: IdleDeadline) => {
+                  if (runId !== teardropRunIdRef.current) return;
                   const hasTime = deadline ? deadline.timeRemaining() > 0 : true;
                   const chunkSize = 10;
                   let processed = 0;
@@ -652,7 +732,8 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                 };
                 
                 const addNewMarkers = () => {
-                  if (!mapRef.current || unclusteredFeatures.length === 0) return;
+                  if (runId !== teardropRunIdRef.current) return;
+                  if (!isMapReadyForMarkers(mapRef.current) || unclusteredFeatures.length === 0) return;
                   
                   // Create lookup map to avoid O(n²) complexity from .find() in loop
                   const recordMap = new Map<string | number, any>();
@@ -667,6 +748,8 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                   const chunkSize = 10;
                   
                   const processMarkerChunk = (deadline?: IdleDeadline) => {
+                    if (runId !== teardropRunIdRef.current) return;
+                    if (!isMapReadyForMarkers(mapRef.current)) return;
                     const hasTime = deadline ? deadline.timeRemaining() > 0 : true;
                     const endIndex = Math.min(index + chunkSize, unclusteredFeatures.length);
                     
@@ -676,12 +759,12 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                         const record = recordMap.get(feature.properties.id);
                         if (record) {
                           // Create teardrop marker element
-                          const markerEl = createMarkerElement(record, isAuthenticated);
+                          const markerEl = createMarkerElement(record, isAuthenticatedRef.current);
                           
                           // Create marker
                           const marker = new mapboxgl.Marker({ element: markerEl })
-                            .setLngLat((feature.geometry as Point).coordinates as [number, number])
-                            .addTo(mapRef.current!);
+                            .setLngLat((feature.geometry as Point).coordinates as [number, number]);
+                          if (!safeAddMarkerToMap(marker)) continue;
                           
                           // Add click handler
                           markerEl.addEventListener('click', (ev) => {
@@ -736,7 +819,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                                   Nearest_City={`${record.fields["Location (Nearest City)"] ?? ""}`}
                                   WEBSITE={record.fields.WEBSITE}
                                   MEMBER_LEVEL={record.fields["MEMBER LEVEL"]}
-                                  isAuthenticated={isAuthenticated}
+                                  isAuthenticated={isAuthenticatedRef.current}
                                 />
                               </div>
                             );
@@ -775,14 +858,17 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                       });
                       
                       unclusteredFeatures.forEach((feature: any) => {
+                        if (runId !== teardropRunIdRef.current) return;
+                        if (!isMapReadyForMarkers(mapRef.current)) return;
                         if (feature.properties?.id) {
                           const record = recordMap.get(feature.properties.id);
                           if (record) {
-                            const markerEl = createMarkerElement(record, isAuthenticated);
+                            const markerEl = createMarkerElement(record, isAuthenticatedRef.current);
                             const marker = new mapboxgl.Marker({ element: markerEl })
-                              .setLngLat((feature.geometry as Point).coordinates as [number, number])
-                              .addTo(mapRef.current!);
-                            markersRef.current.push({ marker, recordId: record.id, popupRoot: null });
+                              .setLngLat((feature.geometry as Point).coordinates as [number, number]);
+                            if (safeAddMarkerToMap(marker)) {
+                              markersRef.current.push({ marker, recordId: record.id, popupRoot: null });
+                            }
                           }
                         }
                       });
@@ -813,15 +899,62 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                 }
               };
 
+              const scheduleTeardropMarkers = () => {
+                if (teardropTimerRef.current) {
+                  clearTimeout(teardropTimerRef.current);
+                }
+                teardropTimerRef.current = setTimeout(() => {
+                  teardropTimerRef.current = null;
+                  const map = mapRef.current;
+                  if (!isMapReadyForMarkers(map)) return;
+
+                  const runId = teardropRunIdRef.current;
+                  const runWhenIdle = () => {
+                    if (runId !== teardropRunIdRef.current) return;
+                    if (!isMapReadyForMarkers(mapRef.current)) return;
+                    addTeardropMarkers();
+                  };
+
+                  if (map.isMoving()) {
+                    if (teardropIdleHandlerRef.current) {
+                      map.off("idle", teardropIdleHandlerRef.current);
+                    }
+                    teardropIdleHandlerRef.current = runWhenIdle;
+                    map.once("idle", runWhenIdle);
+                  } else {
+                    runWhenIdle();
+                  }
+                }, 200);
+              };
+
+              const onMapMotionStart = () => {
+                cancelTeardropMarkerWork();
+              };
+
               // Call updateMarkers to set up source data
               updateMarkers(fetchedLocations);
               
               // Add teardrop markers on initial load
-              setTimeout(addTeardropMarkers, 500); // Small delay to ensure map is fully rendered
+              setTimeout(scheduleTeardropMarkers, 500);
               
-              // Add teardrop markers when user zooms or moves
-              mapRef.current.on('zoomend', addTeardropMarkers);
-              mapRef.current.on('moveend', addTeardropMarkers);
+              // Clear teardrops while the camera moves; rebuild only after map is idle.
+              mapRef.current.on("movestart", onMapMotionStart);
+              mapRef.current.on("zoomstart", onMapMotionStart);
+              mapRef.current.on("moveend", scheduleTeardropMarkers);
+
+              const notifyBoundsChange = () => {
+                if (!mapRef.current || !onBoundsChangeRef.current) return;
+                const b = mapRef.current.getBounds();
+                if (!b) return;
+                const sw = b.getSouthWest();
+                const ne = b.getNorthEast();
+                onBoundsChangeRef.current(
+                  new LatLngBounds([sw.lat, sw.lng], [ne.lat, ne.lng])
+                );
+              };
+
+              mapRef.current.on("moveend", notifyBoundsChange);
+              notifyBoundsChange();
             }
           });
 
@@ -847,6 +980,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
     initMap();
 
     return () => {
+      cancelTeardropMarkerWork();
       // Clean up markers - process in chunks to avoid blocking
       const markersToClean = [...markersRef.current];
       markersRef.current = [];
@@ -910,7 +1044,18 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
         mapRef.current = null;
       }
     };
-  }, [isAuthenticated, onMarkerHover, filteredData]);
+  }, []);
+
+  // Refresh marker source when data/auth changes without tearing down the map.
+  useEffect(() => {
+    if (!mapRef.current?.loaded()) return;
+    const dataUnchanged = lastMarkerDataRef.current === filteredData;
+    const authUnchanged = lastAuthRef.current === isAuthenticated;
+    if (dataUnchanged && authUnchanged) return;
+    lastMarkerDataRef.current = filteredData;
+    lastAuthRef.current = isAuthenticated;
+    updateMarkersRef.current(filteredData);
+  }, [filteredData, isAuthenticated]);
 
   return (
     <div style={{ position: "relative", height: "100vh", width: "100%" }}>

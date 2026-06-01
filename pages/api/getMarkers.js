@@ -12,11 +12,91 @@ const inflate = promisify(zlib.inflate);
 
 const MAP_MARKERS_GATING_DEBUG = process.env.MAP_MARKERS_GATING_DEBUG === "true" || process.env.MAP_MARKERS_GATING_DEBUG === "1";
 
+function parseBoundsQuery(query) {
+  const { northEastLat, northEastLng, southWestLat, southWestLng } = query;
+  const raw = [northEastLat, northEastLng, southWestLat, southWestLng];
+  if (raw.some((v) => v == null || v === "")) return null;
+  const neLat = parseFloat(northEastLat);
+  const neLng = parseFloat(northEastLng);
+  const swLat = parseFloat(southWestLat);
+  const swLng = parseFloat(southWestLng);
+  if ([neLat, neLng, swLat, swLng].some((n) => Number.isNaN(n))) return null;
+  return { neLat, neLng, swLat, swLng };
+}
+
+function buildMarkerPipeline({ excludeMongoId, excludeMightyId, bounds }) {
+  const pipeline = [];
+
+  if (excludeMongoId || excludeMightyId != null) {
+    const nor = [];
+    if (excludeMongoId) nor.push({ _id: excludeMongoId });
+    if (excludeMightyId != null) nor.push({ mightyId: excludeMightyId });
+    if (nor.length) pipeline.push({ $match: { $nor: nor } });
+  }
+
+  pipeline.push({
+    $match: {
+      latitude: { $exists: true, $ne: null },
+      longitude: { $exists: true, $ne: null },
+    },
+  });
+
+  if (bounds) {
+    pipeline.push({
+      $match: {
+        latitude: { $gte: bounds.swLat, $lte: bounds.neLat },
+        longitude: { $gte: bounds.swLng, $lte: bounds.neLng },
+      },
+    });
+  }
+
+  pipeline.push({
+    $project: {
+      id: {
+        $cond: {
+          if: { $ne: [{ $ifNull: ["$mightyId", null] }, null] },
+          then: { $toString: "$mightyId" },
+          else: { $toString: "$_id" },
+        },
+      },
+      fields: {
+        "FIRST NAME": "$firstName",
+        "LAST NAME": "$lastName",
+        "EMAIL ADDRESS": "$email",
+        WEBSITE: { $literal: "" },
+        BIO: "$bio",
+        "MEMBER LEVEL": { $literal: "" },
+        "PRIMARY INDUSTRY HOUSE": "$industry",
+        "Location (Nearest City)": "$location",
+        "ORGANIZATION NAME": { $literal: "" },
+        PHOTO: {
+          $cond: {
+            if: {
+              $and: [{ $ne: [{ $ifNull: ["$avatarUrl", ""] }, ""] }],
+            },
+            then: [{ url: "$avatarUrl" }],
+            else: [],
+          },
+        },
+      },
+      userphoto: "$avatarUrl",
+      location: {
+        type: { $literal: "Point" },
+        coordinates: ["$longitude", "$latitude"],
+      },
+      _id: 0,
+    },
+  });
+
+  return pipeline;
+}
+
 export default async function handler(req, res) {
   try {
     const cacheKey = `map-locations:v5:${COLLECTION_NAME}`;
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
+    const bounds = parseBoundsQuery(req.query);
 
     const { excludeMongoId, excludeMightyId } = await getExcludeViewerMighty(req, collection);
     const excludeViewer = !!excludeMongoId || excludeMightyId != null;
@@ -28,7 +108,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const useCache = !excludeViewer;
+    const useCache = !excludeViewer && !bounds;
     if (useCache) {
       const cacheStart = Date.now();
       try {
@@ -44,70 +124,34 @@ export default async function handler(req, res) {
       }
     }
 
-    console.log(excludeViewer ? "❌ Cache bypass (viewer-specific). Querying MongoDB…" : "❌ Cache miss. Querying MongoDB…");
+    console.log(
+      bounds
+        ? "❌ Viewport bounds query. Querying MongoDB…"
+        : excludeViewer
+          ? "❌ Cache bypass (viewer-specific). Querying MongoDB…"
+          : "❌ Cache miss. Querying MongoDB…"
+    );
 
     const mongoStart = Date.now();
-    const pipeline = [];
-
-    if (excludeViewer) {
-      const nor = [];
-      if (excludeMongoId) nor.push({ _id: excludeMongoId });
-      if (excludeMightyId != null) nor.push({ mightyId: excludeMightyId });
-      if (nor.length) pipeline.push({ $match: { $nor: nor } });
-    }
-
-    pipeline.push(
-      {
-        $match: {
-          latitude: { $exists: true, $ne: null },
-          longitude: { $exists: true, $ne: null },
-        },
-      },
-      {
-        $project: {
-          id: {
-            $cond: {
-              if: { $ne: [{ $ifNull: ["$mightyId", null] }, null] },
-              then: { $toString: "$mightyId" },
-              else: { $toString: "$_id" },
-            },
-          },
-          fields: {
-            "FIRST NAME": "$firstName",
-            "LAST NAME": "$lastName",
-            "EMAIL ADDRESS": "$email",
-            WEBSITE: { $literal: "" },
-            BIO: "$bio",
-            "MEMBER LEVEL": { $literal: "" },
-            "PRIMARY INDUSTRY HOUSE": "$industry",
-            "Location (Nearest City)": "$location",
-            "ORGANIZATION NAME": { $literal: "" },
-            PHOTO: {
-              $cond: {
-                if: {
-                  $and: [
-                    { $ne: [{ $ifNull: ["$avatarUrl", ""] }, ""] },
-                  ],
-                },
-                then: [{ url: "$avatarUrl" }],
-                else: [],
-              },
-            },
-          },
-          userphoto: "$avatarUrl",
-          location: {
-            type: { $literal: "Point" },
-            coordinates: ["$longitude", "$latitude"],
-          },
-          _id: 0,
-        },
-      }
-    );
+    const pipeline = buildMarkerPipeline({ excludeMongoId, excludeMightyId, bounds });
 
     const data = await collection.aggregate(pipeline).toArray();
     console.log(`MongoDB Fetch Time: ${Date.now() - mongoStart}ms`);
 
-    const response = { success: true, data };
+    let totalCount = data.length;
+    if (bounds) {
+      const countPipeline = buildMarkerPipeline({ excludeMongoId, excludeMightyId, bounds }).slice(
+        0,
+        -1
+      );
+      countPipeline.push({ $count: "total" });
+      const countResult = await collection.aggregate(countPipeline).toArray();
+      totalCount = countResult[0]?.total ?? data.length;
+    }
+
+    const response = bounds
+      ? { success: true, data, totalCount }
+      : { success: true, data };
 
     if (useCache) {
       try {

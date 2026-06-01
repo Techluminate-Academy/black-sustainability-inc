@@ -15,9 +15,13 @@ import { LatLngBounds } from "leaflet";
 interface MapEventHandlerProps {
   onBoundsChange: (bounds: LatLngBounds) => void;
 }
-/** Map bounds handler disabled — getMarkers returns full dataset; moveend refetch caused API storms. */
-function MapEventHandler() {
-  useMapEvents({});
+/** Notifies parent when the map viewport changes (pan/zoom). */
+function MapEventHandler({ onBoundsChange }: MapEventHandlerProps) {
+  const map = useMapEvents({
+    moveend: () => {
+      onBoundsChange(map.getBounds());
+    },
+  });
   return null;
 }
 
@@ -179,7 +183,7 @@ const LeafletMap: React.FC<IProps> = ({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
 
-   <MapEventHandler />
+   <MapEventHandler onBoundsChange={onBoundsChange} />
       <MarkerClusterGroup chunkedLoading>
         {filteredData?.map((data: any) => {
           return (

@@ -2,7 +2,7 @@
 import Nav from "@/components/layouts/Nav";
 import Footer from "@/components/layouts/Footer";
 import Sidebar from "@/components/layouts/Sidebar";
-import { useEffect, useState, useRef, useMemo, useCallback, startTransition } from "react";
+import { useEffect, useState, useRef, useCallback, startTransition } from "react";
 import { customStyles } from "@/components/common/CustomSelect";
 import Select from "react-select";
 import Head from "next/head";
@@ -20,8 +20,15 @@ import Loader from "@/components/common/loader";
 import { LatLngBounds } from "leaflet";
 import { testPerformanceMonitoring } from "@/lib/testPerformance";
 
+/** Stable reference — inline `() => {}` in JSX was recreating MapboxMap every render. */
+const noopMarkerHover = () => {};
+
 // Dynamic import for Joyride to prevent SSR issues
 const Joyride = dynamic(() => import('react-joyride'), {
+  ssr: false,
+});
+
+const BsiMap = dynamic(() => import("@/components/common/Mapbox/MapboxMap"), {
   ssr: false,
 });
 
@@ -29,9 +36,6 @@ export default function Home() {
   // const BsiMap = dynamic(() => import("@/components/common/LeafletMap"), {
   //   ssr: false,
   // });
-  const BsiMap = dynamic(() => import("@/components/common/Mapbox/MapboxMap"), {
-    ssr: false,
-  })
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredData, setFilteredData] = useState<BsiUserObjectArray>([]);
@@ -84,6 +88,15 @@ export default function Home() {
   const initialDataLoadedRef = useRef(false);
   const [sessionChecked, setSessionChecked] = useState(false);
   const prevAuthenticatedRef = useRef<boolean | null>(null);
+  const boundsAbortRef = useRef<AbortController | null>(null);
+  const boundsRequestIdRef = useRef(0);
+  const lastBoundsKeyRef = useRef<string | null>(null);
+  const searchQueryRef = useRef(searchQuery);
+  const selectedIndustryRef = useRef(selectedIndustry);
+  searchQueryRef.current = searchQuery;
+  selectedIndustryRef.current = selectedIndustry;
+  const [viewportLoading, setViewportLoading] = useState(false);
+  const [viewportBoundsFetched, setViewportBoundsFetched] = useState(false);
 
   // Scroll functions for mobile navigation
   const scrollUp = () => {
@@ -781,6 +794,8 @@ export default function Home() {
         if (!initialDataLoadedRef.current) return;
         startTransition(() => {
           setFilteredData(OriginalData);
+          setViewportBoundsFetched(false);
+          lastBoundsKeyRef.current = null;
           if (selectedIndustry && industryFilteredTotalRef.current != null) {
             setTotalCount(industryFilteredTotalRef.current);
           } else {
@@ -806,6 +821,8 @@ export default function Home() {
       // Batch data reset updates (non-urgent)
       startTransition(() => {
         setFilteredData(OriginalData);
+        setViewportBoundsFetched(false);
+        lastBoundsKeyRef.current = null;
         setTotalCount(fullTotalCount); // Reset total count to full count
       });
       return;
@@ -872,85 +889,80 @@ export default function Home() {
 
 
   // --------------------------------------------------------------------
-  // 8. Render Component
+  // 8. Viewport-based sidebar sync (default browsing mode only)
   // --------------------------------------------------------------------
+  const handleBoundsChange = useCallback(async (bounds: LatLngBounds) => {
+    if (searchQueryRef.current.trim() !== "" || selectedIndustryRef.current !== "") {
+      return;
+    }
 
+    const northEast = bounds.getNorthEast();
+    const southWest = bounds.getSouthWest();
+    const round = (n: number) => Math.round(n * 10000) / 10000;
+    const boundsKey = `${round(northEast.lat)},${round(northEast.lng)},${round(southWest.lat)},${round(southWest.lng)}`;
+    if (lastBoundsKeyRef.current === boundsKey) {
+      return;
+    }
+    lastBoundsKeyRef.current = boundsKey;
 
-  // 8. Viewport-Based Lazy Loading for Map Markers
+    boundsAbortRef.current?.abort();
+    const controller = new AbortController();
+    boundsAbortRef.current = controller;
+    const requestId = ++boundsRequestIdRef.current;
+
+    setViewportLoading(true);
+    try {
+      const res = await fetch(
+        `/api/getMarkers?northEastLat=${northEast.lat}&northEastLng=${northEast.lng}&southWestLat=${southWest.lat}&southWestLng=${southWest.lng}`,
+        { credentials: "include", signal: controller.signal }
+      );
+      const result = await res.json();
+      if (requestId !== boundsRequestIdRef.current) return;
+      if (searchQueryRef.current.trim() !== "" || selectedIndustryRef.current !== "") return;
+
+      if (result.success && Array.isArray(result.data)) {
+        const data = result.data.filter((item: any) => item !== null);
+        startTransition(() => {
+          setLazyLoaded(true);
+          setFilteredData(data);
+          setLoadedData(data);
+          setSidebarPage(1);
+          setCurrentIndex(data.length);
+          setChunkIndex(1);
+          setChunkSizes([Math.max(data.length, 1)]);
+          setViewportBoundsFetched(true);
+        });
+      } else if (process.env.NODE_ENV === "development") {
+        console.error("Failed to fetch markers based on bounds", result);
+      }
+    } catch (error) {
+      if ((error as Error).name === "AbortError") return;
+      if (process.env.NODE_ENV === "development") {
+        console.error("Error fetching markers by bounds:", error);
+      }
+    } finally {
+      if (requestId === boundsRequestIdRef.current) {
+        setViewportLoading(false);
+      }
+    }
+  }, []);
+
+  const isDefaultBrowsingMode =
+    searchQuery.trim() === "" && selectedIndustry === "";
+  const viewportEmpty =
+    isDefaultBrowsingMode &&
+    viewportBoundsFetched &&
+    !viewportLoading &&
+    filteredData.length === 0;
+
+  const sidebarDisplayTotal =
+    searchQuery.trim() !== "" || selectedIndustry !== ""
+      ? totalCount!
+      : fullTotalCount;
+
   // --------------------------------------------------------------------
-  // This function gets called when the map's viewport changes.
-  // This function gets called when the map's viewport changes.
-  // This function gets called when the map's viewport changes.
-  // const handleBoundsChange = async (bounds: LatLngBounds) => {
-  //   const northEast = bounds.getNorthEast();
-  //   const southWest = bounds.getSouthWest();
-  //   try {
-  //     const res = await fetch(
-  //       `/api/getMarkers?northEastLat=${northEast.lat}&northEastLng=${northEast.lng}&southWestLat=${southWest.lat}&southWestLng=${southWest.lng}`
-  //     );
-  //     const result = await res.json();
-  //     if (result.success) {
-  //       console.log("Fetched markers based on bounds:", result.data);
-
-  //       // Mark that lazy load has occurred
-  //       setLazyLoaded(true);
-
-  //       // Update all state variables with the full dataset
-  //       setFilteredData(result.data);
-  //       setOriginalData(result.data);
-  //       setLoadedData(result.data); // Display all markers immediately
-  //       setCurrentIndex(result.data.length);
-  //       setChunkIndex(1);
-  //       setChunkSizes([result.data.length]); // Disable further chunking
-  //       setTotalCount(result.data.length);
-  //     } else {
-  //       console.error("Failed to fetch markers based on bounds", result);
-  //     }
-  //   } catch (error) {
-  //     console.error("Error fetching markers by bounds:", error);
-  //   }
-  // };
-
-
-  // useEffect(() => {
-  //   async function bootstrapAuth() {
-  //     // 0. Simple Safari detection:
-  //     const ua = navigator.userAgent;
-  //     const isSafari = ua.includes('Safari') && !ua.includes('Chrome');
-
-  //     // 1) Only ask for storage access in Safari:
-  //     if (isSafari && document.hasStorageAccess) {
-  //       try {
-  //         const has = await document.hasStorageAccess();
-  //         if (!has) {
-  //           await document.requestStorageAccess();
-  //         }
-  //       } catch (e) {
-  //         console.warn('Safari storage access denied; cookie stays hidden');
-  //       }
-  //     }
-
-  //     // 2) Read the cookie normally in all browsers:
-  //     function getCookie(name: string): string {
-  //       const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-  //       return match ? decodeURIComponent(match[2]) : '';
-  //     }
-
-  //     const raw = getCookie('bsn_user_data');
-  //     if (!raw) return; // still no cookie
-
-  //     try {
-  //       const userObj = JSON.parse(raw);
-  //       setAuthenticatedUser(userObj);
-  //       setIsAuthenticated(true);
-  //       console.log(userObj, 'authenticated user data');
-  //     } catch (err) {
-  //       console.error('Failed to parse bsn_user_data cookie:', err);
-  //     }
-  //   }
-
-  //   bootstrapAuth();
-  // }, []);
+  // 9. Render Component
+  // --------------------------------------------------------------------
 
   useEffect(() => {
     // only non-logged-in users should ever see it
@@ -970,26 +982,14 @@ export default function Home() {
     }
   }, [isAuthenticated, loadedData.length, filteredData.length, popupDismissed]);
 
-  // Memoize map data to prevent unnecessary re-renders
-  const mapData = useMemo(() => ({
-    isAuthenticated,
-    loadedData,
-    hideCounter,
-    filteredData: searchQuery === "" && selectedIndustry === "" ? mapLocations : filteredData,
-    flyToCoordinates,
-  }), [isAuthenticated, loadedData, hideCounter, searchQuery, selectedIndustry, mapLocations, filteredData, flyToCoordinates]);
+  const mapMarkerData =
+    searchQuery.trim() === "" && selectedIndustry === ""
+      ? mapLocations
+      : filteredData;
 
-  // Memoized map component to prevent re-renders from popup state changes
-  const MemoizedBsiMap = useMemo(() => (
-    <BsiMap
-      isAuthenticated={mapData.isAuthenticated}
-      loadedData={mapData.loadedData}
-      hideCounter={mapData.hideCounter}
-      onMarkerHover={() => { }}
-      filteredData={mapData.filteredData}
-      flyToCoordinates={mapData.flyToCoordinates}
-    />
-  ), [mapData]);
+  // --------------------------------------------------------------------
+  // 9. Render Component
+  // --------------------------------------------------------------------
 
   const handleRecordClickForMap = useCallback((record: any) => {
     const coords = getRecordCoords(record);
@@ -1108,7 +1108,16 @@ export default function Home() {
               <div className="relative w-full h-screen">
                 {/* Always render the map */}
                 <div data-tour="map-markers">
-                  {MemoizedBsiMap}
+                  <BsiMap
+                    key="bsn-member-map"
+                    isAuthenticated={isAuthenticated}
+                    loadedData={loadedData}
+                    hideCounter={hideCounter}
+                    onMarkerHover={noopMarkerHover}
+                    filteredData={mapMarkerData}
+                    flyToCoordinates={flyToCoordinates}
+                    onBoundsChange={handleBoundsChange}
+                  />
                 </div>
                 {/* Side target for tour */}
                 <div 
@@ -1168,6 +1177,8 @@ export default function Home() {
             ) : (
               <>
                 {searchQuery.trim() === "" &&
+                  selectedIndustry === "" &&
+                  !viewportBoundsFetched &&
                   totalCount !== null &&
                   filteredData.length > 0 &&
                   filteredData.length < totalCount && (
@@ -1184,12 +1195,21 @@ export default function Home() {
                 <Sidebar
                   filteredData={filteredData}
                   isAuthenticated={isAuthenticated}
-                  totalNumber={totalCount!}
+                  totalNumber={sidebarDisplayTotal}
+                  visibleInViewport={
+                    isDefaultBrowsingMode && viewportBoundsFetched
+                      ? filteredData.length
+                      : undefined
+                  }
                   loading={loading}
                   hasSearched={hasSearched}
+                  viewportEmpty={viewportEmpty}
+                  viewportLoading={viewportLoading && isDefaultBrowsingMode}
                   onRecordClick={handleRecordClickForMap}
                 />
                 {searchQuery.trim() === "" &&
+                  selectedIndustry === "" &&
+                  !viewportBoundsFetched &&
                   totalCount !== null &&
                   filteredData.length > 0 &&
                   filteredData.length < totalCount && (
