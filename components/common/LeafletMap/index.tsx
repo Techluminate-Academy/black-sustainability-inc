@@ -1,8 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { LatLngExpression } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import InfoCard from "../InfoCard";
+import {
+  getMemberDisplayImage,
+  isPlatformIconUrl,
+  shouldUseContainedMarkerImage,
+} from "@/lib/getMemberDisplayImage";
 import L from "leaflet";
 import ReactDOMServer from "react-dom/server";
 import Image from "next/image";
@@ -87,51 +92,52 @@ const CustomIconContent: React.FC<IProps> = (
     return selectedIcon ? selectedIcon.bgColor : "";
   }
 
-  const photoUrl = record.fields?.userphoto;
+  const photoUrl = getMemberDisplayImage(record.fields);
+  const useContainedImage = shouldUseContainedMarkerImage(record.fields);
+  const isPlatformIcon = isPlatformIconUrl(photoUrl);
+  const industryColor = getColorByIconTag(record.fields["PRIMARY INDUSTRY HOUSE"]);
+  const shellBg = useContainedImage ? "#ffffff" : industryColor;
+  const imageFitClass = useContainedImage
+    ? `object-contain object-center bg-white reverse-rotate-on-img ${
+        isPlatformIcon ? "p-1.5" : "p-1"
+      }`
+    : "object-cover bg-white reverse-rotate-on-img";
+  const imageScaleClass = useContainedImage
+    ? "absolute inset-[4px] w-[calc(100%-8px)] h-[calc(100%-10px)]"
+    : "absolute -top-2 -left-2 inset-0 w-[120%] h-[120%]";
 
-
-
-  
   return (
     <>
       {isAuthenticated ? (
         <div
           style={{
-            backgroundColor: getColorByIconTag(
-              record.fields["PRIMARY INDUSTRY HOUSE"]
-            ),
-            borderColor: getColorByIconTag(
-              record.fields["PRIMARY INDUSTRY HOUSE"]
-            ),
+            backgroundColor: shellBg,
+            borderColor: industryColor,
           }}
-          className={`relative w-12 h-16 pin-location overflow-hidden border-[2px] `}
+          className="relative w-12 h-16 pin-location overflow-hidden border-[2px]"
         >
           <Image
-            src={photoUrl || "/png/default.png"}
+            src={photoUrl}
             alt="image"
             fill
             loading="lazy"
-            className={`absolute -top-2 -left-2 inset-0 w-[120%] h-[120%] object-cover bg-white reverse-rotate-on-img`}
+            className={`${imageScaleClass} ${imageFitClass}`}
           />
         </div>
       ) : (
         <div
           style={{
-            backgroundColor: getColorByIconTag(
-              record.fields["PRIMARY INDUSTRY HOUSE"]
-            ),
-            borderColor: getColorByIconTag(
-              record.fields["PRIMARY INDUSTRY HOUSE"]
-            ),
+            backgroundColor: shellBg,
+            borderColor: industryColor,
           }}
-          className={`relative w-12 h-16 pin-location overflow-hidden border-[2px] `}
+          className="relative w-12 h-16 pin-location overflow-hidden border-[2px]"
         >
           <Image
-            src={photoUrl || "/png/default.png"}
+            src={photoUrl}
             alt="image"
             fill
             loading="lazy"
-            className={`absolute -top-2 -left-2 inset-0 w-[120%] h-[120%] object-cover blur-md bg-white reverse-rotate-on-img`}
+            className={`${imageScaleClass} ${imageFitClass} blur-md`}
           />
         </div>
       )}
@@ -202,11 +208,7 @@ const LeafletMap: React.FC<IProps> = ({
                 }}
               >
                 <InfoCard
-                       imgUrl={
-                        data.fields?.PHOTO && data.fields.PHOTO.length > 0
-                          ? data.fields.PHOTO[0].url
-                          : "/png/default.png"
-                      }
+                  fields={data.fields}
                   LAST_NAME={data.fields["LAST NAME"]}
                   FIRST_NAME={data.fields["FIRST NAME"]}
                   BIO={data.fields?.BIO}

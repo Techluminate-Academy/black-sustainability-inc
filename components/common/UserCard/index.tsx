@@ -1,14 +1,16 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import icons from "@/icons";
 import IndustryHouseIcons from "../IndustryHouseIcons";
 import BlurText from "../BlurText";
 import Link from "next/link";
-
-const DEFAULT_PHOTO = "/png/default.png";
+import {
+  BSN_PLATFORM_ICON,
+  isPlatformIconUrl,
+} from "@/lib/getMemberDisplayImage";
 
 function pickPhotoUrl(imgUrl: unknown): string {
   if (typeof imgUrl === "string" && imgUrl.trim()) return imgUrl.trim();
-  return DEFAULT_PHOTO;
+  return BSN_PLATFORM_ICON;
 }
 
 interface IProps {
@@ -43,7 +45,13 @@ const UserCard: React.FC<IProps> = ({
   AFFILIATION,
   onClick,
 }) => {
-  const photoSrc = pickPhotoUrl(imgUrl);
+  const resolvedSrc = pickPhotoUrl(imgUrl);
+  const [photoSrc, setPhotoSrc] = useState(resolvedSrc);
+  const isPlatformIcon = isPlatformIconUrl(photoSrc);
+
+  useEffect(() => {
+    setPhotoSrc(resolvedSrc);
+  }, [resolvedSrc]);
 
   return (
     <div
@@ -59,14 +67,12 @@ const UserCard: React.FC<IProps> = ({
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
-          className={`absolute inset-0 h-full w-full object-cover object-top rounded-xl ${
-            isAuthenticated ? "" : "blur-md"
-          }`}
-          onError={(e) => {
-            const el = e.currentTarget;
-            if (el.src.endsWith(DEFAULT_PHOTO)) return;
-            el.src = DEFAULT_PHOTO;
-          }}
+          className={`absolute inset-0 h-full w-full rounded-xl ${
+            isPlatformIcon
+              ? "object-contain object-center p-6 sm:p-10"
+              : "object-cover object-top"
+          } ${isAuthenticated ? "" : "blur-md"}`}
+          onError={() => setPhotoSrc(BSN_PLATFORM_ICON)}
         />
       </div>
 

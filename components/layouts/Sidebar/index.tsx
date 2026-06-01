@@ -1,5 +1,6 @@
 import React from "react";
 import UserCard from "../../common/UserCard";
+import { getMemberDisplayImage } from "@/lib/getMemberDisplayImage";
 
 interface IProps {
   filteredData: any;
@@ -86,11 +87,7 @@ const Sidebar: React.FC<IProps> = ({
                 : ""
             }
             PRIMARY_INDUSTRY_HOUSE={data.fields["PRIMARY INDUSTRY HOUSE"]}
-            imgUrl={
-              data.fields?.PHOTO && data.fields.PHOTO.length > 0
-                ? data.fields.PHOTO[0].url
-                : "/png/default.png"
-            }
+            imgUrl={getMemberDisplayImage(data.fields)}
             isAuthenticated={isAuthenticated}
             ConnectLink={data.fields["ConnectLink"]}
           />

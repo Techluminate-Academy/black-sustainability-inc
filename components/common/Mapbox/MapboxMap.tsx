@@ -172,25 +172,48 @@ function offsetDuplicateCoordinates(
   }
 }
 
-const DEFAULT_MARKER_PHOTO = "/png/default.png";
+import {
+  BSN_PLATFORM_ICON,
+  getMarkerImageLayoutMode,
+  isPlatformIconUrl,
+  shouldUseContainedMarkerImage,
+} from "@/lib/getMemberDisplayImage";
+import { applyMarkerImageLayout } from "@/lib/markerImageDom";
 
 const createMarkerElement = (record: any, isAuthenticated: boolean): HTMLElement => {
-  // Use the original CustomIconContent for markers
   const htmlString = ReactDOMServer.renderToStaticMarkup(
     <CustomIconContent record={{ ...record, isAuthenticated }} />
   );
   const el = document.createElement("div");
   el.innerHTML = htmlString;
   const root = el.firstElementChild as HTMLElement;
-  // renderToStaticMarkup strips event handlers — attach fallback for Mighty/external CDNs
-  const img = root?.querySelector("img");
+  const fieldMap = (record.fields ?? {}) as Record<string, unknown>;
+  const blurFilter = !isAuthenticated ? "blur(8px)" : "none";
+  const img = root?.querySelector("[data-marker-image]") as HTMLImageElement | null;
+
   if (img) {
+    img.style.filter = blurFilter;
+
     img.addEventListener("error", () => {
-      if (!img.src.endsWith(DEFAULT_MARKER_PHOTO)) {
-        img.src = DEFAULT_MARKER_PHOTO;
+      if (!img.src.endsWith(BSN_PLATFORM_ICON)) {
+        img.src = BSN_PLATFORM_ICON;
       }
+      applyMarkerImageLayout(root, "contain", true, blurFilter);
     });
+
+    if (shouldUseContainedMarkerImage(fieldMap) || img.src.endsWith(BSN_PLATFORM_ICON)) {
+      const syncLayout = () =>
+        applyMarkerImageLayout(
+          root,
+          getMarkerImageLayoutMode(fieldMap),
+          isPlatformIconUrl(img.src),
+          blurFilter
+        );
+      img.addEventListener("load", syncLayout);
+      if (img.complete) syncLayout();
+    }
   }
+
   return root;
 };
 
@@ -810,7 +833,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                                 style={{ maxWidth: "280px", minWidth: "250px" }}
                               >
                                 <InfoCard
-                                  imgUrl={record.fields.PHOTO?.[0]?.url || "/png/default.png"}
+                                  fields={record.fields}
                                   FIRST_NAME={record.fields["FIRST NAME"]}
                                   LAST_NAME={record.fields["LAST NAME"]}
                                   BIO={record.fields.BIO}
