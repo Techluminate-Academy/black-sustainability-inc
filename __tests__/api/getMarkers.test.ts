@@ -147,4 +147,37 @@ describe("/api/getMarkers", () => {
     expect(capture.redisGetKeys).toHaveLength(0);
     expect(capture.redisSetexCalls).toHaveLength(0);
   });
+
+  it("adds a viewport bounds match stage and returns totalCount when bbox params are provided", async () => {
+    wireMocks({ aggregateResult: [{ id: "1" }] });
+
+    const req = httpMocks.createRequest<NextApiRequest>({
+      method: "GET",
+      query: {
+        northEastLat: "40.0",
+        northEastLng: "-70.0",
+        southWestLat: "30.0",
+        southWestLng: "-80.0",
+      },
+    });
+    const res = httpMocks.createResponse<NextApiResponse>();
+    const handler = (await import("@/pages/api/getMarkers")).default;
+    await handler(req as any, res as any);
+    const body = res._getJSONData();
+
+    expect(body.success).toBe(true);
+    expect(body.totalCount).toBeDefined();
+    expect(capture.redisGetKeys).toHaveLength(0);
+
+    const pipeline = capture.aggregateCalls[0];
+    const boundsMatch = pipeline.find(
+      (s: any) =>
+        s.$match &&
+        s.$match.latitude?.$gte === 30 &&
+        s.$match.latitude?.$lte === 40 &&
+        s.$match.longitude?.$gte === -80 &&
+        s.$match.longitude?.$lte === -70
+    );
+    expect(boundsMatch).toBeDefined();
+  });
 });

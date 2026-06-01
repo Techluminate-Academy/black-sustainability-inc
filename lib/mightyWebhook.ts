@@ -42,12 +42,11 @@ export function extractEventType(payload: AnyObj): string | null {
 }
 
 export function extractEventId(payload: AnyObj): string | null {
-  // Prefer webhook event id over resource `id` (Mighty puts member id inside `payload`).
+  // Use only explicit webhook event ids — never `payload.id` (often the member id), which breaks dedupe.
   const v =
     payload?.event_id ??
     payload?.eventId ??
     payload?.webhook_event_id ??
-    payload?.id ??
     null;
   return typeof v === "string" || typeof v === "number" ? String(v) : null;
 }
@@ -489,6 +488,24 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
     typeof cf.text === "string" &&
     cf.text.trim().length >= 2;
 
+  const bioCustomFieldIdRaw = process.env.MIGHTY_BIO_CUSTOM_FIELD_ID;
+  const bioCustomFieldId = bioCustomFieldIdRaw ? String(bioCustomFieldIdRaw) : null;
+  const isBioCustomFieldEvent =
+    isCustomFieldEvent &&
+    !!bioCustomFieldId &&
+    typeof cf.customFieldId === "string" &&
+    cf.customFieldId === bioCustomFieldId &&
+    typeof cf.text === "string";
+
+  const orgCustomFieldIdRaw = process.env.MIGHTY_ORGANIZATION_CUSTOM_FIELD_ID;
+  const orgCustomFieldId = orgCustomFieldIdRaw ? String(orgCustomFieldIdRaw) : null;
+  const isOrganizationCustomFieldEvent =
+    isCustomFieldEvent &&
+    !!orgCustomFieldId &&
+    typeof cf.customFieldId === "string" &&
+    cf.customFieldId === orgCustomFieldId &&
+    typeof cf.text === "string";
+
   // If the event is for our Map Location custom field, use that text as the member location.
   // This prevents stale profile `member.location` from overwriting the map source of truth.
   if (isMapLocationCustomFieldEvent) {
@@ -497,6 +514,14 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
     delete memberDoc.latitude;
     delete memberDoc.longitude;
     delete memberDoc.geo;
+  }
+
+  if (isBioCustomFieldEvent) {
+    memberDoc.bio = cf.text!.trim();
+  }
+
+  if (isOrganizationCustomFieldEvent) {
+    memberDoc.organizationName = cf.text!.trim();
   }
 
   const hasStoredCoords =
@@ -529,13 +554,20 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
   // (Mighty's native `member.location` isn't reliably writable via Admin API; the
   // custom field answer is the source for Mighty UI, while Mongo is the map source.)
   const existing = await collection.findOne(filter, {
-    projection: { source: 1, memberLocationUpdatedAt: 1 },
+    projection: { source: 1, memberLocationUpdatedAt: 1, memberProfileUpdatedAt: 1 },
   });
   const existingMemberLocationUpdatedAt =
     existing?.memberLocationUpdatedAt instanceof Date
       ? existing.memberLocationUpdatedAt
       : typeof existing?.memberLocationUpdatedAt === "string" || typeof existing?.memberLocationUpdatedAt === "number"
         ? new Date(existing.memberLocationUpdatedAt)
+        : null;
+  const existingMemberProfileUpdatedAt =
+    existing?.memberProfileUpdatedAt instanceof Date
+      ? existing.memberProfileUpdatedAt
+      : typeof existing?.memberProfileUpdatedAt === "string" ||
+          typeof existing?.memberProfileUpdatedAt === "number"
+        ? new Date(existing.memberProfileUpdatedAt)
         : null;
 
   const protectLocation =
@@ -546,6 +578,18 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
         Number.isFinite(existingMemberLocationUpdatedAt.valueOf()) &&
         existingMemberLocationUpdatedAt.valueOf() > eventAt.valueOf()));
 
+  // Protect self-service profile edits from later Mighty webhooks (often stale vs custom-field bio).
+  const profileUpdatedAtMs =
+    existingMemberProfileUpdatedAt != null &&
+    Number.isFinite(existingMemberProfileUpdatedAt.valueOf())
+      ? existingMemberProfileUpdatedAt.valueOf()
+      : null;
+  const protectProfile =
+    !isBioCustomFieldEvent &&
+    !isOrganizationCustomFieldEvent &&
+    (existing?.source === "member:profile-update" ||
+      (profileUpdatedAtMs != null && eventAt.valueOf() >= profileUpdatedAtMs - 60_000));
+
   if (protectLocation) {
     delete memberDoc.location;
     delete memberDoc.latitude;
@@ -555,6 +599,14 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
     delete coordPatch.latitude;
     delete coordPatch.longitude;
     delete coordPatch.geo;
+  }
+
+  if (protectProfile) {
+    delete memberDoc.firstName;
+    delete memberDoc.lastName;
+    delete memberDoc.bio;
+    delete memberDoc.avatarUrl;
+    if (!protectLocation) delete memberDoc.source;
   }
 
   const setPatch: AnyObj = {

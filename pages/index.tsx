@@ -2,22 +2,33 @@
 import Nav from "@/components/layouts/Nav";
 import Footer from "@/components/layouts/Footer";
 import Sidebar from "@/components/layouts/Sidebar";
-import { useEffect, useState, useRef, useMemo, useCallback, startTransition } from "react";
+import { useEffect, useState, useRef, useCallback, startTransition } from "react";
 import { customStyles } from "@/components/common/CustomSelect";
 import Select from "react-select";
 import Head from "next/head";
 import { IndustryHouses } from "@/utils/IndustryDetails";
 import dynamic from "next/dynamic";
 import icons from "@/icons";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  memberNeedsLocationPrompt,
+  buildUpdateLocationUrl,
+} from "@/lib/domain/location/memberLocationPrompt";
 import Image from "next/image";
 import { BsiUserObjectArray } from "@/typings";
 import Loader from "@/components/common/loader";
 import { LatLngBounds } from "leaflet";
 import { testPerformanceMonitoring } from "@/lib/testPerformance";
 
+/** Stable reference — inline `() => {}` in JSX was recreating MapboxMap every render. */
+const noopMarkerHover = () => {};
+
 // Dynamic import for Joyride to prevent SSR issues
 const Joyride = dynamic(() => import('react-joyride'), {
+  ssr: false,
+});
+
+const BsiMap = dynamic(() => import("@/components/common/Mapbox/MapboxMap"), {
   ssr: false,
 });
 
@@ -25,9 +36,6 @@ export default function Home() {
   // const BsiMap = dynamic(() => import("@/components/common/LeafletMap"), {
   //   ssr: false,
   // });
-  const BsiMap = dynamic(() => import("@/components/common/Mapbox/MapboxMap"), {
-    ssr: false,
-  })
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredData, setFilteredData] = useState<BsiUserObjectArray>([]);
@@ -68,6 +76,9 @@ export default function Home() {
   // Modification: totalCount now initialized as null instead of 0.
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const route = useRouter();
+  const searchParams = useSearchParams();
+  const locationPromptCheckedRef = useRef(false);
+  const [mapSelfFocusApplied, setMapSelfFocusApplied] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [showScrollButtons, setShowScrollButtons] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -75,6 +86,17 @@ export default function Home() {
   /** Total count for the active industry filter (so clearing search restores the right total). */
   const industryFilteredTotalRef = useRef<number | null>(null);
   const initialDataLoadedRef = useRef(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const prevAuthenticatedRef = useRef<boolean | null>(null);
+  const boundsAbortRef = useRef<AbortController | null>(null);
+  const boundsRequestIdRef = useRef(0);
+  const lastBoundsKeyRef = useRef<string | null>(null);
+  const searchQueryRef = useRef(searchQuery);
+  const selectedIndustryRef = useRef(selectedIndustry);
+  searchQueryRef.current = searchQuery;
+  selectedIndustryRef.current = selectedIndustry;
+  const [viewportLoading, setViewportLoading] = useState(false);
+  const [viewportBoundsFetched, setViewportBoundsFetched] = useState(false);
 
   // Scroll functions for mobile navigation
   const scrollUp = () => {
@@ -279,6 +301,46 @@ export default function Home() {
         },
       },
     },
+    {
+      target: '[data-tour="nav-member-engagement"]',
+      content: (
+        <div>
+          <h3 style={{ marginBottom: '10px', color: '#2D3748' }}>Your profile &amp; map help</h3>
+          <ul style={{ margin: 0, paddingLeft: '18px', lineHeight: '1.55', color: '#2D3748' }}>
+            <li style={{ marginBottom: '8px' }}>
+              <strong>Profile photo</strong> — opens a preview of what others see on the map
+              (name, email, location, organization, bio, and member level). Sign in to use this
+              when logged out.
+            </li>
+            <li style={{ marginBottom: '8px' }}>
+              <strong>ℹ Info</strong> — inside that profile popup, tap the info icon at the top
+              to learn how to update your full profile in the Black Sustainability Network.
+            </li>
+            <li>
+              <strong>Help (?)</strong> — report map issues or confusion; we create a support
+              ticket and email you a ticket number.
+            </li>
+          </ul>
+        </div>
+      ),
+      placement: 'bottom-end' as const,
+      disableBeacon: true,
+      showCloseButton: true,
+      styles: {
+        options: {
+          primaryColor: '#FFBF23',
+        },
+        tooltip: {
+          borderRadius: '12px',
+          padding: '20px',
+          maxWidth: '340px',
+        },
+        buttonClose: {
+          color: '#718096',
+          fontSize: '14px',
+        },
+      },
+    },
   ];
 
   // Track component mount status to prevent hydration issues
@@ -344,12 +406,42 @@ export default function Home() {
           setAuthenticatedUser(null);
           setIsAuthenticated(false);
         }
+      } finally {
+        if (!cancelled) setSessionChecked(true);
       }
     })();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Redirect authenticated members missing location (return visits, not only sign-in).
+  useEffect(() => {
+    if (!isAuthenticated) {
+      locationPromptCheckedRef.current = false;
+      return;
+    }
+    if (locationPromptCheckedRef.current) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const meRes = await fetch("/api/member/me", { credentials: "include" });
+        const me = await meRes.json().catch(() => null);
+        if (cancelled) return;
+        locationPromptCheckedRef.current = true;
+        if (memberNeedsLocationPrompt(me?.mongo)) {
+          route.replace(buildUpdateLocationUrl("/"));
+        }
+      } catch {
+        if (!cancelled) locationPromptCheckedRef.current = true;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, route]);
 
   // Guided Tour Initialization - Removed automatic trigger
   // Tour will now only be triggered manually by user clicking the menu option
@@ -413,16 +505,36 @@ export default function Home() {
     setMapLocations(json.data ?? []);
   }, []);
 
+  // Fetch markers once after session is known; refetch only when user signs in during the visit (gating changes).
   useEffect(() => {
-    fetchMapLocations();
-  }, [fetchMapLocations]);
+    if (!sessionChecked) return;
 
-  // Refetch map markers when user signs in so the map shows the correct list (e.g. P1 sees themselves)
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchMapLocations();
+    const prev = prevAuthenticatedRef.current;
+    prevAuthenticatedRef.current = isAuthenticated;
+
+    if (prev === null) {
+      void fetchMapLocations();
+      return;
     }
-  }, [isAuthenticated, fetchMapLocations]);
+    if (prev === false && isAuthenticated) {
+      void fetchMapLocations();
+    }
+  }, [sessionChecked, isAuthenticated, fetchMapLocations]);
+
+  // After saving location, fly map to the member's new pin (?focus=self&lat=&lng=).
+  useEffect(() => {
+    const focus = searchParams?.get("focus");
+    if (focus !== "self") return;
+
+    const lat = Number(searchParams?.get("lat"));
+    const lng = Number(searchParams?.get("lng"));
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    setFlyToCoordinates({ lat, lng, ts: Date.now() });
+    setMapSelfFocusApplied(true);
+    void fetchMapLocations();
+    route.replace("/", { scroll: false });
+  }, [searchParams, route, fetchMapLocations]);
 
   // --------------------------------------------------------------------
   // 1. Initial Data Fetch for Map & Sidebar
@@ -634,7 +746,7 @@ export default function Home() {
         setLoading(true);
         setPreloaderSidebar(true);
 
-        fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}&_t=${Date.now()}`, { credentials: "include" })
+        fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}`, { credentials: "include" })
           .then((response) => response.json())
           .then((result) => {
             if (result.success && Array.isArray(result.data)) {
@@ -682,6 +794,8 @@ export default function Home() {
         if (!initialDataLoadedRef.current) return;
         startTransition(() => {
           setFilteredData(OriginalData);
+          setViewportBoundsFetched(false);
+          lastBoundsKeyRef.current = null;
           if (selectedIndustry && industryFilteredTotalRef.current != null) {
             setTotalCount(industryFilteredTotalRef.current);
           } else {
@@ -707,6 +821,8 @@ export default function Home() {
       // Batch data reset updates (non-urgent)
       startTransition(() => {
         setFilteredData(OriginalData);
+        setViewportBoundsFetched(false);
+        lastBoundsKeyRef.current = null;
         setTotalCount(fullTotalCount); // Reset total count to full count
       });
       return;
@@ -773,85 +889,80 @@ export default function Home() {
 
 
   // --------------------------------------------------------------------
-  // 8. Render Component
+  // 8. Viewport-based sidebar sync (default browsing mode only)
   // --------------------------------------------------------------------
+  const handleBoundsChange = useCallback(async (bounds: LatLngBounds) => {
+    if (searchQueryRef.current.trim() !== "" || selectedIndustryRef.current !== "") {
+      return;
+    }
 
+    const northEast = bounds.getNorthEast();
+    const southWest = bounds.getSouthWest();
+    const round = (n: number) => Math.round(n * 10000) / 10000;
+    const boundsKey = `${round(northEast.lat)},${round(northEast.lng)},${round(southWest.lat)},${round(southWest.lng)}`;
+    if (lastBoundsKeyRef.current === boundsKey) {
+      return;
+    }
+    lastBoundsKeyRef.current = boundsKey;
 
-  // 8. Viewport-Based Lazy Loading for Map Markers
+    boundsAbortRef.current?.abort();
+    const controller = new AbortController();
+    boundsAbortRef.current = controller;
+    const requestId = ++boundsRequestIdRef.current;
+
+    setViewportLoading(true);
+    try {
+      const res = await fetch(
+        `/api/getMarkers?northEastLat=${northEast.lat}&northEastLng=${northEast.lng}&southWestLat=${southWest.lat}&southWestLng=${southWest.lng}`,
+        { credentials: "include", signal: controller.signal }
+      );
+      const result = await res.json();
+      if (requestId !== boundsRequestIdRef.current) return;
+      if (searchQueryRef.current.trim() !== "" || selectedIndustryRef.current !== "") return;
+
+      if (result.success && Array.isArray(result.data)) {
+        const data = result.data.filter((item: any) => item !== null);
+        startTransition(() => {
+          setLazyLoaded(true);
+          setFilteredData(data);
+          setLoadedData(data);
+          setSidebarPage(1);
+          setCurrentIndex(data.length);
+          setChunkIndex(1);
+          setChunkSizes([Math.max(data.length, 1)]);
+          setViewportBoundsFetched(true);
+        });
+      } else if (process.env.NODE_ENV === "development") {
+        console.error("Failed to fetch markers based on bounds", result);
+      }
+    } catch (error) {
+      if ((error as Error).name === "AbortError") return;
+      if (process.env.NODE_ENV === "development") {
+        console.error("Error fetching markers by bounds:", error);
+      }
+    } finally {
+      if (requestId === boundsRequestIdRef.current) {
+        setViewportLoading(false);
+      }
+    }
+  }, []);
+
+  const isDefaultBrowsingMode =
+    searchQuery.trim() === "" && selectedIndustry === "";
+  const viewportEmpty =
+    isDefaultBrowsingMode &&
+    viewportBoundsFetched &&
+    !viewportLoading &&
+    filteredData.length === 0;
+
+  const sidebarDisplayTotal =
+    searchQuery.trim() !== "" || selectedIndustry !== ""
+      ? totalCount!
+      : fullTotalCount;
+
   // --------------------------------------------------------------------
-  // This function gets called when the map's viewport changes.
-  // This function gets called when the map's viewport changes.
-  // This function gets called when the map's viewport changes.
-  // const handleBoundsChange = async (bounds: LatLngBounds) => {
-  //   const northEast = bounds.getNorthEast();
-  //   const southWest = bounds.getSouthWest();
-  //   try {
-  //     const res = await fetch(
-  //       `/api/getMarkers?northEastLat=${northEast.lat}&northEastLng=${northEast.lng}&southWestLat=${southWest.lat}&southWestLng=${southWest.lng}`
-  //     );
-  //     const result = await res.json();
-  //     if (result.success) {
-  //       console.log("Fetched markers based on bounds:", result.data);
-
-  //       // Mark that lazy load has occurred
-  //       setLazyLoaded(true);
-
-  //       // Update all state variables with the full dataset
-  //       setFilteredData(result.data);
-  //       setOriginalData(result.data);
-  //       setLoadedData(result.data); // Display all markers immediately
-  //       setCurrentIndex(result.data.length);
-  //       setChunkIndex(1);
-  //       setChunkSizes([result.data.length]); // Disable further chunking
-  //       setTotalCount(result.data.length);
-  //     } else {
-  //       console.error("Failed to fetch markers based on bounds", result);
-  //     }
-  //   } catch (error) {
-  //     console.error("Error fetching markers by bounds:", error);
-  //   }
-  // };
-
-
-  // useEffect(() => {
-  //   async function bootstrapAuth() {
-  //     // 0. Simple Safari detection:
-  //     const ua = navigator.userAgent;
-  //     const isSafari = ua.includes('Safari') && !ua.includes('Chrome');
-
-  //     // 1) Only ask for storage access in Safari:
-  //     if (isSafari && document.hasStorageAccess) {
-  //       try {
-  //         const has = await document.hasStorageAccess();
-  //         if (!has) {
-  //           await document.requestStorageAccess();
-  //         }
-  //       } catch (e) {
-  //         console.warn('Safari storage access denied; cookie stays hidden');
-  //       }
-  //     }
-
-  //     // 2) Read the cookie normally in all browsers:
-  //     function getCookie(name: string): string {
-  //       const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-  //       return match ? decodeURIComponent(match[2]) : '';
-  //     }
-
-  //     const raw = getCookie('bsn_user_data');
-  //     if (!raw) return; // still no cookie
-
-  //     try {
-  //       const userObj = JSON.parse(raw);
-  //       setAuthenticatedUser(userObj);
-  //       setIsAuthenticated(true);
-  //       console.log(userObj, 'authenticated user data');
-  //     } catch (err) {
-  //       console.error('Failed to parse bsn_user_data cookie:', err);
-  //     }
-  //   }
-
-  //   bootstrapAuth();
-  // }, []);
+  // 9. Render Component
+  // --------------------------------------------------------------------
 
   useEffect(() => {
     // only non-logged-in users should ever see it
@@ -871,26 +982,20 @@ export default function Home() {
     }
   }, [isAuthenticated, loadedData.length, filteredData.length, popupDismissed]);
 
-  // Memoize map data to prevent unnecessary re-renders
-  const mapData = useMemo(() => ({
-    isAuthenticated,
-    loadedData,
-    hideCounter,
-    filteredData: searchQuery === "" && selectedIndustry === "" ? mapLocations : filteredData,
-    flyToCoordinates,
-  }), [isAuthenticated, loadedData, hideCounter, searchQuery, selectedIndustry, mapLocations, filteredData, flyToCoordinates]);
+  // mapLocations powers the initial global marker load before any pan/zoom.
+  // After viewportBoundsFetched, filteredData (bbox from /api/getMarkers) keeps markers and sidebar aligned.
+  // Search/filter modes also use filteredData because results are already mode-specific.
+  const isSearchOrFilterMode =
+    searchQuery.trim() !== "" || selectedIndustry !== "";
 
-  // Memoized map component to prevent re-renders from popup state changes
-  const MemoizedBsiMap = useMemo(() => (
-    <BsiMap
-      isAuthenticated={mapData.isAuthenticated}
-      loadedData={mapData.loadedData}
-      hideCounter={mapData.hideCounter}
-      onMarkerHover={() => { }}
-      filteredData={mapData.filteredData}
-      flyToCoordinates={mapData.flyToCoordinates}
-    />
-  ), [mapData]);
+  const mapMarkerData =
+    isSearchOrFilterMode || viewportBoundsFetched
+      ? filteredData
+      : mapLocations;
+
+  // --------------------------------------------------------------------
+  // 9. Render Component
+  // --------------------------------------------------------------------
 
   const handleRecordClickForMap = useCallback((record: any) => {
     const coords = getRecordCoords(record);
@@ -958,11 +1063,17 @@ export default function Home() {
         isAuthenticated={isAuthenticated}
         authenticatedUser={authenticatedUser}
         startTour={startTour}
+        runTour={runTour}
+        tourStepIndex={stepIndex}
       />
 
       <div className="mt-[110px]">
         <div className="flex sm:flex-row flex-col bg-[#FFF8E5]">
-          <div className="sm:w-[52%] w-full sm:p-0 p-3 h-screen" data-tour="map-container">
+          <div
+            className="sm:w-[52%] w-full sm:p-0 p-3 h-screen"
+            data-tour="map-container"
+            data-testid={mapSelfFocusApplied ? "map-self-focus-active" : "map-container"}
+          >
             {preloaderMap ? (
               <div className="relative w-full h-screen">
                 <Image
@@ -1003,7 +1114,16 @@ export default function Home() {
               <div className="relative w-full h-screen">
                 {/* Always render the map */}
                 <div data-tour="map-markers">
-                  {MemoizedBsiMap}
+                  <BsiMap
+                    key="bsn-member-map"
+                    isAuthenticated={isAuthenticated}
+                    loadedData={loadedData}
+                    hideCounter={hideCounter}
+                    onMarkerHover={noopMarkerHover}
+                    filteredData={mapMarkerData}
+                    flyToCoordinates={flyToCoordinates}
+                    onBoundsChange={handleBoundsChange}
+                  />
                 </div>
                 {/* Side target for tour */}
                 <div 
@@ -1063,6 +1183,8 @@ export default function Home() {
             ) : (
               <>
                 {searchQuery.trim() === "" &&
+                  selectedIndustry === "" &&
+                  !viewportBoundsFetched &&
                   totalCount !== null &&
                   filteredData.length > 0 &&
                   filteredData.length < totalCount && (
@@ -1079,12 +1201,21 @@ export default function Home() {
                 <Sidebar
                   filteredData={filteredData}
                   isAuthenticated={isAuthenticated}
-                  totalNumber={totalCount!}
+                  totalNumber={sidebarDisplayTotal}
+                  visibleInViewport={
+                    isDefaultBrowsingMode && viewportBoundsFetched
+                      ? filteredData.length
+                      : undefined
+                  }
                   loading={loading}
                   hasSearched={hasSearched}
+                  viewportEmpty={viewportEmpty}
+                  viewportLoading={viewportLoading && isDefaultBrowsingMode}
                   onRecordClick={handleRecordClickForMap}
                 />
                 {searchQuery.trim() === "" &&
+                  selectedIndustry === "" &&
+                  !viewportBoundsFetched &&
                   totalCount !== null &&
                   filteredData.length > 0 &&
                   filteredData.length < totalCount && (

@@ -1,8 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { LatLngExpression } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import InfoCard from "../InfoCard";
+import {
+  getMemberDisplayImage,
+  isPlatformIconUrl,
+  shouldUseContainedMarkerImage,
+} from "@/lib/getMemberDisplayImage";
 import L from "leaflet";
 import ReactDOMServer from "react-dom/server";
 import Image from "next/image";
@@ -15,11 +20,11 @@ import { LatLngBounds } from "leaflet";
 interface MapEventHandlerProps {
   onBoundsChange: (bounds: LatLngBounds) => void;
 }
+/** Notifies parent when the map viewport changes (pan/zoom). */
 function MapEventHandler({ onBoundsChange }: MapEventHandlerProps) {
   const map = useMapEvents({
     moveend: () => {
-      const bounds = map.getBounds();
-      onBoundsChange(bounds);
+      onBoundsChange(map.getBounds());
     },
   });
   return null;
@@ -87,51 +92,52 @@ const CustomIconContent: React.FC<IProps> = (
     return selectedIcon ? selectedIcon.bgColor : "";
   }
 
-  const photoUrl = record.fields?.userphoto;
+  const photoUrl = getMemberDisplayImage(record.fields);
+  const useContainedImage = shouldUseContainedMarkerImage(record.fields);
+  const isPlatformIcon = isPlatformIconUrl(photoUrl);
+  const industryColor = getColorByIconTag(record.fields["PRIMARY INDUSTRY HOUSE"]);
+  const shellBg = useContainedImage ? "#ffffff" : industryColor;
+  const imageFitClass = useContainedImage
+    ? `object-contain object-center bg-white reverse-rotate-on-img ${
+        isPlatformIcon ? "p-1.5" : "p-1"
+      }`
+    : "object-cover bg-white reverse-rotate-on-img";
+  const imageScaleClass = useContainedImage
+    ? "absolute inset-[4px] w-[calc(100%-8px)] h-[calc(100%-10px)]"
+    : "absolute -top-2 -left-2 inset-0 w-[120%] h-[120%]";
 
-
-
-  
   return (
     <>
       {isAuthenticated ? (
         <div
           style={{
-            backgroundColor: getColorByIconTag(
-              record.fields["PRIMARY INDUSTRY HOUSE"]
-            ),
-            borderColor: getColorByIconTag(
-              record.fields["PRIMARY INDUSTRY HOUSE"]
-            ),
+            backgroundColor: shellBg,
+            borderColor: industryColor,
           }}
-          className={`relative w-12 h-16 pin-location overflow-hidden border-[2px] `}
+          className="relative w-12 h-16 pin-location overflow-hidden border-[2px]"
         >
           <Image
-            src={photoUrl || "/png/default.png"}
+            src={photoUrl}
             alt="image"
             fill
             loading="lazy"
-            className={`absolute -top-2 -left-2 inset-0 w-[120%] h-[120%] object-cover bg-white reverse-rotate-on-img`}
+            className={`${imageScaleClass} ${imageFitClass}`}
           />
         </div>
       ) : (
         <div
           style={{
-            backgroundColor: getColorByIconTag(
-              record.fields["PRIMARY INDUSTRY HOUSE"]
-            ),
-            borderColor: getColorByIconTag(
-              record.fields["PRIMARY INDUSTRY HOUSE"]
-            ),
+            backgroundColor: shellBg,
+            borderColor: industryColor,
           }}
-          className={`relative w-12 h-16 pin-location overflow-hidden border-[2px] `}
+          className="relative w-12 h-16 pin-location overflow-hidden border-[2px]"
         >
           <Image
-            src={photoUrl || "/png/default.png"}
+            src={photoUrl}
             alt="image"
             fill
             loading="lazy"
-            className={`absolute -top-2 -left-2 inset-0 w-[120%] h-[120%] object-cover blur-md bg-white reverse-rotate-on-img`}
+            className={`${imageScaleClass} ${imageFitClass} blur-md`}
           />
         </div>
       )}
@@ -164,29 +170,7 @@ const LeafletMap: React.FC<IProps> = ({
 }) => {
   const mapCenter: LatLngExpression = [33.7488, -84.3877];
 
-    // Function to fetch markers using the new endpoint based on the map bounds
-    const fetchMarkersByBounds = async (bounds: LatLngBounds) => {
-      const northEast = bounds.getNorthEast();
-      const southWest = bounds.getSouthWest();
-      try {
-        const res = await fetch(
-          `/api/getMarkers?northEastLat=${northEast.lat}&northEastLng=${northEast.lng}&southWestLat=${southWest.lat}&southWestLng=${southWest.lng}`,
-          { credentials: "include" }
-        );
-        const result = await res.json();
-        if (result.success) {
-          // Update state with new markers here; for demo, we log the data.
-          console.log("Fetched markers:", result.data);
-          // e.g., setFilteredData(result.data);
-        } else {
-          console.error("Failed to fetch markers:", result);
-        }
-      } catch (error) {
-        console.error("Error fetching markers:", error);
-      }
-    }
-
-  const customIcon = (props: any) =>
+    const customIcon = (props: any) =>
     L.divIcon({
       html: customIconHtml(props, isAuthenticated),
     });
@@ -205,8 +189,7 @@ const LeafletMap: React.FC<IProps> = ({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
 
-   {/* Use the MapEventHandler to fetch markers on viewport change */}
-   <MapEventHandler onBoundsChange={fetchMarkersByBounds} />
+   <MapEventHandler onBoundsChange={onBoundsChange} />
       <MarkerClusterGroup chunkedLoading>
         {filteredData?.map((data: any) => {
           return (
@@ -225,11 +208,7 @@ const LeafletMap: React.FC<IProps> = ({
                 }}
               >
                 <InfoCard
-                       imgUrl={
-                        data.fields?.PHOTO && data.fields.PHOTO.length > 0
-                          ? data.fields.PHOTO[0].url
-                          : "/png/default.png"
-                      }
+                  fields={data.fields}
                   LAST_NAME={data.fields["LAST NAME"]}
                   FIRST_NAME={data.fields["FIRST NAME"]}
                   BIO={data.fields?.BIO}

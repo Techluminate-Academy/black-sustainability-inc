@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import GooglePlacesAutocomplete, { geocodeByPlaceId, getLatLng } from "react-google-places-autocomplete";
 import { geocodeAddress } from "@/utils/geocode.js";
-import AirtableUtils from "@/pages/api/submitForm";
 import { parsePhoneNumberFromString, CountryCode } from "libphonenumber-js";
 import Image from "next/image";
 import { allCountries } from "country-telephone-data";
@@ -677,7 +676,9 @@ const BSNUpdateProfileForm: React.FC<BSNUpdateProfileFormProps> = ({ initialData
   useEffect(() => {
     const fetchDropdownOptions = async () => {
       try {
-        const dropdownData = await AirtableUtils.fetchTableMetadata();
+        const metaRes = await fetch("/api/airtable/roster-metadata");
+        if (!metaRes.ok) throw new Error("Failed to load form metadata");
+        const dropdownData = await metaRes.json();
         console.log("Dropdown data:", dropdownData);
         // Identification Options
         const identificationField = dropdownData.find((f: any) => f.fieldName === "IDENTIFICATION");

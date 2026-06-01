@@ -1,95 +1,86 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import axios from 'axios';
+import { connectToDatabase } from '@/lib/mongodb';
+import { fetchMainRosterRecordWithFieldsByEmail } from '@/lib/server/airtableMainRosterServer';
 
-// Use production Airtable credentials
-const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN;
-const BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
-const TABLE_NAME = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME;
+function mapFields(recordId: string, f: Record<string, unknown>) {
+  return {
+    id: recordId,
+    fields: {
+      email: f['EMAIL ADDRESS'],
+      firstName: f['FIRST NAME'],
+      lastName: f['LAST NAME'],
+      bio: f['BIO'],
+      photo: f['PHOTO'],
+      logo: f['LOGO'],
+      'MEMBER LEVEL': f['MEMBER LEVEL'],
+      organizationName: f['ORGANIZATION NAME'],
+      identification: f['IDENTIFICATION'],
+      gender: f['GENDER'],
+      website: f['WEBSITE'],
+      phoneCountryCode: f['PHONE COUNTRY CODE'] || '+1-us',
+      phone: f['PHONE US/CAN ONLY'],
+      primaryIndustry: f['PRIMARY INDUSTRY HOUSE'],
+      additionalFocus: f['ADDITIONAL FOCUS AREAS'] || [],
+      address: f['Address'],
+      zipCode: f['Zip/Postal Code'],
+      youtube: f['YOUTUBE'],
+      nearestCity: f['Location (Nearest City)'],
+      nameFromLocation: f['Name (from Location)'],
+      fundingGoal: f['FUNDING GOAL'],
+      similarCategories: f['Similar Categories'] || [],
+      naicsCode: f['NAICS Code'],
+      includeOnMap: f['Featured'] === 'checked',
+      latitude: f['Latitude'],
+      longitude: f['Longitude'],
+      affiliatedEntity: f['AFFILIATED ENTITY'],
+    },
+  };
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Log environment variables (without exposing sensitive data)
-  console.log('⛳ [PROD] Airtable Config:', {
-    hasKey: !!AIRTABLE_API_KEY,
-    baseId: BASE_ID,
-    tableName: TABLE_NAME
-  });
-
-  const { email } = req.query;
+  const rawEmail = req.query.email;
+  const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : '';
   if (!email) {
     return res.status(400).json({ error: 'Email is required' });
   }
 
   try {
-    console.log('🔍 [PROD] Searching for email:', email);
-    
-    const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}`;
-    const response = await axios.get(url, {
-      headers: {
-        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-      },
-      params: {
-        filterByFormula: `{EMAIL ADDRESS} = '${email}'`,
-        maxRecords: 1
-      }
+    const { db } = await connectToDatabase();
+    const legacy = await db.collection('airtableRecords').findOne({
+      'fields.EMAIL ADDRESS': { $regex: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
     });
 
-    if (!response.data.records.length) {
-      console.log('❌ [PROD] No user found with email:', email);
+    if (legacy?.fields) {
+      const recordId = String(legacy.id || legacy.airtableId || '');
+      if (recordId) {
+        res.setHeader('Cache-Control', 'private, max-age=60');
+        return res.status(200).json({
+          success: true,
+          data: mapFields(recordId, legacy.fields as Record<string, unknown>),
+        });
+      }
+    }
+
+    const record = await fetchMainRosterRecordWithFieldsByEmail(email);
+    if (!record) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const record = response.data.records[0];
-    console.log('✅ [PROD] User found! Record ID:', record.id);
-    console.log('📝 [PROD] Raw record fields:', record.fields);
-
-    // Return a cleaned version of the data
-    res.status(200).json({
+    res.setHeader('Cache-Control', 'private, max-age=60');
+    return res.status(200).json({
       success: true,
-      data: {
-        id: record.id,
-        fields: {
-          email: record.fields['EMAIL ADDRESS'],
-          firstName: record.fields['FIRST NAME'],
-          lastName: record.fields['LAST NAME'],
-          bio: record.fields['BIO'],
-          photo: record.fields['PHOTO'],
-          logo: record.fields['LOGO'],
-          "MEMBER LEVEL": record.fields['MEMBER LEVEL'],
-          organizationName: record.fields['ORGANIZATION NAME'],
-          identification: record.fields['IDENTIFICATION'],
-          gender: record.fields['GENDER'],
-          website: record.fields['WEBSITE'],
-          phoneCountryCode: record.fields['PHONE COUNTRY CODE'] || '+1-us',
-          phone: record.fields['PHONE US/CAN ONLY'],
-          primaryIndustry: record.fields['PRIMARY INDUSTRY HOUSE'],
-          additionalFocus: record.fields['ADDITIONAL FOCUS AREAS'] || [],
-          address: record.fields['Address'],
-          zipCode: record.fields['Zip/Postal Code'],
-          youtube: record.fields['YOUTUBE'],
-          nearestCity: record.fields['Location (Nearest City)'],
-          nameFromLocation: record.fields['Name (from Location)'],
-          fundingGoal: record.fields['FUNDING GOAL'],
-          similarCategories: record.fields['Similar Categories'] || [],
-          naicsCode: record.fields['NAICS Code'],
-          includeOnMap: record.fields['Featured'] === 'checked',
-          latitude: record.fields['Latitude'],
-          longitude: record.fields['Longitude'],
-          affiliatedEntity: record.fields['AFFILIATED ENTITY']
-        }
-      }
+      data: mapFields(record.id, record.fields),
     });
-  } catch (error: any) {
-    console.error('❌ [PROD] Error details:', {
-      message: error.message,
-      response: error.response?.data
-    });
-    res.status(500).json({ 
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[get-user]', message);
+    return res.status(500).json({
       error: 'Failed to fetch user profile',
-      details: error.response?.data || error.message
+      details: message,
     });
   }
-} 
+}

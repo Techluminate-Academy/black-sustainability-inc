@@ -1,9 +1,15 @@
-import React from "react";
+"use client";
+
+import React, { useEffect, useState } from "react";
 import BioWithReadMore from "@/components/common/BioWithReadMore";
+import MemberLevelVisibilityHint from "@/components/common/MemberLevelVisibilityHint";
 import icons from "@/icons";
 import BlurText from "../BlurText";
-
-const DEFAULT_PHOTO = "/png/default.png";
+import {
+  BSN_PLATFORM_ICON,
+  getMemberDisplayImage,
+  isPlatformIconUrl,
+} from "@/lib/getMemberDisplayImage";
 
 interface UserProps {
   FIRST_NAME?: string;
@@ -17,33 +23,40 @@ interface UserProps {
   WEBSITE?: string;
   MEMBER_LEVEL?: string;
   imgUrl?: any;
+  fields?: Record<string, unknown> | null;
   PRIMARY_INDUSTRY_HOUSE?: any;
   isAuthenticated: boolean;
 }
 
-const InfoCard: React.FC<UserProps> = ({ isAuthenticated, ...UserProps }) => {
+const InfoCard: React.FC<UserProps> = ({ isAuthenticated, fields, ...UserProps }) => {
+  const resolvedSrc = fields
+    ? getMemberDisplayImage(fields)
+    : typeof UserProps.imgUrl === "string" && UserProps.imgUrl.trim()
+      ? UserProps.imgUrl.trim()
+      : BSN_PLATFORM_ICON;
+  const [photoSrc, setPhotoSrc] = useState(resolvedSrc);
+  const isPlatformIcon = isPlatformIconUrl(photoSrc);
+
+  useEffect(() => {
+    setPhotoSrc(resolvedSrc);
+  }, [resolvedSrc]);
+
   return (
     <div className="popup-info-card" style={{ maxWidth: "280px", minWidth: "250px" }}>
       <div className="flex gap-x-3 items-start ">
         <div className="relative w-[35%] h-[100px] rounded-md overflow-hidden bg-[#f5f5f5]">
           <img
-            src={
-              typeof UserProps.imgUrl === "string" && UserProps.imgUrl.trim()
-                ? UserProps.imgUrl
-                : DEFAULT_PHOTO
-            }
-            className={`w-full h-full object-cover object-center rounded-md ${
-              isAuthenticated ? "" : "blur-md"
-            }`}
+            src={photoSrc}
+            className={`w-full h-full rounded-md ${
+              isPlatformIcon
+                ? "object-contain object-center p-2"
+                : "object-cover object-center"
+            } ${isAuthenticated ? "" : "blur-md"}`}
             alt=""
             loading="lazy"
             decoding="async"
             referrerPolicy="no-referrer"
-            onError={(e) => {
-              const el = e.currentTarget;
-              if (el.src.endsWith(DEFAULT_PHOTO)) return;
-              el.src = DEFAULT_PHOTO;
-            }}
+            onError={() => setPhotoSrc(BSN_PLATFORM_ICON)}
           />
         </div>
         <div className="w-[65%] flex flex-col justify-between gap-y-0.5 h-[100px] p-1 ">
@@ -107,14 +120,17 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, ...UserProps }) => {
           />
         )}
         <div className="h-[1px] bg-black w-full my-1.5"></div>
-        <p className={`text-xs`}>
-          <span className="font-bold">Member Level </span>{" "}
-          {UserProps.MEMBER_LEVEL == "recgWTcJQnfOQW0Dm" &&
-            "👓 Enthusiast -Excited to Learn"}
-          {UserProps.MEMBER_LEVEL == "rectzSiMASJ9OcN52" &&
-            "🥋 Expert - Experienced Professional"}
-          {UserProps.MEMBER_LEVEL == "recGP35SbgqyZ4FQN" &&
-            "🏢 Entity - Black & Green Organization"}
+        <p className="text-xs flex flex-wrap items-center gap-x-1 gap-y-0.5">
+          <span className="font-bold">Member Level</span>
+          <MemberLevelVisibilityHint />
+          <span>
+            {UserProps.MEMBER_LEVEL == "recgWTcJQnfOQW0Dm" &&
+              "👓 Enthusiast -Excited to Learn"}
+            {UserProps.MEMBER_LEVEL == "rectzSiMASJ9OcN52" &&
+              "🥋 Expert - Experienced Professional"}
+            {UserProps.MEMBER_LEVEL == "recGP35SbgqyZ4FQN" &&
+              "🏢 Entity - Black & Green Organization"}
+          </span>
         </p>
 
         <a

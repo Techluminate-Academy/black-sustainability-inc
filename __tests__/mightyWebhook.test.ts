@@ -34,7 +34,7 @@ jest.mock("../lib/airtableMightyMembers", () => ({
 
 describe("buildMightyWebhookDedupeKey", () => {
   it("differs by event type for the same upstream id", () => {
-    const base = { id: "up_1", member: { id: 1, email: "a@b.co" } };
+    const base = { event_id: "up_1", member: { id: 1, email: "a@b.co" } };
     const k1 = buildMightyWebhookDedupeKey({ ...base, type: "MemberUpdated" } as any);
     const k2 = buildMightyWebhookDedupeKey({
       ...base,
@@ -48,7 +48,7 @@ describe("buildMightyWebhookDedupeKey", () => {
   it("includes member and space scope when present", () => {
     const k = buildMightyWebhookDedupeKey({
       type: "MemberJoined",
-      id: "e1",
+      event_id: "e1",
       member_id: 42,
       space: { id: "space_9" },
     } as any);
@@ -96,7 +96,7 @@ describe("upsertMightyMemberFromWebhook", () => {
 
     const payload = {
       type: "MemberUpdated",
-      id: "evt_1",
+      event_id: "evt_1",
       created_at: "2026-01-01T00:00:00Z",
       member_id: 123,
     };
@@ -119,7 +119,7 @@ describe("upsertMightyMemberFromWebhook", () => {
     });
 
     const base = {
-      id: "shared_upstream_1",
+      event_id: "shared_upstream_1",
       created_at: "2026-01-01T00:00:00Z",
       member: {
         id: 123,

@@ -2,6 +2,10 @@
  * Server-only Airtable access for free-signup / public form flows.
  * Prefer AIRTABLE_PAT (or AIRTABLE_ACCESS_TOKEN) over NEXT_PUBLIC_* on the server.
  */
+import redis from "../redis";
+import CACHE_EXPIRY from "../../constants/CacheExpiry";
+
+const FREE_SIGNUP_META_CACHE_KEY = "airtable:free-signup:metadata:v1";
 
 function getApiKey(): string {
   const k =
@@ -104,6 +108,15 @@ export type FreeSignupFieldMeta = {
 };
 
 export async function fetchFreeSignupTableFieldMetadata(): Promise<FreeSignupFieldMeta[]> {
+  try {
+    const cached = await redis.get(FREE_SIGNUP_META_CACHE_KEY);
+    if (cached) {
+      return JSON.parse(cached) as FreeSignupFieldMeta[];
+    }
+  } catch (e) {
+    console.warn("[airtableFreeSignup] metadata cache read failed:", (e as Error)?.message);
+  }
+
   const baseId = getBaseId();
   const tableName = getTableName();
   const url = `https://api.airtable.com/v0/meta/bases/${encodeURIComponent(baseId)}/tables`;
@@ -119,7 +132,7 @@ export async function fetchFreeSignupTableFieldMetadata(): Promise<FreeSignupFie
     throw new Error(`Airtable table '${tableName}' not found in base metadata.`);
   }
 
-  return (targetTable.fields as any[]).map((field: any) => {
+  const metadata = (targetTable.fields as any[]).map((field: any) => {
     let options: Array<{ id: string; name: string; icon: unknown }> = [];
     if (field.type === "singleSelect" || field.type === "multipleSelects") {
       options = (field.options?.choices || [])
@@ -144,6 +157,14 @@ export async function fetchFreeSignupTableFieldMetadata(): Promise<FreeSignupFie
       options,
     };
   });
+
+  try {
+    await redis.setex(FREE_SIGNUP_META_CACHE_KEY, CACHE_EXPIRY, JSON.stringify(metadata));
+  } catch (e) {
+    console.warn("[airtableFreeSignup] metadata cache write failed:", (e as Error)?.message);
+  }
+
+  return metadata;
 }
 
 export async function fetchFreeSignupRecordById(

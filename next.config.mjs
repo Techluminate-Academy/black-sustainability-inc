@@ -44,7 +44,17 @@ const nextConfig = {
         hostname: 'lh3.googleusercontent.com',
         port: '',
         pathname: '/**',
-      }
+      },
+      {
+        protocol: 'https',
+        hostname: '**.mn.co',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.mightynetworks.com',
+        pathname: '/**',
+      },
     ],
     // Optimize images for mobile
     formats: ['image/webp', 'image/avif'],

@@ -1,10 +1,17 @@
 import { createMocks } from 'node-mocks-http';
 import sendVerification from '../../pages/api/auth/send-verification';
 import nodemailer from 'nodemailer';
-import axios from 'axios';
 
 jest.mock('nodemailer');
-jest.mock('axios');
+jest.mock('@/lib/server/memberDirectoryLookup', () => ({
+  findDirectoryMemberByEmail: jest.fn().mockResolvedValue({
+    recordId: 'rec123',
+    firstName: 'Test',
+    lastName: 'User',
+    email: 'test@example.com',
+    source: 'mongo_airtableRecords',
+  }),
+}));
 jest.mock('@/lib/mongodb', () => ({
   connectToDatabase: jest.fn().mockResolvedValue({
     db: {
@@ -26,21 +33,6 @@ describe('Send Verification API', () => {
     const mockSendMail = jest.fn().mockResolvedValue({ messageId: 'test-id' });
     (nodemailer.createTransport as jest.Mock).mockReturnValue({
       sendMail: mockSendMail,
-    });
-
-    (axios.get as jest.Mock).mockResolvedValue({
-      data: {
-        records: [
-          {
-            id: 'rec123',
-            fields: {
-              'FIRST NAME': 'Test',
-              'LAST NAME': 'User',
-              'EMAIL ADDRESS': 'test@example.com',
-            },
-          },
-        ],
-      },
     });
 
     const { req, res } = createMocks({
@@ -88,19 +80,13 @@ describe('Send Verification API', () => {
       sendMail: mockSendMail,
     });
 
-    (axios.get as jest.Mock).mockResolvedValue({
-      data: {
-        records: [
-          {
-            id: 'rec123',
-            fields: {
-              'FIRST NAME': 'Test',
-              'LAST NAME': 'User',
-              'EMAIL ADDRESS': 'test@example.com',
-            },
-          },
-        ],
-      },
+    const { findDirectoryMemberByEmail } = require('@/lib/server/memberDirectoryLookup');
+    (findDirectoryMemberByEmail as jest.Mock).mockResolvedValueOnce({
+      recordId: 'rec123',
+      firstName: 'Test',
+      lastName: 'User',
+      email: 'test@example.com',
+      source: 'airtable',
     });
 
     const { req, res } = createMocks({

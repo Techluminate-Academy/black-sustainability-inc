@@ -13,8 +13,13 @@
     "test": "jest",
     "test:ci": "jest --ci --reporters=default",
     "test:watch": "jest --watch",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "case-study:screenshots": "playwright test e2e/case-study-screenshots.spec.ts",
     "typecheck": "tsc --noEmit",
     "setup-master-forms": "ts-node -r tsconfig-paths/register scripts/setup-master-forms.ts",
+    "setup-support-tickets": "ts-node -r tsconfig-paths/register scripts/setup-support-tickets-collection.ts",
     "wix-fetch": "ts-node -r tsconfig-paths/register scripts/wix-fetch-subscriptions.ts",
     "wix-airtable-sync-dryrun": "tsx scripts/wix-airtable-sync-dryrun.ts",
     "wix-airtable-sync-apply": "tsx scripts/wix-airtable-sync-apply.ts"
@@ -107,6 +112,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.27.4",
+    "@playwright/test": "^1.60.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",

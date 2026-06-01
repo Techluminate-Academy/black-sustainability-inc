@@ -8,7 +8,6 @@ import GooglePlacesAutocomplete, {
   getLatLng,
 } from "react-google-places-autocomplete";
 import { geocodeAddress } from "@/utils/geocode.js"; // <-- Our geocoding helper
-import AirtableUtils from "@/pages/api/submitForm";
 import { parsePhoneNumberFromString, CountryCode } from "libphonenumber-js";
 // Import allCountries from country-telephone-data
 import Image from 'next/image';
@@ -862,7 +861,9 @@ const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) 
   useEffect(() => {
     const fetchDropdownOptions = async () => {
       try {
-        const dropdownData = await AirtableUtils.fetchTableMetadata();
+        const metaRes = await fetch("/api/airtable/roster-metadata");
+        if (!metaRes.ok) throw new Error("Failed to load form metadata");
+        const dropdownData = await metaRes.json();
         console.log("Airtable Dropdown Data:", JSON.stringify(dropdownData, null, 2));
         
         const countryField = dropdownData.find((f: any) => f.fieldName === "Country");
@@ -1068,28 +1069,24 @@ const BSNRegistrationForm: React.FC<Props> = ({ initialData, onSubmitSuccess }) 
         // Debug log final Airtable fields
         console.log("Final Airtable fields:", finalAirtableFields);
 
-        // First, try to find existing record by email
-        const url = `https://api.airtable.com/v0/${process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID}/${process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME}`;
-        const searchResponse = await fetch(url + `?filterByFormula={EMAIL ADDRESS}='${formData.email}'`, {
-            headers: {
-                'Authorization': `Bearer ${process.env.NEXT_PUBLIC_AIRTABLE_ACCESS_TOKEN}`,
-                'Content-Type': 'application/json',
-            },
+        const saveRes = await fetch("/api/airtable/roster-record", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: formData.email,
+            fields: finalAirtableFields,
+          }),
         });
-        
-        const searchData = await searchResponse.json();
-        
-        let response;
-        if (searchData.records && searchData.records.length > 0) {
-            // Record exists, update it
-            const recordId = searchData.records[0].id;
-            response = await AirtableUtils.updateRecord(recordId, finalAirtableFields);
-            console.log("Airtable record updated:", response);
-        } else {
-            // No existing record, create new one
-            response = await AirtableUtils.submitToAirtable(finalAirtableFields);
-            console.log("New Airtable record created:", response);
+        const response = await saveRes.json();
+        if (!saveRes.ok) {
+          throw new Error(response?.error || "Failed to save registration");
         }
+        console.log(
+          response.action === "updated"
+            ? "Airtable record updated:"
+            : "New Airtable record created:",
+          response
+        );
 
         setStatus("success");
         setIsFormSubmitted(true);
