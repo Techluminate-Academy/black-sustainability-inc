@@ -61,6 +61,7 @@ const UserCard: React.FC<IProps> = ({
       onClick={onClick}
       role={onClick ? "button" : undefined}
       style={onClick ? { cursor: "pointer" } : undefined}
+      data-testid="member-card"
     >
       <div className="relative w-full aspect-[4/3] max-h-[280px] sm:max-h-[260px] min-h-[160px] rounded-xl overflow-hidden bg-[#FFF8E5]">
         <img

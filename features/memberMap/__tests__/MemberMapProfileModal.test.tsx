@@ -79,7 +79,7 @@ describe("MemberMapProfileModal", () => {
     expect(screen.getByTestId("member-level-visibility-hint")).toBeInTheDocument();
 
     const bsnLink = screen.getByTestId("member-map-profile-bsn-link");
-    expect(bsnLink).toHaveAttribute("href", "https://www.blacksustainability.org/");
+    expect(bsnLink).toHaveAttribute("href", "https://black-sustainability-network.mn.co/");
     expect(bsnLink).toHaveAttribute("target", "_blank");
     expect(bsnLink).toHaveTextContent("Visit the Black Sustainability Network");
     expect(screen.getByTestId("member-map-profile-info-hint")).toBeInTheDocument();
@@ -105,7 +105,7 @@ describe("MemberMapProfileModal", () => {
 
     const bsnLink = screen.getByTestId("member-map-profile-bsn-link");
     expect(bsnLink).toBeInTheDocument();
-    expect(bsnLink).toHaveAttribute("href", "https://www.blacksustainability.org/");
+    expect(bsnLink).toHaveAttribute("href", "https://black-sustainability-network.mn.co/");
 
     resolveFetch({
       ok: true,

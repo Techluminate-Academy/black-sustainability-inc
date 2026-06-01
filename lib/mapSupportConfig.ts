@@ -4,6 +4,10 @@ export const MAP_HELP_INTRO = "Running into any issues? Let us know here:";
 /** Main Black Sustainability Network site (member-facing). */
 export const BLACK_SUSTAINABILITY_NETWORK_HOME_URL = "https://www.blacksustainability.org/";
 
+/** Mighty Networks community — profile preview “Visit the Black Sustainability Network”. */
+export const BLACK_SUSTAINABILITY_NETWORK_COMMUNITY_URL =
+  "https://black-sustainability-network.mn.co/";
+
 /** Mongo collection that stores member-submitted support tickets. */
 export const SUPPORT_TICKETS_COLLECTION = "supportTickets";
 

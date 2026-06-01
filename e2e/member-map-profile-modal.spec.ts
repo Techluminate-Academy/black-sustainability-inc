@@ -38,7 +38,7 @@ test.describe("Member map profile modal", () => {
     await expect(page.getByTestId("member-level-visibility-hint")).toBeVisible();
     const bsnLink = page.getByTestId("member-map-profile-bsn-link");
     await expect(bsnLink).toBeVisible();
-    await expect(bsnLink).toHaveAttribute("href", "https://www.blacksustainability.org/");
+    await expect(bsnLink).toHaveAttribute("href", "https://black-sustainability-network.mn.co/");
     await expect(bsnLink).toHaveText("Visit the Black Sustainability Network");
     await page.getByTestId("member-level-visibility-hint").click();
     await expect(page.getByTestId("member-level-visibility-tooltip")).toBeVisible();

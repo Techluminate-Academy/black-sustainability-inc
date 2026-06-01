@@ -32,7 +32,10 @@ const Sidebar: React.FC<IProps> = ({
 
   if (viewportEmpty && filteredData?.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-[80vh] bg-[#FFF8E5] px-6 text-center">
+      <div
+        className="flex flex-col items-center justify-center h-[80vh] bg-[#FFF8E5] px-6 text-center"
+        data-testid="sidebar-viewport-empty"
+      >
         <p className="text-lg font-semibold">No members visible in this area.</p>
         <p className="text-sm mt-2">
           Try zooming out or searching by city, state, country, organization, or industry.
@@ -44,7 +47,10 @@ const Sidebar: React.FC<IProps> = ({
   // Only show the "No results found" message if a search has been performed and no results exist.
   if (hasSearched && filteredData?.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-[80vh] bg-[#FFF8E5]">
+      <div
+        className="flex flex-col items-center justify-center h-[80vh] bg-[#FFF8E5]"
+        data-testid="sidebar-search-empty"
+      >
         <div>
           <p className="text-lg font-semibold">No results found</p>
         </div>

@@ -52,6 +52,7 @@ export default function MemberAccessModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="member-access-title"
+      data-testid="member-access-modal"
       onClick={onClose}
     >
       <div
@@ -63,6 +64,7 @@ export default function MemberAccessModal({
           className="absolute right-3 top-3 sm:right-4 sm:top-4 min-h-[44px] min-w-[44px] rounded-full p-2 flex items-center justify-center bg-[#EB4335] font-bold"
           onClick={onClose}
           aria-label="Close"
+          data-testid="member-access-close"
         >
           <icons.close />
         </button>
@@ -106,6 +108,7 @@ export default function MemberAccessModal({
             type="button"
             onClick={() => router.push(MEMBER_ACCESS_SIGNIN_ROUTE)}
             className="mt-2 flex gap-x-2 items-center justify-center w-full min-h-[44px] px-5 py-3 bg-[#FFBF23] text-black font-semibold rounded-full hover:bg-yellow-400 transition-colors text-sm sm:text-base"
+            data-testid="member-access-cta"
           >
             {MEMBER_ACCESS_CTA_LABEL}
           </button>

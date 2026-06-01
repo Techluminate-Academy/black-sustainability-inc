@@ -746,6 +746,7 @@ export default function Home() {
         // Keep loading states urgent (user needs immediate feedback)
         setLoading(true);
         setPreloaderSidebar(true);
+        setHasSearched(true);
 
         fetch(`/api/searchData?page=1&limit=100&q=${encodeURIComponent(searchQuery)}`, { credentials: "include" })
           .then((response) => response.json())
@@ -793,6 +794,7 @@ export default function Home() {
       } else {
         // If search query is empty, reset to original data and restore list total for filters
         if (!initialDataLoadedRef.current) return;
+        setHasSearched(false);
         startTransition(() => {
           setFilteredData(OriginalData);
           setViewportBoundsFetched(false);
@@ -1146,9 +1148,10 @@ export default function Home() {
             ref={sidebarRef}
             className="sm:w-[48%] w-full pb-4 flex flex-col justify-start items-stretch h-screen overflow-scroll"
             data-tour="sidebar"
+            data-testid="sidebar-container"
           >
             <div className="bg-[#FFF8E5] py-2 sticky left-0 top-0 w-full flex flex-col items-center justify-center z-10">
-              <div className="w-[95%]">
+              <div className="w-[95%]" data-testid="industry-filter">
                 <Select
                   placeholder="Select Industry House"
                   isSearchable
@@ -1161,6 +1164,7 @@ export default function Home() {
               <div className="w-[95%] relative">
                 <input
                   data-tour="search-input"
+                  data-testid="map-search-input"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="bg-white border outline-none w-full px-5 py-2 rounded-full text-sm placeholder:capitalize placeholder:text-xs"

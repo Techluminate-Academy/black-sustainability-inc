@@ -9,7 +9,7 @@ import MapProfileInfoHint from "@/components/common/MapProfileInfoHint";
 import MemberLevelVisibilityHint from "@/components/common/MemberLevelVisibilityHint";
 import icons from "@/icons";
 import type { MemberMapProfileView } from "@/lib/domain/members/memberMapProfileView.service";
-import { BLACK_SUSTAINABILITY_NETWORK_HOME_URL } from "@/lib/mapSupportConfig";
+import { BLACK_SUSTAINABILITY_NETWORK_COMMUNITY_URL } from "@/lib/mapSupportConfig";
 
 const DEFAULT_PHOTO = "/png/default.png";
 const NOT_PROVIDED = "Not provided";
@@ -253,7 +253,7 @@ export default function MemberMapProfileModal({
 
           <footer className="mt-4 pt-4 border-t border-gray-100">
             <a
-              href={BLACK_SUSTAINABILITY_NETWORK_HOME_URL}
+              href={BLACK_SUSTAINABILITY_NETWORK_COMMUNITY_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex min-h-[44px] items-center text-sm text-green-700 hover:text-green-800 underline underline-offset-2 decoration-green-700/40 hover:decoration-green-800"

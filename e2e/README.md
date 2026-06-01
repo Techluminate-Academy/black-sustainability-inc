@@ -27,6 +27,14 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
+Mobile member map UX (375 / 390 / 430px):
+
+```bash
+npm run test:e2e -- e2e/bsn-member-map-mobile.spec.ts
+```
+
+See [docs/BSN_MEMBER_MAP_MOBILE_PLAYWRIGHT_QA.md](../docs/BSN_MEMBER_MAP_MOBILE_PLAYWRIGHT_QA.md) for coverage and QA notes.
+
 The runner starts **BSN on port 3100** (not 3000) so it does not collide with other local Next apps.
 
 ```bash
