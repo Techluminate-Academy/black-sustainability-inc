@@ -982,10 +982,16 @@ export default function Home() {
     }
   }, [isAuthenticated, loadedData.length, filteredData.length, popupDismissed]);
 
+  // mapLocations powers the initial global marker load before any pan/zoom.
+  // After viewportBoundsFetched, filteredData (bbox from /api/getMarkers) keeps markers and sidebar aligned.
+  // Search/filter modes also use filteredData because results are already mode-specific.
+  const isSearchOrFilterMode =
+    searchQuery.trim() !== "" || selectedIndustry !== "";
+
   const mapMarkerData =
-    searchQuery.trim() === "" && selectedIndustry === ""
-      ? mapLocations
-      : filteredData;
+    isSearchOrFilterMode || viewportBoundsFetched
+      ? filteredData
+      : mapLocations;
 
   // --------------------------------------------------------------------
   // 9. Render Component
