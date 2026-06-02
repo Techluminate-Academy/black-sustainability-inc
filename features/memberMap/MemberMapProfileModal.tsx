@@ -182,7 +182,9 @@ export default function MemberMapProfileModal({
           <p className="text-xs text-gray-600 mb-4 leading-relaxed">
             Preview of what other members see on the map. Use{" "}
             <span className="font-semibold text-gray-800">My location</span> in the menu to move
-            your pin. Member level is set by BSN and cannot be edited here.
+            your pin. To update your profile information, click the{" "}
+            <span className="font-semibold text-gray-800">My profile</span> button. Member level is
+            set by BSN and cannot be edited here.
           </p>
 
           {showLoading && (
