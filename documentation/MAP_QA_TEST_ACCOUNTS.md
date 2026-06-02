@@ -26,15 +26,23 @@ node -r dotenv/config scripts/select-map-visibility-test-members.js
 |-------|-------|--------|
 | Jerry (dev) | `jerry@techluminateacademy.com` | E2E fixtures + local testing; may or may not be paid on the map |
 
-## Optional: impersonation (allowlisted staff only)
+## Optional: impersonation (approved QA testers only)
 
 For QA without changing real subscription data:
 
-1. Sign in with your staff email (must be on `BSN_IMPERSONATE_ALLOWLIST`).
-2. Use the **Tester impersonation** toolbar to view the map as **paid** or **unpaid**.
-3. Or `POST /api/test/impersonate` with `BSN_IMPERSONATE_SECRET`.
+1. Sign in with your **Mighty email** (must be an approved QA tester — see table below).
+2. Use the **Tester impersonation** toolbar (bottom-right) to view the map as **paid** or **unpaid**.
+3. Or `POST /api/test/impersonate` with `BSN_IMPERSONATE_SECRET` (scripts).
 
-See `.env.example` (`BSN_IMPERSONATE_*`).
+Built-in tester emails (`lib/qaTesterAllowlist.ts`):
+
+| Tester | Mighty / sign-in email |
+|--------|-------------------------|
+| Jerry (dev) | `jerry@techluminateacademy.com` |
+| Kelyce | `kelyce@blacksustainability.org` |
+| Alexis (Vidot) | `alexis.vidot@gmail.com`, `research@blacksustainability.org` |
+
+Additional emails: set `BSN_IMPERSONATE_ALLOWLIST` (merged with the built-in list). See `.env.example` (`BSN_IMPERSONATE_*`).
 
 ## Profile photos
 

@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import type { NextApiRequest } from "next";
 import { getBsnSessionFromReq, parseCookieHeader } from "@/lib/bsnSession";
+import { canAccessTesterTools } from "@/lib/qaTesterAllowlist";
 
 export const BSN_IMPERSONATE_COOKIE = "bsn_impersonate";
 
@@ -41,20 +42,8 @@ export function verifyImpersonationToken(token: string): ImpersonationPayload | 
   }
 }
 
-function parseAllowlist(): Set<string> {
-  const raw = process.env.BSN_IMPERSONATE_ALLOWLIST || "";
-  return new Set(
-    raw
-      .split(/[,\n]/g)
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean)
-  );
-}
-
 export function isImpersonationAllowedForEmail(email: string): boolean {
-  const allow = parseAllowlist();
-  if (!allow.size) return false;
-  return allow.has(String(email).trim().toLowerCase());
+  return canAccessTesterTools(email);
 }
 
 export function getImpersonationModeFromReq(req: NextApiRequest): ImpersonationMode | null {
