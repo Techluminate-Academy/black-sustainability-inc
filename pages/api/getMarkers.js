@@ -3,6 +3,7 @@ import { connectToDatabase } from "../../lib/mongodb";
 import { promisify } from "util";
 import zlib from "zlib";
 import { getExcludeViewerMighty } from "../../lib/mapViewerGating";
+import { memberBioCoalesceExpr } from "../../lib/memberBio";
 import CACHE_EXPIRY from '../../constants/CacheExpiry';
 
 const COLLECTION_NAME = "mightyMembers";
@@ -64,7 +65,7 @@ function buildMarkerPipeline({ excludeMongoId, excludeMightyId, bounds }) {
         "LAST NAME": "$lastName",
         "EMAIL ADDRESS": "$email",
         WEBSITE: { $literal: "" },
-        BIO: "$bio",
+        BIO: memberBioCoalesceExpr(),
         "MEMBER LEVEL": { $literal: "" },
         "PRIMARY INDUSTRY HOUSE": "$industry",
         "Location (Nearest City)": "$location",
@@ -93,7 +94,7 @@ function buildMarkerPipeline({ excludeMongoId, excludeMightyId, bounds }) {
 
 export default async function handler(req, res) {
   try {
-    const cacheKey = `map-locations:v5:${COLLECTION_NAME}`;
+    const cacheKey = `map-locations:v6:${COLLECTION_NAME}`;
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
     const bounds = parseBoundsQuery(req.query);

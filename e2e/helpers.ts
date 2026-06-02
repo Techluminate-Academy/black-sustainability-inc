@@ -12,6 +12,8 @@ export type FixtureAction =
   | "clearOptOut"
   | "setOptOut";
 
+export type BioFixtureAction = "setBio" | "setLegacyFieldsBio" | "clearBio";
+
 export async function applyMemberFixture(
   request: APIRequestContext,
   action: FixtureAction,
@@ -41,6 +43,27 @@ export async function loginAs(
     },
     { timeout: 60_000 }
   );
+}
+
+export async function applyBioFixture(
+  request: APIRequestContext,
+  action: BioFixtureAction,
+  options?: { email?: string; bio?: string }
+): Promise<void> {
+  const email = options?.email ?? E2E_EMAIL;
+  const body: Record<string, string> = {
+    secret: E2E_SECRET,
+    email,
+    action,
+  };
+  if (action === "setBio" || action === "setLegacyFieldsBio") {
+    body.bio = options?.bio ?? "E2E Playwright bio for map profile QA.";
+  }
+  const res = await request.post("/api/test/member-bio-fixture", { data: body });
+  if (!res.ok()) {
+    const text = await res.text();
+    throw new Error(`Bio fixture ${action} failed (${res.status()}): ${text}`);
+  }
 }
 
 export async function logoutViaApi(request: APIRequestContext): Promise<void> {

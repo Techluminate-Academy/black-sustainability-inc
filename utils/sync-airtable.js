@@ -189,7 +189,15 @@ const syncAirtableToMongoDB = async () => {
           firstName: (f["First Name"] || "").toString(),
           lastName: (f["Last Name"] || "").toString(),
           location: (f["City"] || "").toString(),
-          bio: (f["Short Bio"] || "").toString(),
+          bio: (
+            f["Short Bio"] ||
+            f["BIO"] ||
+            f["Bio"] ||
+            f["Member Bio"] ||
+            f["About"] ||
+            f["Description"] ||
+            ""
+          ).toString(),
           avatarUrl: (f["Profile Photo URL"] || "").toString(),
           industry: (f["Industry / Sector"] || "").toString(),
           latitude: hasCoords ? lat : null,

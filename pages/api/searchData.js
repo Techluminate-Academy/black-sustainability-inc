@@ -52,6 +52,8 @@ export default async function handler(req, res) {
               { industry: re },
               { location: re },
               { bio: re },
+              { "fields.BIO": re },
+              { "fields.Short Bio": re },
             ],
           };
         };

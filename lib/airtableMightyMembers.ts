@@ -1,3 +1,5 @@
+import { getMemberBioFromAirtableFields } from "@/lib/memberBio";
+
 type AirtableRecord = {
   id: string;
   fields: Record<string, any>;
@@ -10,6 +12,7 @@ export type AirtableMightyMemberLookup = {
   firstName: string | null;
   lastName: string | null;
   location: string | null;
+  bio: string | null;
   subscriptionStatuses: string[];
 };
 
@@ -35,11 +38,122 @@ function getTableNameOrId(): string | null {
   );
 }
 
-function airtableEnabled(): boolean {
+export function airtableEnabled(): boolean {
   // If env vars exist, we sync by default.
   // Optionally allow explicit disabling.
   if (process.env.AIRTABLE_MIGHTY_WEBHOOK_SYNC === "0") return false;
   return Boolean(getAirtableApiKey() && getBaseId() && getTableNameOrId());
+}
+
+export type MightySyncTableConfig = {
+  apiKey: string;
+  baseId: string;
+  table: string;
+};
+
+export function getMightySyncTableConfig(): MightySyncTableConfig | null {
+  const apiKey = getAirtableApiKey();
+  const baseId = getBaseId();
+  const table = getTableNameOrId();
+  if (!apiKey || !baseId || !table) return null;
+  return { apiKey, baseId, table };
+}
+
+/** Checkbox + optional metadata for client migration unsubscribe outreach. */
+export function getAirtableMigrationExcludedFieldName(): string {
+  return (process.env.AIRTABLE_MIGRATION_EXCLUDED_FIELD || "Migration Excluded").trim();
+}
+
+export function getAirtableMigrationExcludedAtFieldName(): string | null {
+  const name = (process.env.AIRTABLE_MIGRATION_EXCLUDED_AT_FIELD || "Migration Excluded At").trim();
+  return name.length ? name : null;
+}
+
+export function getAirtableMigrationExcludedReasonFieldName(): string | null {
+  const name = (process.env.AIRTABLE_MIGRATION_EXCLUDED_REASON_FIELD || "Migration Excluded Reason").trim();
+  return name.length ? name : null;
+}
+
+export function buildMigrationExcludedAirtableFields(params?: {
+  reason?: string;
+  flaggedAt?: Date;
+}): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
+  const flagField = getAirtableMigrationExcludedFieldName();
+  if (flagField) fields[flagField] = true;
+
+  const atField = getAirtableMigrationExcludedAtFieldName();
+  if (atField) fields[atField] = (params?.flaggedAt ?? new Date()).toISOString();
+
+  const reasonField = getAirtableMigrationExcludedReasonFieldName();
+  if (reasonField) {
+    fields[reasonField] =
+      params?.reason?.trim() || "client-excluded-email-blast-list";
+  }
+  return fields;
+}
+
+export async function patchAirtableMightyMemberByRecordId(
+  recordId: string,
+  fields: Record<string, unknown>
+): Promise<void> {
+  const cfg = getMightySyncTableConfig();
+  if (!cfg) throw new Error("Airtable Mighty sync not configured");
+  if (!recordId?.trim()) throw new Error("recordId required");
+  if (!Object.keys(fields).length) throw new Error("fields required");
+
+  const baseUrl = `https://api.airtable.com/v0/${encodeURIComponent(cfg.baseId)}/${encodeURIComponent(cfg.table)}`;
+  await airtableFetchJson(baseUrl, {
+    method: "PATCH",
+    body: JSON.stringify({ records: [{ id: recordId, fields }] }),
+  });
+}
+
+export type MightySyncRowMissingMemberId = {
+  recordId: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+};
+
+export async function fetchMightySyncRowsMissingMemberId(opts?: {
+  includeBlankEmail?: boolean;
+}): Promise<{ rows: MightySyncRowMissingMemberId[] }> {
+  const cfg = getMightySyncTableConfig();
+  if (!cfg) return { rows: [] };
+
+  const formula = opts?.includeBlankEmail
+    ? "{Mighty Member ID} = BLANK()"
+    : 'AND({Primary Email} != "", {Mighty Member ID} = BLANK())';
+
+  const tableEnc = encodeURIComponent(cfg.table);
+  const baseUrl = `https://api.airtable.com/v0/${encodeURIComponent(cfg.baseId)}/${tableEnc}`;
+  const rows: MightySyncRowMissingMemberId[] = [];
+  let offset: string | undefined;
+
+  do {
+    const q = new URLSearchParams({
+      pageSize: "100",
+      filterByFormula: formula,
+    });
+    if (offset) q.set("offset", offset);
+    const data = (await airtableFetchJson(`${baseUrl}?${q.toString()}`, { method: "GET" })) as {
+      records?: AirtableRecord[];
+      offset?: string;
+    };
+    for (const r of data.records ?? []) {
+      const f = r.fields || {};
+      rows.push({
+        recordId: r.id,
+        email: typeof f["Primary Email"] === "string" ? f["Primary Email"] : null,
+        firstName: typeof f["First Name"] === "string" ? f["First Name"] : null,
+        lastName: typeof f["Last Name"] === "string" ? f["Last Name"] : null,
+      });
+    }
+    offset = data.offset;
+  } while (offset);
+
+  return { rows };
 }
 
 function normalizeEmail(v: unknown): string | null {
@@ -182,6 +296,7 @@ export async function findAirtableMightyMemberByEmail(
     firstName: typeof f["First Name"] === "string" ? f["First Name"] : null,
     lastName: typeof f["Last Name"] === "string" ? f["Last Name"] : null,
     location: typeof f["City"] === "string" ? f["City"] : null,
+    bio: getMemberBioFromAirtableFields(f),
     subscriptionStatuses,
   };
 }

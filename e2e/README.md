@@ -54,3 +54,21 @@ npm run test:e2e:headed  # visible browser
 | `clearOptOut` / `setOptOut` | Toggles “Don’t ask again” |
 
 Body: `{ "secret": "...", "email": "...", "action": "clearLocation" }`
+
+### Bio fixture (map profile / markers QA)
+
+`POST /api/test/member-bio-fixture`:
+
+| action | effect |
+|--------|--------|
+| `setBio` | Sets top-level `bio` on allowlisted member |
+| `setLegacyFieldsBio` | Sets only `fields.BIO` (legacy Airtable shape) |
+| `clearBio` | Clears bio fields |
+
+Body: `{ "secret": "...", "email": "...", "action": "setLegacyFieldsBio", "bio": "..." }`
+
+Run bio QA:
+
+```bash
+npm run test:e2e -- e2e/member-bio-qa.spec.ts
+```

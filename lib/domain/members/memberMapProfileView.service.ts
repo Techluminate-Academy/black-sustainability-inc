@@ -1,7 +1,9 @@
 import type { BsnSessionPayload } from "@/lib/bsnSession";
+import { findAirtableMightyMemberByEmail } from "@/lib/airtableMightyMembers";
 import { HARDCODED_MEMBER_LEVELS } from "@/constants/member-levels";
 import { buildSessionMemberProfile } from "@/lib/domain/members/memberSessionProfile.service";
 import { fetchMightyProfileCustomFields } from "@/lib/domain/members/memberMightyCustomFields";
+import { getMemberBio } from "@/lib/memberBio";
 import type { Db } from "mongodb";
 
 export type MemberMapProfileView = {
@@ -84,19 +86,32 @@ export async function getMemberMapProfileView(
   const photoUrl =
     nonEmptyString(doc?.avatarUrl) ?? nonEmptyString(sessionProfile.avatarUrl) ?? "";
 
-  const mongoBio = nonEmptyString(doc?.bio);
+  const mongoBio = getMemberBio(doc);
   const mongoOrg = organizationFromDoc(doc);
 
   let bio = mongoBio;
   let organizationName = mongoOrg;
+
+  if (!bio && email) {
+    try {
+      const fromAirtable = await findAirtableMightyMemberByEmail(email);
+      if (fromAirtable?.bio) bio = fromAirtable.bio;
+    } catch (e) {
+      console.warn("[memberMapProfileView] Airtable bio lookup failed:", {
+        message: (e as Error)?.message,
+      });
+    }
+  }
+
   if (typeof session.mightyId === "number" && Number.isFinite(session.mightyId)) {
     try {
       const fromMighty = await fetchMightyProfileCustomFields(session.mightyId);
-      if (fromMighty.bio != null) bio = fromMighty.bio;
+      if (fromMighty.bio) bio = fromMighty.bio;
       if (fromMighty.organizationName != null) organizationName = fromMighty.organizationName;
 
       const heal: Record<string, unknown> = {};
-      if (fromMighty.bio != null && fromMighty.bio !== mongoBio) heal.bio = fromMighty.bio;
+      if (fromMighty.bio && fromMighty.bio !== mongoBio) heal.bio = fromMighty.bio;
+      if (!fromMighty.bio && bio && bio !== mongoBio) heal.bio = bio;
       if (
         fromMighty.organizationName != null &&
         fromMighty.organizationName !== mongoOrg

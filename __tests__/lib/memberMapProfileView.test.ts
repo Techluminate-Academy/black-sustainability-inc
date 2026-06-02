@@ -5,8 +5,13 @@ const mockFindOne = jest.fn(async () => ({
   firstName: "Jerry",
   lastName: "Bony",
   email: "jerry@example.com",
-  bio: "stale mongo bio",
+  fields: { BIO: "bio from airtable-shaped mongo fields" },
   organizationName: null,
+}));
+
+const mockAirtableLookup = jest.fn(async () => null);
+jest.mock("@/lib/airtableMightyMembers", () => ({
+  findAirtableMightyMemberByEmail: (...args: unknown[]) => mockAirtableLookup(...args),
 }));
 
 jest.mock("@/lib/domain/members/memberSessionProfile.service", () => ({
@@ -31,6 +36,26 @@ describe("getMemberMapProfileView", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("reads bio from nested fields.BIO when top-level bio is missing", async () => {
+    const db = {
+      collection: () => ({
+        findOne: mockFindOne,
+        updateOne: mockUpdateOne,
+      }),
+    } as unknown as import("mongodb").Db;
+
+    const { fetchMightyProfileCustomFields } = await import(
+      "@/lib/domain/members/memberMightyCustomFields"
+    );
+    (fetchMightyProfileCustomFields as jest.Mock).mockResolvedValueOnce({
+      bio: null,
+      organizationName: null,
+    });
+
+    const view = await getMemberMapProfileView(db, session);
+    expect(view.bio).toBe("bio from airtable-shaped mongo fields");
   });
 
   it("prefers Mighty custom field bio over stale Mongo", async () => {

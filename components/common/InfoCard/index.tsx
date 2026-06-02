@@ -114,12 +114,9 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, fields, ...UserProps }
         </div>
       </div>
       <div className="mt-2 text-xs leading-4 flex flex-col gap-y-0.5">
-        {isAuthenticated && (
-          <BioWithReadMore
-            isAuthenticated={isAuthenticated}
-            bio={UserProps.BIO || "bio unavailable"}
-          />
-        )}
+        {isAuthenticated && UserProps.BIO?.trim() ? (
+          <BioWithReadMore isAuthenticated={isAuthenticated} bio={UserProps.BIO.trim()} />
+        ) : null}
         <div className="h-[1px] bg-black w-full my-1.5"></div>
         <p className="text-xs flex flex-wrap items-center gap-x-1 gap-y-0.5">
           <span className="font-bold">Member Level</span>

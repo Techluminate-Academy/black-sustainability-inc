@@ -179,7 +179,10 @@ export default function MemberMapProfileModal({
             </button>
           </div>
 
-          <p className="text-xs text-gray-600 mb-4 leading-relaxed">
+          <p
+            className="text-xs text-gray-600 mb-4 leading-relaxed"
+            data-testid="member-map-profile-guidance"
+          >
             Preview of what other members see on the map. Use{" "}
             <span className="font-semibold text-gray-800">My location</span> in the menu to move
             your pin. To update your profile information, click the{" "}
@@ -240,14 +243,18 @@ export default function MemberMapProfileModal({
                 />
               </div>
 
-              <div className="border-t border-gray-200 pt-3">
+              <div className="border-t border-gray-200 pt-3" data-testid="member-map-profile-bio-section">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">
                   Bio
                 </p>
                 {profile.bio ? (
-                  <BioWithReadMore bio={profile.bio} isAuthenticated />
+                  <div data-testid="member-map-profile-bio">
+                    <BioWithReadMore bio={profile.bio} isAuthenticated />
+                  </div>
                 ) : (
-                  <p className="text-sm text-gray-900">{NOT_PROVIDED}</p>
+                  <p className="text-sm text-gray-900" data-testid="member-map-profile-bio-empty">
+                    {NOT_PROVIDED}
+                  </p>
                 )}
               </div>
             </div>

@@ -168,6 +168,15 @@ describe("toAirtableishDoc — string defaults and shape stability", () => {
     expect(out.fields["LONGITUDE (NEW)"]).toBeNull();
   });
 
+  it("reads bio from legacy fields.BIO when top-level bio is missing", () => {
+    const out = toAirtableishDoc({
+      firstName: "Alexis",
+      lastName: "Vidot",
+      fields: { BIO: "Bio stored only on Airtable-shaped fields" },
+    });
+    expect(out.fields.BIO).toBe("Bio stored only on Airtable-shaped fields");
+  });
+
   it("uses `d.location` (the Mighty city STRING) for `Location (Nearest City)`, not the GeoJSON object", () => {
     const out = toAirtableishDoc({
       location: "Salvador, BA, Brazil",
