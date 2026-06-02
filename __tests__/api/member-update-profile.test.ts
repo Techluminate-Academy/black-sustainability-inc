@@ -13,14 +13,17 @@ jest.mock("@/lib/bsnSession", () => ({
 }));
 
 const mockUpdate = jest.fn(async () => ({
-  firstName: "Jerry",
-  lastName: "Smith",
-  email: "jerry@example.com",
-  photoUrl: "",
-  location: null,
-  organizationName: null,
-  bio: "Updated",
-  memberLevelLabel: null,
+  mightyId: 39285348,
+  profile: {
+    firstName: "Jerry",
+    lastName: "Smith",
+    email: "jerry@example.com",
+    photoUrl: "",
+    location: null,
+    organizationName: null,
+    bio: "Updated",
+    memberLevelLabel: null,
+  },
 }));
 
 jest.mock("@/lib/mongodb", () => ({

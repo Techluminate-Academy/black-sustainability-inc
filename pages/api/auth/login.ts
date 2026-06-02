@@ -2,6 +2,10 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { mightyGetMemberByEmail } from "../../../lib/mightyAdmin";
 import { findAirtableMightyMemberByEmail } from "../../../lib/airtableMightyMembers";
 import { createBsnSessionToken, setBsnSessionCookie } from "../../../lib/bsnSession";
+import {
+  ensureMightyMemberAccess,
+  MightyMemberAccessError,
+} from "../../../lib/domain/members/ensureMightyMemberAccess.service";
 
 export default async function handler(
   req: NextApiRequest,
@@ -48,9 +52,30 @@ export default async function handler(
         });
       }
 
+      let mightyId = airtableMember.mightyId;
+      try {
+        const access = await ensureMightyMemberAccess({
+          email: airtableMember.email || email,
+          mightyId: airtableMember.mightyId,
+          firstName: airtableMember.firstName ?? "Member",
+          lastName: airtableMember.lastName ?? "User",
+        });
+        mightyId = access.mightyId;
+      } catch (e) {
+        if (e instanceof MightyMemberAccessError) {
+          console.error("[auth/login] Airtable member not accessible in Mighty:", e.message);
+          return res.status(502).json({
+            ok: false,
+            error:
+              "We found your directory record but couldn't connect to Mighty Networks yet. Please try again in a few minutes or use Map help.",
+          });
+        }
+        throw e;
+      }
+
       const token = createBsnSessionToken({
         email: airtableMember.email || email,
-        mightyId: airtableMember.mightyId,
+        mightyId,
         firstName: airtableMember.firstName ?? null,
         lastName: airtableMember.lastName ?? null,
       });
@@ -60,7 +85,7 @@ export default async function handler(
         ok: true,
         user: {
           email: airtableMember.email || email,
-          mightyId: airtableMember.mightyId,
+          mightyId,
           firstName: airtableMember.firstName,
           lastName: airtableMember.lastName,
         },

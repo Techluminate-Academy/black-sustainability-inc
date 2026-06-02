@@ -24,13 +24,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const { db } = await connectToDatabase();
-    const profile = await updateMemberProfileFromSession(db, session, {
+    const { profile, mightyId } = await updateMemberProfileFromSession(db, session, {
       firstName: req.body?.firstName,
       lastName: req.body?.lastName,
       bio: req.body?.bio,
       organizationName: req.body?.organizationName,
     });
-    const refreshedSession = sessionPayloadAfterProfileUpdate(session, profile);
+    const refreshedSession = sessionPayloadAfterProfileUpdate(session, profile, mightyId);
     setBsnSessionCookie(res, createBsnSessionToken(refreshedSession));
     return res.status(200).json({ ok: true, profile });
   } catch (e) {

@@ -30,6 +30,18 @@ jest.mock("@/lib/mightyAdmin", () => ({
   upsertMightyCustomFieldAnswer: (...args: unknown[]) => mockCustomField(...args),
 }));
 
+const mockEnsureAccess = jest.fn(async () => ({ mightyId: 99, repaired: false }));
+jest.mock("@/lib/domain/members/ensureMightyMemberAccess.service", () => ({
+  MightyMemberAccessError: class MightyMemberAccessError extends Error {
+    statusCode: number;
+    constructor(message: string, statusCode = 502) {
+      super(message);
+      this.statusCode = statusCode;
+    }
+  },
+  ensureMightyMemberAccess: (...args: unknown[]) => mockEnsureAccess(...args),
+}));
+
 const mockAirtable = jest.fn(async () => ({ skipped: false }));
 jest.mock("@/lib/airtableMightyMembers", () => ({
   upsertAirtableMightyMember: (...args: unknown[]) => mockAirtable(...args),
@@ -48,6 +60,7 @@ const session = { mightyId: 99, email: "jane@example.com", firstName: "J", lastN
 describe("updateMemberProfileFromSession", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEnsureAccess.mockResolvedValue({ mightyId: 99, repaired: false });
     mockPatch.mockResolvedValue({
       ok: true,
       member: {
@@ -70,19 +83,21 @@ describe("updateMemberProfileFromSession", () => {
 
   it("updates Mighty first then Mongo and Airtable", async () => {
     const db = { collection: () => ({ updateOne: mockUpdateOne }) } as any;
-    const profile = await updateMemberProfileFromSession(db, session, {
+    const { profile, mightyId } = await updateMemberProfileFromSession(db, session, {
       firstName: "Jane",
       lastName: "Doe",
       bio: "Hello",
       organizationName: "Tech Co",
     });
 
+    expect(mightyId).toBe(99);
+    expect(mockEnsureAccess).toHaveBeenCalled();
     expect(mockPatch).toHaveBeenCalledWith({
       mightyMemberId: 99,
       patch: { first_name: "Jane", last_name: "Doe" },
     });
     expect(mockUpdateOne).toHaveBeenCalledWith(
-      { mightyId: 99 },
+      { $or: [{ mightyId: 99 }, { email: session.email }] },
       expect.objectContaining({
         $set: expect.objectContaining({
           firstName: "Jane",
@@ -106,6 +121,22 @@ describe("updateMemberProfileFromSession", () => {
       })
     );
     expect(profile.firstName).toBe("Jane");
+  });
+
+  it("sanitizes raw Mighty not-found errors", async () => {
+    const rawError = JSON.stringify({
+      error: 'Couldn\'t find User with \'id\'="38964271" [WHERE "users"."deleted_at" IS NULL]',
+    });
+    mockPatch.mockResolvedValue({ ok: false, status: 404, message: rawError });
+    const db = { collection: () => ({ updateOne: mockUpdateOne }) } as any;
+    await expect(
+      updateMemberProfileFromSession(db, session, {
+        firstName: "Jane",
+        lastName: "Doe",
+      })
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/sign out and sign back in/i),
+    });
   });
 
   it("throws when Mighty patch fails", async () => {

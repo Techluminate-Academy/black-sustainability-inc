@@ -1,5 +1,9 @@
 import type { BsnSessionPayload } from "@/lib/bsnSession";
 import { upsertAirtableMightyMember } from "@/lib/airtableMightyMembers";
+import {
+  ensureMightyMemberAccess,
+  MightyMemberAccessError,
+} from "@/lib/domain/members/ensureMightyMemberAccess.service";
 import { invalidateMightyMemberCaches } from "@/lib/mightyCacheInvalidate";
 import {
   fetchMightyMemberById,
@@ -101,14 +105,28 @@ function profileFieldsFromMightyMember(member: Record<string, unknown>): {
 
 function parseMightyErrorMessage(raw: string): string {
   const trimmed = raw.trim();
-  if (!trimmed) return "Mighty profile update failed";
+  if (!trimmed) return "Could not save your profile. Please try again.";
+
+  let message = trimmed;
   try {
     const parsed = JSON.parse(trimmed) as { error?: string };
-    if (typeof parsed.error === "string" && parsed.error.trim()) return parsed.error.trim();
+    if (typeof parsed.error === "string" && parsed.error.trim()) {
+      message = parsed.error.trim();
+    }
   } catch {
     /* plain text */
   }
-  return trimmed.length > 300 ? `${trimmed.slice(0, 300)}…` : trimmed;
+
+  if (/Couldn't find User/i.test(message) || /Couldn't find Member/i.test(message)) {
+    return "We couldn't update your Mighty Networks profile yet. Please try again in a moment, or sign out and sign back in.";
+  }
+  if (/WHERE\s+"users"/i.test(message) || (/memberships/i.test(message) && /deleted_at/i.test(message))) {
+    return "Your profile could not be updated because your Mighty Networks membership is not fully active. Sign in to Mighty Networks with this email, then try again.";
+  }
+  if (message.startsWith("{") || message.length > 200) {
+    return "Could not save your profile. Please try again.";
+  }
+  return message;
 }
 
 async function syncTextToMightyCustomField(
@@ -131,6 +149,11 @@ async function syncTextToMightyCustomField(
   }
 }
 
+export type MemberProfileUpdateResult = {
+  profile: MemberMapProfileView;
+  mightyId: number;
+};
+
 /**
  * Self-service profile update. Mighty Network is source of truth; Mongo and Airtable mirror.
  */
@@ -138,16 +161,60 @@ export async function updateMemberProfileFromSession(
   db: Db,
   session: BsnSessionPayload,
   raw: MemberProfileUpdateInput
-): Promise<MemberMapProfileView> {
+): Promise<MemberProfileUpdateResult> {
   const firstName = trimRequiredName(raw.firstName, "First name");
   const lastName = trimRequiredName(raw.lastName, "Last name");
   const bio = trimOptionalBio(raw.bio);
   const organizationName = trimOptionalOrganization(raw.organizationName);
 
-  const patched = await patchMightyMemberProfile({
-    mightyMemberId: session.mightyId,
+  let mightyId = session.mightyId;
+  try {
+    const access = await ensureMightyMemberAccess({
+      email: session.email,
+      mightyId: session.mightyId,
+      firstName,
+      lastName,
+    });
+    mightyId = access.mightyId;
+    if (access.repaired) {
+      console.info("[memberProfileUpdate] resolved Mighty member id", {
+        email: session.email,
+        previousMightyId: session.mightyId,
+        mightyId,
+      });
+    }
+  } catch (e) {
+    if (e instanceof MightyMemberAccessError) {
+      throw new MemberProfileUpdateError(e.message, e.statusCode);
+    }
+    throw e;
+  }
+
+  let patched = await patchMightyMemberProfile({
+    mightyMemberId: mightyId,
     patch: { first_name: firstName, last_name: lastName },
   });
+
+  if (!patched.ok && /Couldn't find User/i.test(patched.message)) {
+    try {
+      const access = await ensureMightyMemberAccess({
+        email: session.email,
+        mightyId,
+        firstName,
+        lastName,
+      });
+      mightyId = access.mightyId;
+      patched = await patchMightyMemberProfile({
+        mightyMemberId: mightyId,
+        patch: { first_name: firstName, last_name: lastName },
+      });
+    } catch (retryErr) {
+      if (retryErr instanceof MightyMemberAccessError) {
+        throw new MemberProfileUpdateError(retryErr.message, retryErr.statusCode);
+      }
+      throw retryErr;
+    }
+  }
 
   if (!patched.ok) {
     throw new MemberProfileUpdateError(parseMightyErrorMessage(patched.message), 502);
@@ -155,20 +222,20 @@ export async function updateMemberProfileFromSession(
 
   await syncTextToMightyCustomField(
     "MIGHTY_BIO_CUSTOM_FIELD_ID",
-    session.mightyId,
+    mightyId,
     bio ?? "",
     "bio"
   );
   await syncTextToMightyCustomField(
     "MIGHTY_ORGANIZATION_CUSTOM_FIELD_ID",
-    session.mightyId,
+    mightyId,
     organizationName ?? "",
     "organization"
   );
 
   let mightyMember = patched.member as Record<string, unknown>;
   if (!mightyMember?.email && !mightyMember?.first_name) {
-    mightyMember = (await fetchMightyMemberById(session.mightyId)) as Record<string, unknown>;
+    mightyMember = (await fetchMightyMemberById(mightyId)) as Record<string, unknown>;
   }
 
   const fromMighty = profileFieldsFromMightyMember(mightyMember);
@@ -177,7 +244,7 @@ export async function updateMemberProfileFromSession(
 
   const mongoSet: Record<string, unknown> = {
     email: session.email,
-    mightyId: session.mightyId,
+    mightyId,
     firstName: fromMighty.firstName || firstName,
     lastName: fromMighty.lastName || lastName,
     bio,
@@ -189,7 +256,7 @@ export async function updateMemberProfileFromSession(
   if (fromMighty.avatarUrl) mongoSet.avatarUrl = fromMighty.avatarUrl;
 
   await coll.updateOne(
-    { mightyId: session.mightyId },
+    { $or: [{ mightyId }, { email: session.email }] },
     {
       $set: mongoSet,
       $setOnInsert: { createdAt: now },
@@ -200,7 +267,7 @@ export async function updateMemberProfileFromSession(
   await Promise.resolve()
     .then(() =>
       upsertAirtableMightyMember({
-        mightyId: session.mightyId,
+        mightyId,
         email: session.email,
         firstName: fromMighty.firstName || firstName,
         lastName: fromMighty.lastName || lastName,
@@ -221,26 +288,31 @@ export async function updateMemberProfileFromSession(
 
   const view = await getMemberMapProfileView(db, {
     ...session,
+    mightyId,
     firstName: fromMighty.firstName || firstName,
     lastName: fromMighty.lastName || lastName,
   });
 
   return {
-    ...view,
-    firstName: fromMighty.firstName || firstName,
-    lastName: fromMighty.lastName || lastName,
-    bio: bio ?? view.bio,
-    organizationName: organizationName ?? view.organizationName,
+    mightyId,
+    profile: {
+      ...view,
+      firstName: fromMighty.firstName || firstName,
+      lastName: fromMighty.lastName || lastName,
+      bio: bio ?? view.bio,
+      organizationName: organizationName ?? view.organizationName,
+    },
   };
 }
 
 export function sessionPayloadAfterProfileUpdate(
   session: BsnSessionPayload,
-  profile: MemberMapProfileView
+  profile: MemberMapProfileView,
+  mightyId?: number
 ): BsnSessionPayload {
   return {
     email: session.email,
-    mightyId: session.mightyId,
+    mightyId: mightyId ?? session.mightyId,
     firstName: profile.firstName || session.firstName,
     lastName: profile.lastName || session.lastName,
   };
