@@ -3,7 +3,7 @@ import { connectToDatabase } from "../../lib/mongodb";
 import { promisify } from "util";
 import zlib from "zlib";
 import { getExcludeViewerMighty } from "../../lib/mapViewerGating";
-import { memberBioCoalesceExpr } from "../../lib/memberBio";
+import { memberBioCoalesceExpr } from "../../lib/memberBio.js";
 import CACHE_EXPIRY from '../../constants/CacheExpiry';
 
 const COLLECTION_NAME = "mightyMembers";
