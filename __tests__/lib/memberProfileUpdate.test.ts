@@ -24,10 +24,12 @@ jest.mock("@/lib/mongodb", () => ({
 const mockPatch = jest.fn();
 const mockFetchMember = jest.fn();
 const mockCustomField = jest.fn(async () => ({ ok: true }));
+const mockReadBio = jest.fn(async () => ({ loaded: true, text: "Hello" }));
 jest.mock("@/lib/mightyAdmin", () => ({
   patchMightyMemberProfile: (...args: unknown[]) => mockPatch(...args),
   fetchMightyMemberById: (...args: unknown[]) => mockFetchMember(...args),
   upsertMightyCustomFieldAnswer: (...args: unknown[]) => mockCustomField(...args),
+  readMightyCustomFieldAnswer: (...args: unknown[]) => mockReadBio(...args),
 }));
 
 const mockEnsureAccess = jest.fn(async () => ({ mightyId: 99, repaired: false }));
@@ -60,7 +62,9 @@ const session = { mightyId: 99, email: "jane@example.com", firstName: "J", lastN
 describe("updateMemberProfileFromSession", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.MIGHTY_BIO_CUSTOM_FIELD_ID = "1635154";
     mockEnsureAccess.mockResolvedValue({ mightyId: 99, repaired: false });
+    mockReadBio.mockResolvedValue({ loaded: true, text: "Hello" });
     mockPatch.mockResolvedValue({
       ok: true,
       member: {
@@ -96,6 +100,14 @@ describe("updateMemberProfileFromSession", () => {
       mightyMemberId: 99,
       patch: { first_name: "Jane", last_name: "Doe" },
     });
+    expect(mockCustomField).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customFieldId: expect.anything(),
+        mightyMemberId: 99,
+        text: "Hello",
+      })
+    );
+    expect(mockReadBio).toHaveBeenCalled();
     expect(mockUpdateOne).toHaveBeenCalledWith(
       { $or: [{ mightyId: 99 }, { email: session.email }] },
       expect.objectContaining({

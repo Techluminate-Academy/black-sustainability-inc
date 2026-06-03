@@ -1,4 +1,4 @@
-import { getMightyCustomFieldAnswerText } from "@/lib/mightyAdmin";
+import { readMightyCustomFieldAnswer } from "@/lib/mightyAdmin";
 
 function customFieldIdFromEnv(envKey: string): number | null {
   const raw = process.env[envKey];
@@ -9,19 +9,27 @@ function customFieldIdFromEnv(envKey: string): number | null {
 /** Bio/organization live on Mighty custom fields; member PUT does not accept bio. */
 export async function fetchMightyProfileCustomFields(mightyId: number): Promise<{
   bio: string | null;
+  /** True when Short Bio custom field was read from Mighty (including cleared/blank). */
+  bioLoaded: boolean;
   organizationName: string | null;
+  organizationLoaded: boolean;
 }> {
   const bioFieldId = customFieldIdFromEnv("MIGHTY_BIO_CUSTOM_FIELD_ID");
   const orgFieldId = customFieldIdFromEnv("MIGHTY_ORGANIZATION_CUSTOM_FIELD_ID");
 
-  const [bio, organizationName] = await Promise.all([
+  const [bioRead, orgRead] = await Promise.all([
     bioFieldId
-      ? getMightyCustomFieldAnswerText({ customFieldId: bioFieldId, mightyMemberId: mightyId })
+      ? readMightyCustomFieldAnswer({ customFieldId: bioFieldId, mightyMemberId: mightyId })
       : Promise.resolve(null),
     orgFieldId
-      ? getMightyCustomFieldAnswerText({ customFieldId: orgFieldId, mightyMemberId: mightyId })
+      ? readMightyCustomFieldAnswer({ customFieldId: orgFieldId, mightyMemberId: mightyId })
       : Promise.resolve(null),
   ]);
 
-  return { bio, organizationName };
+  return {
+    bio: bioRead?.loaded ? bioRead.text : null,
+    bioLoaded: bioRead?.loaded === true,
+    organizationName: orgRead?.loaded ? orgRead.text : null,
+    organizationLoaded: orgRead?.loaded === true,
+  };
 }

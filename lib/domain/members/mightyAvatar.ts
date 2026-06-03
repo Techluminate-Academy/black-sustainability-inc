@@ -3,6 +3,7 @@ export function extractMightyAvatarUrl(member: Record<string, unknown> | null | 
   if (!member || typeof member !== "object") return null;
 
   const candidates: unknown[] = [
+    member.avatar,
     member.avatar_url,
     member.avatarUrl,
     (member.profile as Record<string, unknown> | undefined)?.avatar_url,

@@ -8,6 +8,7 @@ import { invalidateMightyMemberCaches } from "@/lib/mightyCacheInvalidate";
 import {
   fetchMightyMemberById,
   patchMightyMemberProfile,
+  readMightyCustomFieldAnswer,
   upsertMightyCustomFieldAnswer,
 } from "@/lib/mightyAdmin";
 import {
@@ -77,7 +78,6 @@ function trimOptionalOrganization(value: unknown): string | null {
 function profileFieldsFromMightyMember(member: Record<string, unknown>): {
   firstName: string;
   lastName: string;
-  bio: string | null;
   avatarUrl: string | null;
 } {
   const firstName =
@@ -88,8 +88,6 @@ function profileFieldsFromMightyMember(member: Record<string, unknown>): {
     (typeof member.last_name === "string" ? member.last_name : null) ??
     (typeof member.lastName === "string" ? member.lastName : null) ??
     "";
-  const bio =
-    typeof member.bio === "string" && member.bio.trim() ? member.bio.trim() : null;
   const avatarUrl =
     (typeof member.avatar_url === "string" ? member.avatar_url : null) ??
     (typeof member.avatar === "string" ? member.avatar : null) ??
@@ -98,7 +96,6 @@ function profileFieldsFromMightyMember(member: Record<string, unknown>): {
   return {
     firstName: firstName.trim(),
     lastName: lastName.trim(),
-    bio,
     avatarUrl: avatarUrl?.trim() || null,
   };
 }
@@ -133,11 +130,20 @@ async function syncTextToMightyCustomField(
   envKey: string,
   mightyId: number,
   text: string,
-  label: string
+  label: string,
+  opts?: { required?: boolean }
 ): Promise<void> {
   const raw = process.env[envKey];
   const customFieldId = raw ? Number(raw) : NaN;
-  if (!Number.isFinite(customFieldId)) return;
+  if (!Number.isFinite(customFieldId)) {
+    if (opts?.required) {
+      throw new MemberProfileUpdateError(
+        `${envKey} is not configured — cannot sync ${label} to Mighty Networks.`,
+        500
+      );
+    }
+    return;
+  }
 
   const ans = await upsertMightyCustomFieldAnswer({
     customFieldId,
@@ -145,6 +151,13 @@ async function syncTextToMightyCustomField(
     text,
   });
   if (!ans.ok) {
+    const msg = parseMightyErrorMessage(ans.message);
+    if (opts?.required) {
+      throw new MemberProfileUpdateError(
+        `Could not save ${label} to Mighty Networks: ${msg}`,
+        ans.status >= 400 && ans.status < 500 ? ans.status : 502
+      );
+    }
     console.warn(`[memberProfileUpdate] Mighty ${label} custom field failed (non-fatal):`, ans);
   }
 }
@@ -224,8 +237,23 @@ export async function updateMemberProfileFromSession(
     "MIGHTY_BIO_CUSTOM_FIELD_ID",
     mightyId,
     bio ?? "",
-    "bio"
+    "bio",
+    { required: true }
   );
+
+  let syncedBio = bio;
+  const bioFieldRaw = process.env.MIGHTY_BIO_CUSTOM_FIELD_ID;
+  const bioFieldId = bioFieldRaw ? Number(bioFieldRaw) : NaN;
+  if (Number.isFinite(bioFieldId)) {
+    const readBack = await readMightyCustomFieldAnswer({
+      customFieldId: bioFieldId,
+      mightyMemberId: mightyId,
+    });
+    if (readBack?.loaded) {
+      syncedBio = readBack.text;
+    }
+  }
+
   await syncTextToMightyCustomField(
     "MIGHTY_ORGANIZATION_CUSTOM_FIELD_ID",
     mightyId,
@@ -247,11 +275,11 @@ export async function updateMemberProfileFromSession(
     mightyId,
     firstName: fromMighty.firstName || firstName,
     lastName: fromMighty.lastName || lastName,
-    bio,
+    bio: syncedBio,
     organizationName: organizationName ?? null,
-        memberProfileUpdatedAt: now,
-        updatedAt: now,
-        source: "member:profile-update",
+    memberProfileUpdatedAt: now,
+    updatedAt: now,
+    source: "member:profile-update",
   };
   if (fromMighty.avatarUrl) mongoSet.avatarUrl = fromMighty.avatarUrl;
 
@@ -271,7 +299,7 @@ export async function updateMemberProfileFromSession(
         email: session.email,
         firstName: fromMighty.firstName || firstName,
         lastName: fromMighty.lastName || lastName,
-        bio: bio ?? undefined,
+        bio: syncedBio ?? undefined,
         avatarUrl: fromMighty.avatarUrl ?? undefined,
         organizationName: organizationName ?? undefined,
       })
@@ -299,7 +327,7 @@ export async function updateMemberProfileFromSession(
       ...view,
       firstName: fromMighty.firstName || firstName,
       lastName: fromMighty.lastName || lastName,
-      bio: bio ?? view.bio,
+      bio: syncedBio ?? view.bio,
       organizationName: organizationName ?? view.organizationName,
     },
   };

@@ -21,8 +21,19 @@
     "setup-master-forms": "ts-node -r tsconfig-paths/register scripts/setup-master-forms.ts",
     "setup-support-tickets": "ts-node -r tsconfig-paths/register scripts/setup-support-tickets-collection.ts",
     "wix-fetch": "ts-node -r tsconfig-paths/register scripts/wix-fetch-subscriptions.ts",
+    "wix-marketing-analysis": "tsx scripts/wix-historical-marketing-analysis.ts --skip-roster-enrichment --mighty-sleep-ms 30",
+    "subscription-ltv-analysis": "tsx scripts/subscription-ltv-analysis.ts",
     "wix-airtable-sync-dryrun": "tsx scripts/wix-airtable-sync-dryrun.ts",
-    "wix-airtable-sync-apply": "tsx scripts/wix-airtable-sync-apply.ts"
+    "wix-airtable-sync-apply": "tsx scripts/wix-airtable-sync-apply.ts",
+    "flag-migration-excluded": "tsx scripts/flag-migration-excluded-emails.ts",
+    "flag-migration-excluded:apply": "tsx scripts/flag-migration-excluded-emails.ts --apply",
+    "airtable:migration-excluded-fields": "tsx scripts/airtable-create-migration-excluded-fields.ts",
+    "airtable:migration-excluded-fields:apply": "tsx scripts/airtable-create-migration-excluded-fields.ts --apply",
+    "airtable:mighty-profile-fields": "tsx scripts/airtable-create-mighty-profile-fields.ts",
+    "airtable:mighty-profile-fields:apply": "tsx scripts/airtable-create-mighty-profile-fields.ts --apply",
+    "duplicates:members": "tsx scripts/detectDuplicateMembers.ts",
+    "mighty-backfill-legacy-profile": "tsx scripts/mighty-backfill-legacy-profile.ts",
+    "mighty-backfill-legacy-profile:apply": "tsx scripts/mighty-backfill-legacy-profile.ts --apply"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.0.0",

@@ -106,14 +106,19 @@ export async function getMemberMapProfileView(
   if (typeof session.mightyId === "number" && Number.isFinite(session.mightyId)) {
     try {
       const fromMighty = await fetchMightyProfileCustomFields(session.mightyId);
-      if (fromMighty.bio) bio = fromMighty.bio;
-      if (fromMighty.organizationName != null) organizationName = fromMighty.organizationName;
+      if (fromMighty.bioLoaded) {
+        bio = fromMighty.bio;
+      }
+      if (fromMighty.organizationLoaded) {
+        organizationName = fromMighty.organizationName;
+      }
 
       const heal: Record<string, unknown> = {};
-      if (fromMighty.bio && fromMighty.bio !== mongoBio) heal.bio = fromMighty.bio;
-      if (!fromMighty.bio && bio && bio !== mongoBio) heal.bio = bio;
+      if (fromMighty.bioLoaded && fromMighty.bio !== mongoBio) {
+        heal.bio = fromMighty.bio ?? null;
+      }
       if (
-        fromMighty.organizationName != null &&
+        fromMighty.organizationLoaded &&
         fromMighty.organizationName !== mongoOrg
       ) {
         heal.organizationName = fromMighty.organizationName;

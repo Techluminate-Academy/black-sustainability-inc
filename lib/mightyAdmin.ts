@@ -131,11 +131,30 @@ export async function updateMightyMemberLocation(params: {
   return { ok: true };
 }
 
+export type MightyCustomFieldReadResult = {
+  /** GET succeeded; member has at least one answer row (text may be blank). */
+  loaded: boolean;
+  /** Trimmed text, or null when loaded but blank. */
+  text: string | null;
+};
+
+function latestCustomFieldAnswerItem(
+  items: Record<string, unknown>[]
+): Record<string, unknown> | null {
+  if (!items.length) return null;
+  if (items.length === 1) return items[0] ?? null;
+  return items.reduce((latest, item) => {
+    const latestAt = String(latest.updated_at ?? latest.last_edited_at ?? "");
+    const itemAt = String(item.updated_at ?? item.last_edited_at ?? "");
+    return itemAt >= latestAt ? item : latest;
+  });
+}
+
 /** Latest text answer for a member on a network custom field (GET answers). */
-export async function getMightyCustomFieldAnswerText(params: {
+export async function readMightyCustomFieldAnswer(params: {
   customFieldId: string | number;
   mightyMemberId: string | number;
-}): Promise<string | null> {
+}): Promise<MightyCustomFieldReadResult | null> {
   const apiKey = getApiKey();
   const networkId = getNetworkId();
   const customFieldId = String(params.customFieldId);
@@ -155,14 +174,28 @@ export async function getMightyCustomFieldAnswerText(params: {
   try {
     const json = (await res.json()) as Record<string, unknown>;
     const items = (json.items ?? json.data ?? []) as Record<string, unknown>[];
-    if (!Array.isArray(items) || !items.length) return null;
-    const text = items[0]?.text;
-    if (typeof text !== "string") return null;
+    if (!Array.isArray(items) || !items.length) {
+      return { loaded: false, text: null };
+    }
+    const row = latestCustomFieldAnswerItem(items);
+    if (!row) return { loaded: false, text: null };
+    const text = row.text;
+    if (typeof text !== "string") return { loaded: true, text: null };
     const t = text.trim();
-    return t.length ? t : null;
+    return { loaded: true, text: t.length ? t : null };
   } catch {
     return null;
   }
+}
+
+/** Non-empty Short Bio / custom-field text only (null when unset or API error). */
+export async function getMightyCustomFieldAnswerText(params: {
+  customFieldId: string | number;
+  mightyMemberId: string | number;
+}): Promise<string | null> {
+  const read = await readMightyCustomFieldAnswer(params);
+  if (!read?.loaded) return null;
+  return read.text;
 }
 
 export async function upsertMightyCustomFieldAnswer(params: {
@@ -340,6 +373,213 @@ export async function addMemberToPlan(params: {
   return { ok: false, status: res.status, error: text.slice(0, 500) || res.statusText };
 }
 
+export type MightyAvatarUploadResult =
+  | { ok: true; url: string }
+  | { ok: false; status: number; error: string };
+
+/**
+ * Upload image bytes as a Mighty member avatar asset.
+ * @see https://docs.mightynetworks.com/api-reference/assets/upload-a-new-asset-image-or-file
+ */
+export async function uploadMightyAvatarAsset(params: {
+  imageBytes: Buffer | Uint8Array;
+  filename: string;
+  contentType?: string;
+}): Promise<MightyAvatarUploadResult> {
+  const apiKey = getApiKey();
+  const networkId = getNetworkId();
+  const url = `${getBaseUrl()}/admin/v1/networks/${encodeURIComponent(networkId)}/assets`;
+
+  const contentType = params.contentType || "image/jpeg";
+  const blob = new Blob([params.imageBytes], { type: contentType });
+  const form = new FormData();
+  form.append("asset_style", "avatar");
+  form.append("asset_file", blob, params.filename);
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
+    },
+    body: form,
+  });
+
+  const text = await res.text().catch(() => "");
+  if (!res.ok) {
+    return { ok: false, status: res.status, error: text.slice(0, 800) || res.statusText };
+  }
+
+  try {
+    const json = JSON.parse(text) as Record<string, unknown>;
+    const asset = (json.asset ?? json) as Record<string, unknown>;
+    const candidates = [
+      asset.url,
+      asset.asset_url,
+      asset.public_url,
+      (asset.file as Record<string, unknown> | undefined)?.url,
+    ];
+    for (const c of candidates) {
+      if (typeof c === "string" && c.trim().length > 0) {
+        return { ok: true, url: c.trim() };
+      }
+    }
+    return { ok: false, status: res.status, error: "Asset upload succeeded but no URL in response" };
+  } catch {
+    return { ok: false, status: res.status, error: text.slice(0, 800) || "Invalid JSON from asset upload" };
+  }
+}
+
+export type MightyMemberAvatarUpdateResult =
+  | { ok: true; member: MightyAdminMember }
+  | { ok: false; status: number; message: string };
+
+/** Assign an uploaded asset URL to a member's Mighty profile avatar. */
+export async function updateMightyMemberAvatar(params: {
+  mightyMemberId: string | number;
+  avatarUrl: string;
+}): Promise<MightyMemberAvatarUpdateResult> {
+  const apiKey = getApiKey();
+  const networkId = getNetworkId();
+  const memberId = String(params.mightyMemberId);
+  const url = `${getBaseUrl()}/admin/v1/networks/${encodeURIComponent(networkId)}/members/${encodeURIComponent(memberId)}`;
+  const avatar = params.avatarUrl.trim();
+
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+
+  const bodies: Record<string, unknown>[] = [{ avatar }, { avatar_url: avatar }];
+
+  for (const body of bodies) {
+    let res = await fetch(url, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (res.status === 405 || res.status === 404) {
+      res = await fetch(url, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(body),
+      });
+    }
+
+    const text = await res.text().catch(() => "");
+    if (res.ok) {
+      try {
+        const json = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+        const member = (json.member ?? json) as MightyAdminMember;
+        return { ok: true, member };
+      } catch {
+        const member = await fetchMightyMemberById(memberId);
+        return { ok: true, member };
+      }
+    }
+
+    if (body === bodies[bodies.length - 1]) {
+      return { ok: false, status: res.status, message: text.slice(0, 800) || res.statusText };
+    }
+  }
+
+  return { ok: false, status: 400, message: "No avatar field accepted" };
+}
+
+export async function downloadImageForAvatar(
+  imageUrl: string,
+  opts?: { airtableApiKey?: string }
+): Promise<
+  | { ok: true; bytes: Buffer; contentType: string; filename: string }
+  | { ok: false; error: string }
+> {
+  try {
+    const headers: Record<string, string> = {
+      Accept: "image/*,*/*",
+      "User-Agent": "BSN-Profile-Backfill/1.0",
+    };
+    if (
+      opts?.airtableApiKey &&
+      /airtableusercontent\.com|airtable\.com/i.test(imageUrl)
+    ) {
+      headers.Authorization = `Bearer ${opts.airtableApiKey}`;
+    }
+
+    const res = await fetch(imageUrl, { redirect: "follow", headers });
+    if (!res.ok) {
+      return { ok: false, error: `Download failed (${res.status})` };
+    }
+    const contentType = (res.headers.get("content-type") || "image/jpeg").split(";")[0]!.trim();
+    if (!contentType.startsWith("image/")) {
+      return { ok: false, error: `Not an image (${contentType})` };
+    }
+    const arrayBuffer = await res.arrayBuffer();
+    const bytes = Buffer.from(arrayBuffer);
+    if (bytes.length < 100) {
+      return { ok: false, error: "Image too small" };
+    }
+    const prepared = await prepareAvatarImageBytes(bytes);
+    return prepared;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+const AVATAR_MAX_BYTES = 1_500_000;
+const AVATAR_MAX_PX = 500;
+
+/** Resize/compress for Mighty avatar upload (500×500 min recommendation, avoid 413). */
+export async function prepareAvatarImageBytes(
+  input: Buffer
+): Promise<
+  | { ok: true; bytes: Buffer; contentType: string; filename: string }
+  | { ok: false; error: string }
+> {
+  try {
+    const sharp = (await import("sharp")).default;
+    let pipeline = sharp(input).rotate().resize(AVATAR_MAX_PX, AVATAR_MAX_PX, {
+      fit: "cover",
+      position: "centre",
+    });
+    let bytes = await pipeline.jpeg({ quality: 85, mozjpeg: true }).toBuffer();
+    if (bytes.length > AVATAR_MAX_BYTES) {
+      bytes = await sharp(input)
+        .rotate()
+        .resize(AVATAR_MAX_PX, AVATAR_MAX_PX, { fit: "cover", position: "centre" })
+        .jpeg({ quality: 70, mozjpeg: true })
+        .toBuffer();
+    }
+    if (bytes.length > AVATAR_MAX_BYTES) {
+      return { ok: false, error: `Image too large after compress (${bytes.length} bytes)` };
+    }
+    return { ok: true, bytes, contentType: "image/jpeg", filename: "legacy-avatar.jpg" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+function isMightyRateLimitMessage(text: string): boolean {
+  return /rate limit exceeded/i.test(text);
+}
+
+export async function withMightyRateLimitRetry<T extends { ok: boolean }>(
+  fn: () => Promise<T>,
+  getErrorText: (result: T) => string,
+  opts?: { maxAttempts?: number; baseDelayMs?: number }
+): Promise<T> {
+  const maxAttempts = opts?.maxAttempts ?? 4;
+  const baseDelayMs = opts?.baseDelayMs ?? 2500;
+  let result = await fn();
+  for (let attempt = 1; attempt < maxAttempts && !result.ok; attempt++) {
+    const err = getErrorText(result);
+    if (!isMightyRateLimitMessage(err)) break;
+    await new Promise((r) => setTimeout(r, baseDelayMs * attempt));
+    result = await fn();
+  }
+  return result;
+}
+
 export async function mightyGetMemberByEmail(
   email: string
 ): Promise<MightyMember | null> {
@@ -370,11 +610,13 @@ export async function mightyGetMemberByEmail(
   if (!member?.email) return null;
 
   const avatar_url =
-    typeof member.avatar_url === "string"
-      ? member.avatar_url
-      : typeof member.avatarUrl === "string"
-        ? member.avatarUrl
-        : null;
+    typeof member.avatar === "string"
+      ? member.avatar
+      : typeof member.avatar_url === "string"
+        ? member.avatar_url
+        : typeof member.avatarUrl === "string"
+          ? member.avatarUrl
+          : null;
 
   return {
     id: Number(member.id),

@@ -259,8 +259,7 @@ function normalizeMemberDoc(member: AnyObj): AnyObj {
         ? member.avatarUrl
         : undefined;
 
-  const bio = typeof member.bio === "string" ? member.bio : undefined;
-
+  // Short Bio / Mini Bio is a custom field — not native member.bio (About Me).
   const location =
     typeof member.location === "string"
       ? member.location
@@ -288,7 +287,6 @@ function normalizeMemberDoc(member: AnyObj): AnyObj {
     ...(firstName ? { firstName } : {}),
     ...(lastName ? { lastName } : {}),
     ...(location ? { location } : {}),
-    ...(bio ? { bio } : {}),
     ...(avatarUrl ? { avatarUrl } : {}),
     ...(hasCoords
       ? {
@@ -517,7 +515,8 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
   }
 
   if (isBioCustomFieldEvent) {
-    memberDoc.bio = cf.text!.trim();
+    const trimmed = cf.text!.trim();
+    memberDoc.bio = trimmed.length ? trimmed : null;
   }
 
   if (isOrganizationCustomFieldEvent) {

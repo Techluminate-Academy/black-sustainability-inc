@@ -27,7 +27,9 @@ jest.mock("@/lib/domain/members/memberSessionProfile.service", () => ({
 jest.mock("@/lib/domain/members/memberMightyCustomFields", () => ({
   fetchMightyProfileCustomFields: jest.fn(async () => ({
     bio: "from mighty custom field",
+    bioLoaded: true,
     organizationName: "Acme",
+    organizationLoaded: true,
   })),
 }));
 
@@ -51,11 +53,41 @@ describe("getMemberMapProfileView", () => {
     );
     (fetchMightyProfileCustomFields as jest.Mock).mockResolvedValueOnce({
       bio: null,
+      bioLoaded: false,
       organizationName: null,
+      organizationLoaded: false,
     });
 
     const view = await getMemberMapProfileView(db, session);
     expect(view.bio).toBe("bio from airtable-shaped mongo fields");
+  });
+
+  it("prefers cleared Mighty Short Bio over stale Mongo", async () => {
+    const db = {
+      collection: () => ({
+        findOne: mockFindOne,
+        updateOne: mockUpdateOne,
+      }),
+    } as unknown as import("mongodb").Db;
+
+    const { fetchMightyProfileCustomFields } = await import(
+      "@/lib/domain/members/memberMightyCustomFields"
+    );
+    (fetchMightyProfileCustomFields as jest.Mock).mockResolvedValueOnce({
+      bio: null,
+      bioLoaded: true,
+      organizationName: null,
+      organizationLoaded: false,
+    });
+
+    const view = await getMemberMapProfileView(db, session);
+    expect(view.bio).toBeNull();
+    expect(mockUpdateOne).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        $set: expect.objectContaining({ bio: null }),
+      })
+    );
   });
 
   it("prefers Mighty custom field bio over stale Mongo", async () => {
