@@ -170,6 +170,23 @@ const syncAirtableToMongoDB = async () => {
       return Number.isFinite(n) ? n : null;
     };
 
+    const parseBooleanField = (v) => {
+      if (typeof v === "boolean") return v;
+      if (typeof v === "number") return v === 1 ? true : v === 0 ? false : null;
+      if (typeof v === "string") {
+        const t = v.trim().toLowerCase();
+        if (t === "true" || t === "yes" || t === "1") return true;
+        if (t === "false" || t === "no" || t === "0") return false;
+      }
+      return null;
+    };
+
+    const parseStringList = (v) => {
+      if (Array.isArray(v)) return v.map((x) => String(x).trim()).filter(Boolean);
+      if (typeof v === "string" && v.trim()) return [v.trim()];
+      return [];
+    };
+
     // Upsert by mightyId when present, else by email.
     // IMPORTANT: do NOT overwrite subscription fields here (those are set by Mighty/Wix sync scripts).
     const bulkOps = records
@@ -182,6 +199,13 @@ const syncAirtableToMongoDB = async () => {
         const lat = toNumberOrNull(f["Latitude"]);
         const lng = toNumberOrNull(f["Longitude"]);
         const hasCoords = typeof lat === "number" && typeof lng === "number";
+
+        const isPaidActive = parseBooleanField(f.isPaidActive ?? f["isPaidActive"]);
+        const planNames = parseStringList(f.planNames ?? f["planNames"]);
+        const planIds = parseStringList(f.planIds ?? f["planIds"]);
+        const lastSyncFromAirtable = f["Last Sync Date"] || null;
+        const subscriptionUpdatedAt =
+          f.subscriptionUpdatedAt ?? f["subscriptionUpdatedAt"] ?? lastSyncFromAirtable ?? null;
 
         const doc = {
           ...(mightyId ? { mightyId } : {}),
@@ -213,13 +237,26 @@ const syncAirtableToMongoDB = async () => {
 
         const filter = mightyId ? { mightyId } : { email };
 
+        const setDoc = { ...doc };
+        const update = {
+          $set: setDoc,
+          $setOnInsert: { createdAt: new Date() },
+        };
+
+        if (typeof isPaidActive === "boolean") {
+          setDoc["subscription.isPaidActive"] = isPaidActive;
+          setDoc["subscription.syncSource"] = "airtable:mighty_members";
+          if (subscriptionUpdatedAt) {
+            setDoc["subscription.updatedAt"] = subscriptionUpdatedAt;
+          }
+        }
+        if (planNames.length) setDoc["subscription.planNames"] = planNames;
+        if (planIds.length) setDoc["subscription.planIds"] = planIds;
+
         return {
           updateOne: {
             filter,
-            update: {
-              $set: doc,
-              $setOnInsert: { createdAt: new Date() },
-            },
+            update,
             upsert: true,
           },
         };
