@@ -33,6 +33,13 @@ jest.mock("@/lib/domain/members/memberMightyCustomFields", () => ({
   })),
 }));
 
+jest.mock("@/lib/mightyAdmin", () => ({
+  fetchMightyMemberById: jest.fn(async () => ({
+    bio: "from mighty mini bio",
+    avatar_url: "https://cdn.example/new-avatar.jpg",
+  })),
+}));
+
 describe("getMemberMapProfileView", () => {
   const session = { email: "jerry@example.com", mightyId: 99, firstName: "Jerry", lastName: "Bony" };
 
@@ -86,6 +93,35 @@ describe("getMemberMapProfileView", () => {
       expect.anything(),
       expect.objectContaining({
         $set: expect.objectContaining({ bio: null }),
+      })
+    );
+  });
+
+  it("uses Mighty Mini Bio when Short Bio custom field is unset", async () => {
+    const db = {
+      collection: () => ({
+        findOne: mockFindOne,
+        updateOne: mockUpdateOne,
+      }),
+    } as unknown as import("mongodb").Db;
+
+    const { fetchMightyProfileCustomFields } = await import(
+      "@/lib/domain/members/memberMightyCustomFields"
+    );
+    (fetchMightyProfileCustomFields as jest.Mock).mockResolvedValueOnce({
+      bio: null,
+      bioLoaded: false,
+      organizationName: null,
+      organizationLoaded: false,
+    });
+
+    const view = await getMemberMapProfileView(db, session);
+    expect(view.bio).toBe("from mighty mini bio");
+    expect(view.photoUrl).toBe("https://cdn.example/new-avatar.jpg");
+    expect(mockUpdateOne).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        $set: expect.objectContaining({ bio: "from mighty mini bio" }),
       })
     );
   });

@@ -2,7 +2,9 @@ import type { BsnSessionPayload } from "@/lib/bsnSession";
 import { findAirtableMightyMemberByEmail } from "@/lib/airtableMightyMembers";
 import { HARDCODED_MEMBER_LEVELS } from "@/constants/member-levels";
 import { buildSessionMemberProfile } from "@/lib/domain/members/memberSessionProfile.service";
+import { extractMightyAvatarUrl } from "@/lib/domain/members/mightyAvatar";
 import { fetchMightyProfileCustomFields } from "@/lib/domain/members/memberMightyCustomFields";
+import { fetchMightyMemberById } from "@/lib/mightyAdmin";
 import { getMemberBio } from "@/lib/memberBio";
 import type { Db } from "mongodb";
 
@@ -83,8 +85,9 @@ export async function getMemberMapProfileView(
     nonEmptyString(doc?.lastName) ?? nonEmptyString(session.lastName) ?? "";
   const email =
     nonEmptyString(doc?.email) ?? nonEmptyString(session.email) ?? "";
-  const photoUrl =
+  let photoUrl =
     nonEmptyString(doc?.avatarUrl) ?? nonEmptyString(sessionProfile.avatarUrl) ?? "";
+  const mongoAvatarUrl = nonEmptyString(doc?.avatarUrl);
 
   const mongoBio = getMemberBio(doc);
   const mongoOrg = organizationFromDoc(doc);
@@ -104,16 +107,19 @@ export async function getMemberMapProfileView(
   }
 
   if (typeof session.mightyId === "number" && Number.isFinite(session.mightyId)) {
+    const heal: Record<string, unknown> = {};
+    let shortBioLoaded = false;
+
     try {
       const fromMighty = await fetchMightyProfileCustomFields(session.mightyId);
       if (fromMighty.bioLoaded) {
+        shortBioLoaded = true;
         bio = fromMighty.bio;
       }
       if (fromMighty.organizationLoaded) {
         organizationName = fromMighty.organizationName;
       }
 
-      const heal: Record<string, unknown> = {};
       if (fromMighty.bioLoaded && fromMighty.bio !== mongoBio) {
         heal.bio = fromMighty.bio ?? null;
       }
@@ -123,16 +129,41 @@ export async function getMemberMapProfileView(
       ) {
         heal.organizationName = fromMighty.organizationName;
       }
-      if (Object.keys(heal).length) {
-        await coll.updateOne(
-          { $or: [{ mightyId: session.mightyId }, { email: session.email }] },
-          { $set: { ...heal, updatedAt: new Date() } }
-        );
-      }
     } catch (e) {
       console.warn("[memberMapProfileView] Mighty custom field read failed:", {
         message: (e as Error)?.message,
       });
+    }
+
+    try {
+      const member = (await fetchMightyMemberById(session.mightyId)) as Record<string, unknown>;
+      const nativeBio = nonEmptyString(member.bio);
+      // Mighty "Mini Bio" is member.bio; Short Bio custom field wins when present.
+      if (!shortBioLoaded && nativeBio) {
+        bio = nativeBio;
+        if (nativeBio !== mongoBio) {
+          heal.bio = nativeBio;
+        }
+      }
+
+      const mightyAvatar = extractMightyAvatarUrl(member);
+      if (mightyAvatar) {
+        photoUrl = mightyAvatar;
+        if (mightyAvatar !== mongoAvatarUrl) {
+          heal.avatarUrl = mightyAvatar;
+        }
+      }
+    } catch (e) {
+      console.warn("[memberMapProfileView] Mighty member profile read failed:", {
+        message: (e as Error)?.message,
+      });
+    }
+
+    if (Object.keys(heal).length) {
+      await coll.updateOne(
+        { $or: [{ mightyId: session.mightyId }, { email: session.email }] },
+        { $set: { ...heal, updatedAt: new Date() } }
+      );
     }
   }
 
