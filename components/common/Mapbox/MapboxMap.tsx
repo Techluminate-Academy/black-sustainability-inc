@@ -11,6 +11,7 @@ import { LatLngBounds } from "leaflet";
 import { FeatureCollection, Point } from 'geojson';
 import { createRoot } from "react-dom/client";
 
+import { ViewfinderCircleIcon } from "@heroicons/react/24/outline";
 import { BsiUserObjectArray } from "@/typings";
 import { toMapFeatureOrNull, buildMapFeatures } from "@/lib/mapFeatures";
 
@@ -1212,9 +1213,14 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
             }}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f5f5f5"}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "white"}
-            title="Reset to Default View"
+            title="Return to default map view"
+            aria-label="Return to default map view"
           >
-            🏠
+            <ViewfinderCircleIcon
+              aria-hidden
+              style={{ width: 22, height: 22 }}
+              strokeWidth={2}
+            />
           </button>
         </div>
       </div>
