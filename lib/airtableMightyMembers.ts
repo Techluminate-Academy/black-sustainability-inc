@@ -131,6 +131,7 @@ export type MightySyncRowWithMemberId = {
   planIds: string[];
   subscriptionStatuses: string[];
   paidSubscriptionStatus: string | null;
+  lastSyncDate: string | null;
 };
 
 function parseAirtableBooleanField(v: unknown): boolean | null {
@@ -168,6 +169,19 @@ export function getAirtableLastSyncDateFieldName(): string {
   return airtableFieldName("AIRTABLE_LAST_SYNC_DATE_FIELD", "Last Sync Date");
 }
 
+/** Optional ops column for Mighty sync health (e.g. "Synced", "Mighty Not Found"). */
+export function getAirtableMightySyncStatusFieldName(): string | null {
+  const name = (
+    process.env.AIRTABLE_MIGHTY_SYNC_STATUS_FIELD || "Current Mighty Sync Status"
+  ).trim();
+  return name.length ? name : null;
+}
+
+function parseAirtableDateField(v: unknown): string | null {
+  if (typeof v === "string" && v.trim()) return v.trim();
+  return null;
+}
+
 /** Rows with a Mighty Member ID (for bulk Mighty ↔ Airtable / subscription jobs). */
 export async function fetchMightySyncRowsWithMemberId(): Promise<{ rows: MightySyncRowWithMemberId[] }> {
   const cfg = getMightySyncTableConfig();
@@ -177,6 +191,7 @@ export async function fetchMightySyncRowsWithMemberId(): Promise<{ rows: MightyS
   const planNamesField = airtableFieldName("AIRTABLE_PLAN_NAMES_FIELD", "planNames");
   const planIdsField = airtableFieldName("AIRTABLE_PLAN_IDS_FIELD", "planIds");
   const statusesField = getAirtableSubscriptionStatusesFieldName();
+  const lastSyncField = getAirtableLastSyncDateFieldName();
 
   const tableEnc = encodeURIComponent(cfg.table);
   const baseUrl = `https://api.airtable.com/v0/${encodeURIComponent(cfg.baseId)}/${tableEnc}`;
@@ -211,6 +226,7 @@ export async function fetchMightySyncRowsWithMemberId(): Promise<{ rows: MightyS
         subscriptionStatuses: parseAirtableStringList(f[statusesField] ?? f.subscriptionStatuses),
         paidSubscriptionStatus:
           typeof statusRaw === "string" && statusRaw.trim() ? statusRaw.trim().toLowerCase() : null,
+        lastSyncDate: parseAirtableDateField(f[lastSyncField] ?? f["Last Sync Date"]),
       });
     }
     offset = data.offset;
