@@ -43,5 +43,3 @@ export function getMemberBioFromAirtableFields(
 ): string | null {
   return getMemberBio({ fields: airtableFields });
 }
-
-export { memberBioCoalesceExpr } from "./memberBio.js";
