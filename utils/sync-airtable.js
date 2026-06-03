@@ -1,10 +1,37 @@
 // utils/sync-airtable.js
+//
+// Scheduled membership reconciliation (twice daily — morning + night):
+//   Mighty webhooks keep Mongo + Airtable mostly current in between; this job
+//   re-pulls Mighty → Airtable (Last Sync Date + profile) then Airtable → Mongo.
+//   Default --sleep-ms 450 to stay under Mighty Admin API rate limits.
+//
+// Render: create TWO Cron Jobs with the same command (set timezone, e.g. America/New_York):
+//   Morning: 0 6 * * *
+//   Night:   0 2 * * *
+//   Command: node utils/sync-airtable.js
+//   Plan:    allow ~60–90 min per run
+//
+// Usage:
+//   node utils/sync-airtable.js
+//   node utils/sync-airtable.js --sleep-ms 500
+//   node utils/sync-airtable.js --stale-only          # lighter run (failed/old rows only)
+//   node utils/sync-airtable.js --skip-mighty        # Airtable → Mongo only
+//
+// Env: MIGHTY_SYNC_SLEEP_MS (default 450), MIGHTY_SYNC_RETRY_ROUNDS (default 3),
+//      MIGHTY_SYNC_STALE_ONLY=1 for incremental runs,
+//      SYNC_REQUIRE_COMPLETE=0 to run Mongo when Mighty rows still failing,
+//      SKIP_MIGHTY_SYNC=1 to skip step 1
 
 // Use require instead of import
 require('dotenv').config();
 
 const axios = require("axios");
 const { MongoClient } = require("mongodb");
+const { spawnSync } = require("child_process");
+const path = require("path");
+
+/** Scheduled full-sync pacing (Mighty Admin API rate limits). Override via MIGHTY_SYNC_SLEEP_MS. */
+const DEFAULT_MIGHTY_SLEEP_MS = 450;
 
 // Airtable "Mighty Members" sync table (server-side tokens)
 const AIRTABLE_API_KEY =
@@ -188,7 +215,7 @@ const syncAirtableToMongoDB = async () => {
     };
 
     // Upsert by mightyId when present, else by email.
-    // IMPORTANT: do NOT overwrite subscription fields here (those are set by Mighty/Wix sync scripts).
+    // Subscription fields mirror Airtable when present (after Mighty → Airtable step).
     const bulkOps = records
       .map((record) => {
         const f = record.fields || {};
@@ -282,9 +309,122 @@ const syncAirtableToMongoDB = async () => {
 module.exports = {
   getAllRecordsFromAirtable,
   syncAirtableToMongoDB,
+  runMightyToAirtableSync,
+  parseSyncCliArgs,
 };
 
-// If this file is executed directly, run the sync
+function parseSyncCliArgs(argv = process.argv.slice(2)) {
+  const sleepIdx = argv.indexOf("--sleep-ms");
+  const retryIdx = argv.indexOf("--retry-rounds");
+  const envSleep = parseInt(process.env.MIGHTY_SYNC_SLEEP_MS || "", 10);
+  const envRetry = parseInt(process.env.MIGHTY_SYNC_RETRY_ROUNDS || "", 10);
+  const defaultSleep = Number.isFinite(envSleep) ? envSleep : DEFAULT_MIGHTY_SLEEP_MS;
+  const defaultRetry = Number.isFinite(envRetry) ? Math.max(1, envRetry) : 3;
+  const requireComplete = process.env.SYNC_REQUIRE_COMPLETE !== "0";
+  const staleOnly =
+    argv.includes("--stale-only") ||
+    argv.includes("--incremental") ||
+    process.env.MIGHTY_SYNC_STALE_ONLY === "1";
+  return {
+    skipMighty:
+      argv.includes("--skip-mighty") ||
+      argv.includes("--airtable-only") ||
+      process.env.SKIP_MIGHTY_SYNC === "1",
+    staleOnly,
+    sleepMs:
+      sleepIdx >= 0 && argv[sleepIdx + 1]
+        ? Math.max(0, parseInt(argv[sleepIdx + 1], 10) || 0)
+        : defaultSleep,
+    retryRounds:
+      retryIdx >= 0 && argv[retryIdx + 1]
+        ? Math.max(1, parseInt(argv[retryIdx + 1], 10) || 1)
+        : defaultRetry,
+    requireComplete,
+  };
+}
+
+function mightyToAirtableConfigured() {
+  const mightyKey =
+    process.env.MIGHTY_NETWORK_API_KEY || process.env.MIGHTY_API_KEY;
+  const networkId = process.env.MIGHTY_NETWORK_ID;
+  return Boolean(mightyKey && networkId && AIRTABLE_API_KEY && BASE_ID && TABLE_NAME);
+}
+
+function runMightyToAirtableSync(sleepMs, retryRounds, staleOnly) {
+  const repoRoot = path.join(__dirname, "..");
+  const args = [
+    "tsx",
+    "scripts/mighty-to-airtable-sync.ts",
+    "--apply",
+    "--sleep-ms",
+    String(sleepMs),
+    "--retry-rounds",
+    String(retryRounds),
+  ];
+  if (staleOnly) args.push("--stale-only");
+  console.error(
+    JSON.stringify({
+      msg: "sync_airtable_mighty_step_start",
+      sleepMs,
+      retryRounds,
+      staleOnly,
+      command: "npx",
+      args,
+    })
+  );
+  const result = spawnSync("npx", args, {
+    stdio: "inherit",
+    env: process.env,
+    cwd: repoRoot,
+  });
+  const exitCode = result.status ?? 1;
+  console.error(
+    JSON.stringify({ msg: "sync_airtable_mighty_step_done", exitCode, sleepMs, retryRounds })
+  );
+  return exitCode;
+}
+
+async function runScheduledMembershipSync() {
+  const args = parseSyncCliArgs();
+
+  console.error(
+    JSON.stringify({
+      msg: "sync_airtable_scheduled_start",
+      mode: args.staleOnly ? "incremental" : "full",
+      sleepMs: args.sleepMs,
+      retryRounds: args.retryRounds,
+      requireComplete: args.requireComplete,
+    })
+  );
+
+  if (!args.skipMighty && mightyToAirtableConfigured()) {
+    const mightyExit = runMightyToAirtableSync(args.sleepMs, args.retryRounds, args.staleOnly);
+    if (mightyExit !== 0 && args.requireComplete) {
+      console.error(
+        JSON.stringify({
+          msg: "sync_airtable_mongo_step_skipped",
+          reason: "Mighty → Airtable had retryable failures (set SYNC_REQUIRE_COMPLETE=0 to force Mongo)",
+          mightyExit,
+        })
+      );
+      process.exit(mightyExit);
+    }
+  } else if (!args.skipMighty) {
+    console.error(
+      JSON.stringify({
+        msg: "sync_airtable_mighty_step_skipped",
+        reason: "missing Mighty or Airtable env (set SKIP_MIGHTY_SYNC=1 to silence)",
+      })
+    );
+  }
+
+  await syncAirtableToMongoDB();
+}
+
+// If this file is executed directly, run the full scheduled sync
 if (require.main === module) {
-  syncAirtableToMongoDB();
+  runScheduledMembershipSync().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
 }

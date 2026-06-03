@@ -39,6 +39,8 @@
     "sync:mighty-to-airtable": "tsx scripts/mighty-to-airtable-sync.ts",
     "sync:mighty-to-airtable:apply": "tsx scripts/mighty-to-airtable-sync.ts --apply",
     "sync:airtable-to-mongo": "node utils/sync-airtable.js",
+    "sync:scheduled": "node utils/sync-airtable.js",
+    "sync:nightly": "node utils/sync-airtable.js",
     "sync:membership-pipeline": "tsx scripts/membership-sync-pipeline.ts",
     "sync:membership-pipeline:apply": "tsx scripts/membership-sync-pipeline.ts --apply"
   },

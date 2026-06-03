@@ -1,14 +1,13 @@
 /**
  * Mighty Networks → Airtable (Mighty Members sync table).
  *
- * Pulls profile + plans from Mighty Admin API and upserts Airtable, stamping Last Sync Date.
- * Pair with `node utils/sync-airtable.js` (Airtable → MongoDB) for the full pipeline.
+ * Retries 429 rate limits with backoff; marks 404 "Mighty Not Found" in Airtable
+ * so cron does not retry deleted ids forever.
  *
  * Usage:
- *   npx tsx scripts/mighty-to-airtable-sync.ts
  *   npx tsx scripts/mighty-to-airtable-sync.ts --apply
- *   npx tsx scripts/mighty-to-airtable-sync.ts --apply --limit 50 --sleep-ms 100
- *   npx tsx scripts/mighty-to-airtable-sync.ts --apply --email one@example.com
+ *   npx tsx scripts/mighty-to-airtable-sync.ts --apply --sleep-ms 200 --retry-rounds 3
+ *   npx tsx scripts/mighty-to-airtable-sync.ts --apply --stale-only
  */
 import "dotenv/config";
 
@@ -16,11 +15,10 @@ import {
   airtableEnabled,
   fetchMightySyncRowsWithMemberId,
 } from "../lib/airtableMightyMembers";
-import { syncMightyMemberToAirtable } from "../lib/domain/sync/mightyToAirtableMemberSync";
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
+import {
+  filterRowsNeedingMightySync,
+  runMightyToAirtableBatchSync,
+} from "../lib/domain/sync/mightyToAirtableMemberSync";
 
 function parseArgs() {
   const argv = process.argv.slice(2);
@@ -28,9 +26,18 @@ function parseArgs() {
   const offsetIdx = argv.indexOf("--offset");
   const emailIdx = argv.indexOf("--email");
   const sleepIdx = argv.indexOf("--sleep-ms");
+  const retryIdx = argv.indexOf("--retry-rounds");
+
+  const envRetry = parseInt(process.env.MIGHTY_SYNC_RETRY_ROUNDS || "", 10);
+  const envSleep = parseInt(process.env.MIGHTY_SYNC_SLEEP_MS || "", 10);
+  const defaultSleep = Number.isFinite(envSleep) ? envSleep : 450;
 
   return {
     apply: argv.includes("--apply"),
+    staleOnly:
+      argv.includes("--stale-only") ||
+      argv.includes("--incremental") ||
+      process.env.MIGHTY_SYNC_STALE_ONLY === "1",
     limit: limitIdx >= 0 && argv[limitIdx + 1] ? Math.max(1, parseInt(argv[limitIdx + 1]!, 10) || 0) : 0,
     offset: offsetIdx >= 0 && argv[offsetIdx + 1] ? Math.max(0, parseInt(argv[offsetIdx + 1]!, 10) || 0) : 0,
     email:
@@ -38,7 +45,13 @@ function parseArgs() {
         ? argv[emailIdx + 1]!.trim().toLowerCase()
         : null,
     sleepMs:
-      sleepIdx >= 0 && argv[sleepIdx + 1] ? Math.max(0, parseInt(argv[sleepIdx + 1]!, 10) || 0) : 75,
+      sleepIdx >= 0 && argv[sleepIdx + 1] ? Math.max(0, parseInt(argv[sleepIdx + 1]!, 10) || 0) : defaultSleep,
+    retryRounds:
+      retryIdx >= 0 && argv[retryIdx + 1]
+        ? Math.max(1, parseInt(argv[retryIdx + 1]!, 10) || 1)
+        : Number.isFinite(envRetry)
+          ? Math.max(1, envRetry)
+          : 3,
   };
 }
 
@@ -50,7 +63,12 @@ async function main() {
     process.exit(1);
   }
 
+  const runStartedMs = Date.now();
   let { rows } = await fetchMightySyncRowsWithMemberId();
+
+  if (args.staleOnly) {
+    rows = filterRowsNeedingMightySync(rows, runStartedMs);
+  }
   if (args.email) {
     rows = rows.filter((r) => (r.email ?? "").trim().toLowerCase() === args.email);
     if (!rows.length) {
@@ -66,75 +84,47 @@ async function main() {
       msg: "mighty_to_airtable_sync_start",
       mode: args.apply ? "apply" : "dry-run",
       rowCount: rows.length,
+      sleepMs: args.sleepMs,
+      retryRounds: args.retryRounds,
+      staleOnly: args.staleOnly,
       limit: args.limit || null,
       offset: args.offset || null,
     })
   );
 
-  let processed = 0;
-  let updated = 0;
-  let created = 0;
-  let skipped = 0;
-  let errors = 0;
-
-  for (const row of rows) {
-    processed++;
-    const email = (row.email ?? "").trim().toLowerCase();
-
-    if (!args.apply) {
+  if (!args.apply) {
+    for (const row of rows) {
       console.log(
         JSON.stringify({
           action: "would_sync",
           mightyId: row.mightyId,
-          email: email || null,
+          email: row.email,
           record_id: row.recordId,
-        })
-      );
-      continue;
-    }
-
-    try {
-      const result = await syncMightyMemberToAirtable(row.mightyId);
-      if (result.skipped) skipped++;
-      else if (result.action === "created") created++;
-      else if (result.action === "updated") updated++;
-      console.log(
-        JSON.stringify({
-          action: result.action ?? "skipped",
-          mightyId: row.mightyId,
-          email: result.email ?? email,
-          record_id: result.recordId ?? row.recordId,
-        })
-      );
-    } catch (e) {
-      errors++;
-      console.log(
-        JSON.stringify({
-          action: "error",
-          mightyId: row.mightyId,
-          email,
-          record_id: row.recordId,
-          error: e instanceof Error ? e.message : String(e),
+          lastSyncDate: row.lastSyncDate,
         })
       );
     }
-
-    await sleep(args.sleepMs);
+    console.error(JSON.stringify({ msg: "mighty_to_airtable_sync_done", dryRun: true, rowCount: rows.length }));
+    return;
   }
+
+  const summary = await runMightyToAirtableBatchSync({
+    rows,
+    sleepMs: args.sleepMs,
+    retryRounds: args.retryRounds,
+    onRow: (payload) => console.log(JSON.stringify(payload)),
+  });
 
   console.error(
     JSON.stringify({
       msg: "mighty_to_airtable_sync_done",
-      dryRun: !args.apply,
-      processed,
-      created,
-      updated,
-      skipped,
-      errors,
+      dryRun: false,
+      uniqueRows: rows.length,
+      ...summary,
     })
   );
 
-  if (errors > 0) process.exit(1);
+  if (summary.retryableFailures > 0) process.exit(1);
 }
 
 main().catch((e) => {

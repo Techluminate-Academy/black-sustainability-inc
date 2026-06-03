@@ -4,8 +4,12 @@
  *   2. Airtable → MongoDB `mightyMembers` (map/directory runtime)
  *   3. Redis cache bust (optional)
  *
- * Intended for Render cron / external scheduler every 30 minutes:
- *   npm run sync:membership-pipeline
+ * Intended for Render cron (twice daily) or manual runs:
+ *   npm run sync:membership-pipeline:apply
+ *
+ * Webhooks handle real-time updates; cron reconciles the full roster morning + night.
+ * Default Mighty API pacing: --sleep-ms 450 (override with --mighty-sleep-ms N).
+ * Scheduled cron entry point: `node utils/sync-airtable.js` (same defaults).
  *
  * Usage:
  *   npx tsx scripts/membership-sync-pipeline.ts
@@ -18,8 +22,14 @@ import "dotenv/config";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
+/** Pacing between Mighty Admin API calls (cron default; reduces 429 rate limits). */
+const DEFAULT_MIGHTY_SLEEP_MS = 450;
+const DEFAULT_MIGHTY_RETRY_ROUNDS = 3;
+
 function parseArgs() {
   const argv = process.argv.slice(2);
+  const retryIdx = argv.indexOf("--retry-rounds");
+  const envRetry = parseInt(process.env.MIGHTY_SYNC_RETRY_ROUNDS || "", 10);
   return {
     apply: argv.includes("--apply"),
     skipMighty: argv.includes("--skip-mighty"),
@@ -33,8 +43,16 @@ function parseArgs() {
     mightySleepMs:
       (() => {
         const i = argv.indexOf("--mighty-sleep-ms");
-        return i >= 0 && argv[i + 1] ? Math.max(0, parseInt(argv[i + 1]!, 10) || 0) : 75;
+        return i >= 0 && argv[i + 1]
+          ? Math.max(0, parseInt(argv[i + 1]!, 10) || 0)
+          : DEFAULT_MIGHTY_SLEEP_MS;
       })(),
+    mightyRetryRounds:
+      retryIdx >= 0 && argv[retryIdx + 1]
+        ? Math.max(1, parseInt(argv[retryIdx + 1]!, 10) || 1)
+        : Number.isFinite(envRetry)
+          ? Math.max(1, envRetry)
+          : DEFAULT_MIGHTY_RETRY_ROUNDS,
   };
 }
 
@@ -66,6 +84,8 @@ async function main() {
       skipMighty: args.skipMighty,
       skipMongo: args.skipMongo,
       skipCache: args.skipCache,
+      mightySleepMs: args.mightySleepMs,
+      mightyRetryRounds: args.mightyRetryRounds,
     })
   );
 
@@ -73,6 +93,7 @@ async function main() {
     const mightyArgs = ["tsx", "scripts/mighty-to-airtable-sync.ts", ...applyFlag];
     if (args.mightyLimit > 0) mightyArgs.push("--limit", String(args.mightyLimit));
     if (args.mightySleepMs > 0) mightyArgs.push("--sleep-ms", String(args.mightySleepMs));
+    mightyArgs.push("--retry-rounds", String(args.mightyRetryRounds));
     const code = runStep("mighty_to_airtable", "npx", mightyArgs);
     if (code !== 0) process.exit(code);
   }
