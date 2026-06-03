@@ -1,5 +1,5 @@
 /**
- * Find or create the Mighty "Short Bio" custom field for map profile sync.
+ * Find or create the Mighty "Extended Bio" custom field for map profile sync.
  *
  * Run: npx tsx scripts/mighty-create-bio-field.ts
  * Then set MIGHTY_BIO_CUSTOM_FIELD_ID in .env from the printed id.
@@ -69,7 +69,7 @@ async function createCustomField(networkId: string, title: string): Promise<Cust
   const url = `${getBaseUrl()}/admin/v1/networks/${encodeURIComponent(networkId)}/custom_fields`;
   const body = {
     title,
-    description: "Short bio shown on the BSN member map and directory.",
+    description: "Extended bio shown on the BSN member map and directory.",
     placeholder: "Tell members about yourself…",
     response_type: "text_long",
     privacy: "public",
@@ -89,9 +89,10 @@ async function createCustomField(networkId: string, title: string): Promise<Cust
 
 async function main() {
   const networkId = requireEnv("MIGHTY_NETWORK_ID");
-  const preferredTitle = process.env.MIGHTY_BIO_FIELD_TITLE || "Short Bio";
+  const preferredTitle = process.env.MIGHTY_BIO_FIELD_TITLE || "Extended Bio";
   const aliasTitles = [
     preferredTitle,
+    "Extended Bio",
     "Short Bio",
     "Bio",
     "BSN Bio",

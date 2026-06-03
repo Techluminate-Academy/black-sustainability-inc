@@ -211,7 +211,7 @@ export default function UpdateProfileModal({
                     in the menu and choose your city from the suggestions.
                   </li>
                   <li>
-                    Write a short bio members can scan quickly: your focus, who you serve, and how to
+                    Write an extended bio members can scan quickly: your focus, who you serve, and how to
                     connect. Member level and profile photo are not changed here.
                   </li>
                 </ol>

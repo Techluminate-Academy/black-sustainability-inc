@@ -3,8 +3,8 @@
  * when those fields are missing today.
  *
  * Source: Mighty Members Airtable sync table (AIRTABLE_PAT + AIRTABLE_MIGHTY_SYNC_*).
- * Reads Short Bio + Profile Photo URL when present; writes to Mighty + Mongo if missing.
- * Bios → Mighty "Short Bio" custom field (MIGHTY_BIO_CUSTOM_FIELD_ID).
+ * Reads Extended Bio + Profile Photo URL when present; writes to Mighty + Mongo if missing.
+ * Bios → Mighty "Extended Bio" custom field (MIGHTY_BIO_CUSTOM_FIELD_ID).
  * Photos → Mighty asset upload + member avatar assignment.
  *
  * Default is dry-run. Use --apply to write.
@@ -153,7 +153,7 @@ async function main() {
         batchSize: workRows.length,
         rowsWithBioOrPhoto: filtered.length,
         ...summary,
-        note: "Apply pass also updates Mighty when Short Bio / avatar are empty there (per-member API check).",
+        note: "Apply pass also updates Mighty when Extended Bio / avatar are empty there (per-member API check).",
       })
     );
     return;

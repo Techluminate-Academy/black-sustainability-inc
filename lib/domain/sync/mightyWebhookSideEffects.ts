@@ -26,10 +26,20 @@ export type MightyWebhookSideEffectInput = {
 export async function runMightyWebhookSideEffects(result: MightyWebhookSideEffectInput): Promise<void> {
   await Promise.resolve()
     .then(async () => {
-      await upsertAirtableMightyMember({
+      const airtable = await upsertAirtableMightyMember({
         ...result.member,
         subscription: result.subscription,
       });
+      console.info(
+        JSON.stringify({
+          msg: "mighty_webhook_airtable_upsert",
+          skipped: airtable.skipped,
+          action: airtable.action,
+          recordId: airtable.recordId,
+          mightyId: result.member.mightyId,
+          hasBio: typeof result.member.bio === "string" && result.member.bio.length > 0,
+        })
+      );
     })
     .catch((e) => {
       console.error("Airtable upsert failed (non-fatal):", { message: (e as Error)?.message });

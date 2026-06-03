@@ -108,17 +108,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     );
 
-    Promise.resolve()
-      .then(() => runMightyWebhookSideEffects(result))
-      .catch((e) => {
-        console.error(
-          JSON.stringify({
-            msg: "mighty_webhook_side_effects_failed",
-            correlationId,
-            error: (e as Error)?.message,
-          })
-        );
-      });
+    try {
+      await runMightyWebhookSideEffects(result);
+    } catch (e) {
+      console.error(
+        JSON.stringify({
+          msg: "mighty_webhook_side_effects_failed",
+          correlationId,
+          error: (e as Error)?.message,
+        })
+      );
+    }
 
     return res.status(200).json({ ok: true, result });
   } catch (err: any) {

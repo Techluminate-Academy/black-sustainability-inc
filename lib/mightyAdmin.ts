@@ -188,7 +188,7 @@ export async function readMightyCustomFieldAnswer(params: {
   }
 }
 
-/** Non-empty Short Bio / custom-field text only (null when unset or API error). */
+/** Non-empty Extended Bio / custom-field text only (null when unset or API error). */
 export async function getMightyCustomFieldAnswerText(params: {
   customFieldId: string | number;
   mightyMemberId: string | number;

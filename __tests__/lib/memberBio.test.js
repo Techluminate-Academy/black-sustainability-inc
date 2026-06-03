@@ -11,10 +11,14 @@ describe("getMemberBio", () => {
     );
   });
 
-  it("reads Short Bio from nested fields", () => {
-    expect(getMemberBio({ fields: { "Short Bio": "Mighty table bio" } })).toBe(
+  it("reads Extended Bio from nested fields", () => {
+    expect(getMemberBio({ fields: { "Extended Bio": "Mighty table bio" } })).toBe(
       "Mighty table bio"
     );
+  });
+
+  it("reads legacy Short Bio from nested fields", () => {
+    expect(getMemberBio({ fields: { "Short Bio": "legacy column" } })).toBe("legacy column");
   });
 
   it("returns empty string when no bio is present", () => {

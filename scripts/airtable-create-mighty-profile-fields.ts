@@ -2,7 +2,7 @@
  * Ensure Mighty Members Airtable sync columns for profile mirror (bio + photo URL).
  *
  * Creates missing columns via Airtable Metadata API:
- *   - Short Bio (multilineText) — mirrored from Mighty custom field / backfill
+ *   - Extended Bio (multilineText) — mirrored from Mighty custom field / backfill
  *   - Profile Photo URL (url) — mirrored from Mighty avatar
  *
  * Requires PAT scopes: schema.bases:read, schema.bases:write
@@ -14,7 +14,7 @@
  */
 import "dotenv/config";
 
-import { getMightySyncTableConfig } from "../lib/airtableMightyMembers";
+import { getAirtableMightyBioFieldName, getMightySyncTableConfig } from "../lib/airtableMightyMembers";
 import { ensureAirtableTableFields, type CreateAirtableFieldSpec } from "../lib/airtableMeta";
 
 function parseArgs() {
@@ -25,9 +25,8 @@ function parseArgs() {
   };
 }
 
-export function getAirtableShortBioFieldName(): string {
-  return (process.env.AIRTABLE_MIGHTY_BIO_FIELD || "Short Bio").trim() || "Short Bio";
-}
+/** @deprecated Use getAirtableMightyBioFieldName from lib/airtableMightyMembers */
+export const getAirtableShortBioFieldName = getAirtableMightyBioFieldName;
 
 export function getAirtableProfilePhotoUrlFieldName(): string {
   return (process.env.AIRTABLE_MIGHTY_PROFILE_PHOTO_FIELD || "Profile Photo URL").trim() || "Profile Photo URL";
@@ -40,9 +39,9 @@ function buildFieldSpecs(opts: { bioOnly: boolean; photoOnly: boolean }): Create
 
   if (includeBio) {
     specs.push({
-      name: getAirtableShortBioFieldName(),
+      name: getAirtableMightyBioFieldName(),
       type: "multilineText",
-      description: "Member short bio mirrored from Mighty Networks (Short Bio custom field).",
+      description: "Member extended bio mirrored from Mighty Networks (Extended Bio custom field).",
     });
   }
 

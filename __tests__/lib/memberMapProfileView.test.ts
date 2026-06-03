@@ -65,11 +65,14 @@ describe("getMemberMapProfileView", () => {
       organizationLoaded: false,
     });
 
+    const { fetchMightyMemberById } = await import("@/lib/mightyAdmin");
+    (fetchMightyMemberById as jest.Mock).mockResolvedValueOnce({ bio: "", avatar_url: "" });
+
     const view = await getMemberMapProfileView(db, session);
     expect(view.bio).toBe("bio from airtable-shaped mongo fields");
   });
 
-  it("prefers cleared Mighty Short Bio over stale Mongo", async () => {
+  it("prefers cleared Mighty Extended Bio over stale Mongo", async () => {
     const db = {
       collection: () => ({
         findOne: mockFindOne,
@@ -97,7 +100,7 @@ describe("getMemberMapProfileView", () => {
     );
   });
 
-  it("uses Mighty Mini Bio when Short Bio custom field is unset", async () => {
+  it("uses Mighty Mini Bio when Extended Bio custom field is unset", async () => {
     const db = {
       collection: () => ({
         findOne: mockFindOne,

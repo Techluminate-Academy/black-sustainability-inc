@@ -9,7 +9,7 @@ function customFieldIdFromEnv(envKey: string): number | null {
 /** Bio/organization live on Mighty custom fields; member PUT does not accept bio. */
 export async function fetchMightyProfileCustomFields(mightyId: number): Promise<{
   bio: string | null;
-  /** True when Short Bio custom field was read from Mighty (including cleared/blank). */
+  /** True when Extended Bio custom field was read from Mighty (including cleared/blank). */
   bioLoaded: boolean;
   organizationName: string | null;
   organizationLoaded: boolean;

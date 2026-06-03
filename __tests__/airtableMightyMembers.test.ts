@@ -1,4 +1,7 @@
-import { upsertAirtableMightyMember } from "../lib/airtableMightyMembers";
+import {
+  getAirtableMightyBioFieldName,
+  upsertAirtableMightyMember,
+} from "../lib/airtableMightyMembers";
 
 describe("upsertAirtableMightyMember", () => {
   const OLD_ENV = process.env;
@@ -65,6 +68,74 @@ describe("upsertAirtableMightyMember", () => {
     expect(r.action).toBe("created");
     expect(r.recordId).toBe("rec_new");
     expect((global as any).fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("writes bio to Extended Bio by default", async () => {
+    delete process.env.AIRTABLE_MIGHTY_BIO_FIELD;
+    delete process.env.AIRTABLE_MIGHTY_BIO_ALSO_WRITE;
+    expect(getAirtableMightyBioFieldName()).toBe("Extended Bio");
+
+    process.env.AIRTABLE_PAT = "pat";
+    process.env.AIRTABLE_MIGHTY_SYNC_BASE_ID = "base";
+    process.env.AIRTABLE_MIGHTY_SYNC_TABLE_NAME = "Mighty Members";
+
+    (global as any).fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ records: [] }),
+        text: async () => "",
+        status: 200,
+        statusText: "OK",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ records: [{ id: "rec_bio", fields: {} }] }),
+        text: async () => "",
+        status: 200,
+        statusText: "OK",
+      });
+
+    await upsertAirtableMightyMember({
+      mightyId: 1,
+      email: "a@b.com",
+      bio: "Hello extended",
+    });
+
+    const createCall = (global as any).fetch.mock.calls[1];
+    const body = JSON.parse(createCall[1].body as string);
+    const fields = body.records[0].fields;
+    expect(fields["Extended Bio"]).toBe("Hello extended");
+    expect(fields["Short Bio"]).toBeUndefined();
+  });
+
+  it("writes bio to Extended Bio when AIRTABLE_MIGHTY_BIO_FIELD is set", async () => {
+    process.env.AIRTABLE_MIGHTY_BIO_FIELD = "Extended Bio";
+    process.env.AIRTABLE_PAT = "pat";
+    process.env.AIRTABLE_MIGHTY_SYNC_BASE_ID = "base";
+    process.env.AIRTABLE_MIGHTY_SYNC_TABLE_NAME = "Mighty Members";
+
+    (global as any).fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ records: [] }),
+        text: async () => "",
+        status: 200,
+        statusText: "OK",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ records: [{ id: "rec_bio2", fields: {} }] }),
+        text: async () => "",
+        status: 200,
+        statusText: "OK",
+      });
+
+    await upsertAirtableMightyMember({ mightyId: 2, email: "b@b.com", bio: "New label" });
+
+    const body = JSON.parse((global as any).fetch.mock.calls[1][1].body);
+    expect(body.records[0].fields["Extended Bio"]).toBe("New label");
   });
 });
 

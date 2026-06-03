@@ -138,7 +138,7 @@ export async function getMemberMapProfileView(
     try {
       const member = (await fetchMightyMemberById(session.mightyId)) as Record<string, unknown>;
       const nativeBio = nonEmptyString(member.bio);
-      // Mighty "Mini Bio" is member.bio; Short Bio custom field wins when present.
+      // Mighty "Mini Bio" is member.bio; Extended Bio custom field wins when present.
       if (!shortBioLoaded && nativeBio) {
         bio = nativeBio;
         if (nativeBio !== mongoBio) {

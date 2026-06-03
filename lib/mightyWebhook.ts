@@ -1,4 +1,5 @@
 import { connectToDatabase } from "./mongodb";
+import { fetchMightyProfileCustomFields } from "./domain/members/memberMightyCustomFields";
 import { fetchMightyMemberById } from "./mightyAdmin";
 import { geocodePhotonFreeText } from "./geocodePhoton";
 
@@ -155,29 +156,55 @@ function pickFiniteNumber(v: unknown): number | undefined {
   return undefined;
 }
 
+/** Mighty uses Hook suffixes, dots, and underscores across API versions. */
+export function isCustomFieldResponseEventType(eventType: string): boolean {
+  const compact = eventType.toLowerCase().replace(/[^a-z]/g, "");
+  return compact.includes("customfieldresponse");
+}
+
+export function isMemberProfileWebhookEventType(eventType: string): boolean {
+  const compact = eventType.toLowerCase().replace(/[^a-z]/g, "");
+  return compact === "memberupdated" || compact === "membercreated";
+}
+
 function extractCustomFieldResponse(payload: AnyObj): { customFieldId?: string; text?: string } {
   const nested = isObject(payload?.payload) ? payload.payload : null;
   const p = nested || payload;
+
+  const responseObj =
+    (isObject(p?.custom_field_response) && p.custom_field_response) ||
+    (isObject(p?.customFieldResponse) && p.customFieldResponse) ||
+    (isObject(p?.answer) && p.answer) ||
+    (isObject(p?.response) && p.response) ||
+    null;
 
   const customFieldId =
     p?.custom_field_id ??
     p?.customFieldId ??
     p?.custom_field?.id ??
     p?.customField?.id ??
+    responseObj?.custom_field_id ??
+    responseObj?.customFieldId ??
     p?.custom_field_response?.custom_field_id ??
     p?.customFieldResponse?.customFieldId ??
     null;
 
-  const text =
+  const textRaw =
     p?.text ??
     p?.value ??
+    responseObj?.text ??
+    responseObj?.value ??
     p?.custom_field_response?.text ??
+    p?.custom_field_response?.value ??
     p?.customFieldResponse?.text ??
+    p?.customFieldResponse?.value ??
     null;
+
+  const text = typeof textRaw === "string" ? textRaw : null;
 
   return {
     ...(customFieldId != null ? { customFieldId: String(customFieldId) } : {}),
-    ...(typeof text === "string" ? { text } : {}),
+    ...(text != null ? { text } : {}),
   };
 }
 
@@ -229,6 +256,26 @@ function normalizeMightyWebhookBody(body: AnyObj): AnyObj {
     member: body.member ?? memberFromInner,
   };
 
+  // Hoist custom-field answer fields for extractCustomFieldResponse (Mighty envelope nests them in payload).
+  if (inner.custom_field_id != null && out.custom_field_id == null) {
+    out.custom_field_id = inner.custom_field_id;
+  }
+  if (inner.customFieldId != null && out.customFieldId == null) {
+    out.customFieldId = inner.customFieldId;
+  }
+  if (inner.member_id != null && out.member_id == null) {
+    out.member_id = inner.member_id;
+  }
+  if (inner.memberId != null && out.memberId == null) {
+    out.memberId = inner.memberId;
+  }
+  if (inner.value != null && out.value == null) {
+    out.value = inner.value;
+  }
+  if (inner.text != null && out.text == null) {
+    out.text = inner.text;
+  }
+
   if (body.space == null && isObject(inner.space)) out.space = inner.space;
   if (body.plan == null && isObject(inner.plan)) out.plan = inner.plan;
   if (body.subscription == null && isObject(inner.subscription)) out.subscription = inner.subscription;
@@ -259,7 +306,7 @@ function normalizeMemberDoc(member: AnyObj): AnyObj {
         ? member.avatarUrl
         : undefined;
 
-  // Short Bio / Mini Bio is a custom field — not native member.bio (About Me).
+  // Extended Bio custom field — not native member.bio (Mini Bio / About Me).
   const location =
     typeof member.location === "string"
       ? member.location
@@ -474,7 +521,7 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
     throw new Error("Cannot upsert member: no mightyId or email");
   }
 
-  const isCustomFieldEvent = /customfieldresponse/i.test(eventType);
+  const isCustomFieldEvent = isCustomFieldResponseEventType(eventType);
   const mapLocationCustomFieldIdRaw = process.env.MIGHTY_MAP_LOCATION_CUSTOM_FIELD_ID;
   const mapLocationCustomFieldId = mapLocationCustomFieldIdRaw ? String(mapLocationCustomFieldIdRaw) : null;
   const cf = isCustomFieldEvent ? extractCustomFieldResponse(normalized) : {};
@@ -517,6 +564,25 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
   if (isBioCustomFieldEvent) {
     const trimmed = cf.text!.trim();
     memberDoc.bio = trimmed.length ? trimmed : null;
+  }
+
+  if (mightyId && bioCustomFieldId) {
+    const needsBioFromApi =
+      (isBioCustomFieldEvent && memberDoc.bio === undefined) ||
+      isMemberProfileWebhookEventType(eventType);
+    if (needsBioFromApi) {
+      try {
+        const custom = await fetchMightyProfileCustomFields(mightyId);
+        if (custom.bioLoaded) {
+          memberDoc.bio = custom.bio;
+        }
+      } catch (e) {
+        console.warn("[mightyWebhook] Extended Bio API read failed (non-fatal):", {
+          mightyId,
+          message: (e as Error)?.message,
+        });
+      }
+    }
   }
 
   if (isOrganizationCustomFieldEvent) {

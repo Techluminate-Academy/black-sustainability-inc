@@ -28,6 +28,7 @@ const MERGE_FIELD_KEYS = [
   "Last Name",
   "City",
   "Profile Photo URL",
+  "Extended Bio",
   "Short Bio",
   "Latitude",
   "Longitude",

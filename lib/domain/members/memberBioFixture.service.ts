@@ -19,7 +19,7 @@ export async function setMemberBioForTest(
         updatedAt: now,
         source: "test:bio-fixture",
       },
-      $unset: { "fields.BIO": "", "fields.Short Bio": "" },
+      $unset: { "fields.BIO": "", "fields.Extended Bio": "", "fields.Short Bio": "" },
     }
   );
   return result.matchedCount > 0;
@@ -54,6 +54,7 @@ export async function clearMemberBioForTest(db: Db, email: string): Promise<bool
       $unset: {
         bio: "",
         "fields.BIO": "",
+        "fields.Extended Bio": "",
         "fields.Short Bio": "",
         "fields.Bio": "",
       },

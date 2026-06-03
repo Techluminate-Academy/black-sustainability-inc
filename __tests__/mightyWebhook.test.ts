@@ -1,4 +1,8 @@
-import { buildMightyWebhookDedupeKey, getBearerToken } from "../lib/mightyWebhook";
+import {
+  buildMightyWebhookDedupeKey,
+  getBearerToken,
+  isCustomFieldResponseEventType,
+} from "../lib/mightyWebhook";
 
 const mockedMongoCollection = {
   findOne: jest.fn(async () => null),
@@ -28,9 +32,26 @@ jest.mock("../lib/mightyAdmin", () => ({
   })),
 }));
 
+jest.mock("../lib/domain/members/memberMightyCustomFields", () => ({
+  fetchMightyProfileCustomFields: jest.fn(async () => ({
+    bio: "From Mighty API",
+    bioLoaded: true,
+    organizationName: null,
+    organizationLoaded: false,
+  })),
+}));
+
 jest.mock("../lib/airtableMightyMembers", () => ({
   upsertAirtableMightyMember: jest.fn(async () => ({ skipped: false, action: "updated", recordId: "rec1" })),
 }));
+
+describe("isCustomFieldResponseEventType", () => {
+  it("matches Hook, dot, and underscore event names", () => {
+    expect(isCustomFieldResponseEventType("CustomFieldResponseUpdatedHook")).toBe(true);
+    expect(isCustomFieldResponseEventType("custom_field_response.updated")).toBe(true);
+    expect(isCustomFieldResponseEventType("MemberUpdated")).toBe(false);
+  });
+});
 
 describe("buildMightyWebhookDedupeKey", () => {
   it("differs by event type for the same upstream id", () => {
@@ -279,6 +300,33 @@ describe("upsertMightyMemberFromWebhook", () => {
     await upsertMightyMemberFromWebhook(payload as any);
     const update = mockedMongoCollection.updateOne.mock.calls[0][1];
     expect(update?.$set?.location).toBe("Canada");
+  });
+
+  it("syncs Extended Bio from Mighty envelope (custom_field_id + member_id + value)", async () => {
+    process.env.MIGHTY_BIO_CUSTOM_FIELD_ID = "1635154";
+    const { fetchMightyProfileCustomFields } = await import(
+      "../lib/domain/members/memberMightyCustomFields"
+    );
+    (fetchMightyProfileCustomFields as jest.Mock).mockClear();
+
+    const { upsertMightyMemberFromWebhook } = await import("../lib/mightyWebhook");
+    mockedMongoCollection.updateOne.mockClear();
+
+    const payload = {
+      event_id: "evt_bio_1",
+      event_timestamp: "2026-06-03T12:00:00Z",
+      event_type: "custom_field_response.updated",
+      payload: {
+        custom_field_id: 1635154,
+        member_id: 39285348,
+        value: "Mighty extended bio text",
+      },
+    };
+
+    await upsertMightyMemberFromWebhook(payload as any);
+    const update = mockedMongoCollection.updateOne.mock.calls[0][1];
+    expect(update?.$set?.bio).toBe("Mighty extended bio text");
+    expect(fetchMightyProfileCustomFields).not.toHaveBeenCalled();
   });
 });
 

@@ -8,6 +8,15 @@ describe("legacyProfileBackfill extraction", () => {
     expect(extractLegacyBio({ BIO: "  Solar advocate  " })).toBe("Solar advocate");
   });
 
+  it("reads bio from Extended Bio before legacy Short Bio", () => {
+    expect(
+      extractLegacyBio({
+        "Short Bio": "old",
+        "Extended Bio": "canonical",
+      })
+    ).toBe("canonical");
+  });
+
   it("returns empty bio when no legacy bio fields", () => {
     expect(extractLegacyBio({ "FIRST NAME": "Ada" })).toBe("");
   });

@@ -19,7 +19,16 @@ import { getMightySyncTableConfig, upsertAirtableMightyMember } from "@/lib/airt
 import type { Db } from "mongodb";
 
 const EMAIL_FIELDS = ["Primary Email", "EMAIL ADDRESS", "Email", "email"] as const;
-const BIO_FIELD_KEYS = ["Short Bio", "BIO", "Bio", "Member Bio", "About", "Description", "bio"] as const;
+const BIO_FIELD_KEYS = [
+  "Extended Bio",
+  "Short Bio",
+  "BIO",
+  "Bio",
+  "Member Bio",
+  "About",
+  "Description",
+  "bio",
+] as const;
 const BIO_MAX = 5000;
 
 export type LegacyRosterRecord = {

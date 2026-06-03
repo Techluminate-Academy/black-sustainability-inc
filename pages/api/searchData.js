@@ -53,6 +53,7 @@ export default async function handler(req, res) {
               { location: re },
               { bio: re },
               { "fields.BIO": re },
+              { "fields.Extended Bio": re },
               { "fields.Short Bio": re },
             ],
           };

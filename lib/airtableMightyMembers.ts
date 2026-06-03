@@ -201,6 +201,30 @@ function getAirtableOrganizationFieldName(): string | null {
   return name.length ? name : null;
 }
 
+/**
+ * Airtable column for bio writes. Override with `AIRTABLE_MIGHTY_BIO_FIELD` if your base differs.
+ */
+export function getAirtableMightyBioFieldName(): string {
+  const explicit = process.env.AIRTABLE_MIGHTY_BIO_FIELD?.trim();
+  if (explicit) return explicit;
+  return "Extended Bio";
+}
+
+/** Optional second column during migration (e.g. `Extended Bio` while primary remains `Short Bio`). */
+function getAirtableMightyBioMirrorFieldName(): string | null {
+  const mirror = process.env.AIRTABLE_MIGHTY_BIO_ALSO_WRITE?.trim();
+  return mirror || null;
+}
+
+function applyBioToAirtableFields(fields: Record<string, unknown>, bio: string): void {
+  const primary = getAirtableMightyBioFieldName();
+  fields[primary] = bio;
+  const mirror = getAirtableMightyBioMirrorFieldName();
+  if (mirror && mirror !== primary) {
+    fields[mirror] = bio;
+  }
+}
+
 function pickAirtableFields(member: {
   mightyId?: number;
   email?: string;
@@ -231,7 +255,7 @@ function pickAirtableFields(member: {
   if (member.firstName) fields["First Name"] = member.firstName;
   if (member.lastName) fields["Last Name"] = member.lastName;
   if (member.avatarUrl) fields["Profile Photo URL"] = member.avatarUrl;
-  if (member.bio) fields["Short Bio"] = member.bio;
+  if (typeof member.bio === "string") applyBioToAirtableFields(fields, member.bio);
   if (member.location) fields["City"] = member.location;
   const orgField = getAirtableOrganizationFieldName();
   if (orgField && member.organizationName) fields[orgField] = member.organizationName;
@@ -242,15 +266,34 @@ function pickAirtableFields(member: {
   if (typeof member.latitude === "number" && Number.isFinite(member.latitude)) fields[latField] = member.latitude;
   if (typeof member.longitude === "number" && Number.isFinite(member.longitude)) fields[lngField] = member.longitude;
 
-  // Optional subscription fields (only if your Airtable has these exact columns).
-  if (typeof member.subscription?.isPaidActive === "boolean") fields["isPaidActive"] = member.subscription.isPaidActive;
-  if (Array.isArray(member.subscription?.planNames) && member.subscription!.planNames!.length)
-    fields["planNames"] = member.subscription!.planNames!;
-  if (Array.isArray(member.subscription?.planIds) && member.subscription!.planIds!.length)
-    fields["planIds"] = member.subscription!.planIds!;
-  if (Array.isArray(member.subscription?.statuses) && member.subscription!.statuses!.length)
-    fields["subscriptionStatuses"] = member.subscription!.statuses!;
-  if (member.subscription?.updatedAt) fields["subscriptionUpdatedAt"] = member.subscription.updatedAt;
+  // Optional subscription fields — only when env names the column (avoids 422 on profile/bio webhooks).
+  const paidActiveField = process.env.AIRTABLE_IS_PAID_ACTIVE_FIELD?.trim();
+  if (
+    paidActiveField &&
+    typeof member.subscription?.isPaidActive === "boolean"
+  ) {
+    fields[paidActiveField] = member.subscription.isPaidActive;
+  }
+  const planNamesField = process.env.AIRTABLE_PLAN_NAMES_FIELD?.trim();
+  if (planNamesField && Array.isArray(member.subscription?.planNames) && member.subscription.planNames.length) {
+    fields[planNamesField] = member.subscription.planNames;
+  }
+  const planIdsField = process.env.AIRTABLE_PLAN_IDS_FIELD?.trim();
+  if (planIdsField && Array.isArray(member.subscription?.planIds) && member.subscription.planIds.length) {
+    fields[planIdsField] = member.subscription.planIds;
+  }
+  const statusesField = process.env.AIRTABLE_SUBSCRIPTION_STATUSES_FIELD?.trim();
+  if (
+    statusesField &&
+    Array.isArray(member.subscription?.statuses) &&
+    member.subscription.statuses.length
+  ) {
+    fields[statusesField] = member.subscription.statuses;
+  }
+  const subUpdatedField = process.env.AIRTABLE_SUBSCRIPTION_UPDATED_AT_FIELD?.trim();
+  if (subUpdatedField && member.subscription?.updatedAt) {
+    fields[subUpdatedField] = member.subscription.updatedAt;
+  }
 
   return fields;
 }

@@ -31,6 +31,8 @@
     "airtable:migration-excluded-fields:apply": "tsx scripts/airtable-create-migration-excluded-fields.ts --apply",
     "airtable:mighty-profile-fields": "tsx scripts/airtable-create-mighty-profile-fields.ts",
     "airtable:mighty-profile-fields:apply": "tsx scripts/airtable-create-mighty-profile-fields.ts --apply",
+    "airtable:rename-mighty-bio-field": "tsx scripts/airtable-rename-mighty-bio-field.ts",
+    "airtable:rename-mighty-bio-field:apply": "tsx scripts/airtable-rename-mighty-bio-field.ts --apply",
     "duplicates:members": "tsx scripts/detectDuplicateMembers.ts",
     "mighty-backfill-legacy-profile": "tsx scripts/mighty-backfill-legacy-profile.ts",
     "mighty-backfill-legacy-profile:apply": "tsx scripts/mighty-backfill-legacy-profile.ts --apply"

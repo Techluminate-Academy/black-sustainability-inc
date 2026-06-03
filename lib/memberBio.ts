@@ -1,9 +1,13 @@
+/** Default Mighty custom field + Airtable column label for synced member bio. */
+export const MIGHTY_BIO_FIELD_LABEL = "Extended Bio";
+
 /** Airtable / legacy field names that may hold a member bio (first non-empty wins). */
 export const BIO_NESTED_FIELD_KEYS = [
+  MIGHTY_BIO_FIELD_LABEL,
+  "Short Bio",
   "BIO",
   "Bio",
   "bio",
-  "Short Bio",
   "Member Bio",
   "About",
   "Description",

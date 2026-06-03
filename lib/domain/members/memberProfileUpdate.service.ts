@@ -293,8 +293,8 @@ export async function updateMemberProfileFromSession(
   );
 
   await Promise.resolve()
-    .then(() =>
-      upsertAirtableMightyMember({
+    .then(async () => {
+      const airtable = await upsertAirtableMightyMember({
         mightyId,
         email: session.email,
         firstName: fromMighty.firstName || firstName,
@@ -302,8 +302,16 @@ export async function updateMemberProfileFromSession(
         bio: syncedBio ?? undefined,
         avatarUrl: fromMighty.avatarUrl ?? undefined,
         organizationName: organizationName ?? undefined,
-      })
-    )
+      });
+      console.info("[memberProfileUpdate] Airtable sync", {
+        email: session.email,
+        mightyId,
+        skipped: airtable.skipped,
+        action: airtable.action,
+        recordId: airtable.recordId,
+        hasBio: typeof syncedBio === "string" && syncedBio.length > 0,
+      });
+    })
     .catch((e) => {
       console.error("[memberProfileUpdate] Airtable sync failed (non-fatal):", {
         message: (e as Error)?.message,
