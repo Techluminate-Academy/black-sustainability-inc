@@ -1,21 +1,47 @@
-import {
-  getMemberBio as getMemberBioJs,
-  getMemberBioFromAirtableFields as getMemberBioFromAirtableFieldsJs,
-} from "./memberBio.js";
+/** Airtable / legacy field names that may hold a member bio (first non-empty wins). */
+export const BIO_NESTED_FIELD_KEYS = [
+  "BIO",
+  "Bio",
+  "bio",
+  "Short Bio",
+  "Member Bio",
+  "About",
+  "Description",
+] as const;
 
-function toBioOrNull(value: unknown): string | null {
+function pickTrimmedString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function getMemberBioRaw(doc: Record<string, unknown> | null | undefined): string {
+  if (!doc || typeof doc !== "object") return "";
+
+  const topLevel = pickTrimmedString(doc.bio);
+  if (topLevel) return topLevel;
+
+  const fields = doc.fields;
+  if (!fields || typeof fields !== "object" || Array.isArray(fields)) return "";
+
+  for (const key of BIO_NESTED_FIELD_KEYS) {
+    const nested = pickTrimmedString((fields as Record<string, unknown>)[key]);
+    if (nested) return nested;
+  }
+
+  return "";
+}
+
 /** Returns bio text or null when missing (for optional profile fields). */
 export function getMemberBio(doc: Record<string, unknown> | null | undefined): string | null {
-  return toBioOrNull(getMemberBioJs(doc));
+  const bio = getMemberBioRaw(doc);
+  return bio.length > 0 ? bio : null;
 }
 
 export function getMemberBioFromAirtableFields(
   airtableFields: Record<string, unknown>
 ): string | null {
-  return toBioOrNull(getMemberBioFromAirtableFieldsJs(airtableFields));
+  return getMemberBio({ fields: airtableFields });
 }
+
+export { memberBioCoalesceExpr } from "./memberBio.js";
