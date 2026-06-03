@@ -35,7 +35,12 @@
     "airtable:rename-mighty-bio-field:apply": "tsx scripts/airtable-rename-mighty-bio-field.ts --apply",
     "duplicates:members": "tsx scripts/detectDuplicateMembers.ts",
     "mighty-backfill-legacy-profile": "tsx scripts/mighty-backfill-legacy-profile.ts",
-    "mighty-backfill-legacy-profile:apply": "tsx scripts/mighty-backfill-legacy-profile.ts --apply"
+    "mighty-backfill-legacy-profile:apply": "tsx scripts/mighty-backfill-legacy-profile.ts --apply",
+    "sync:mighty-to-airtable": "tsx scripts/mighty-to-airtable-sync.ts",
+    "sync:mighty-to-airtable:apply": "tsx scripts/mighty-to-airtable-sync.ts --apply",
+    "sync:airtable-to-mongo": "node utils/sync-airtable.js",
+    "sync:membership-pipeline": "tsx scripts/membership-sync-pipeline.ts",
+    "sync:membership-pipeline:apply": "tsx scripts/membership-sync-pipeline.ts --apply"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.0.0",

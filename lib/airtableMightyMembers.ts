@@ -1,4 +1,8 @@
 import { getMemberBioFromAirtableFields } from "@/lib/memberBio";
+import {
+  getAirtableSubscriptionStatusesFieldName,
+  subscriptionStatusesIndicateDeactivated,
+} from "@/lib/domain/member/accountStatus";
 
 type AirtableRecord = {
   id: string;
@@ -115,6 +119,114 @@ export type MightySyncRowMissingMemberId = {
   firstName: string | null;
   lastName: string | null;
 };
+
+export type MightySyncRowWithMemberId = {
+  recordId: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  mightyId: number;
+  isPaidActive: boolean | null;
+  planNames: string[];
+  planIds: string[];
+  subscriptionStatuses: string[];
+  paidSubscriptionStatus: string | null;
+};
+
+function parseAirtableBooleanField(v: unknown): boolean | null {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v === 1 ? true : v === 0 ? false : null;
+  if (typeof v === "string") {
+    const t = v.trim().toLowerCase();
+    if (t === "true" || t === "yes" || t === "1") return true;
+    if (t === "false" || t === "no" || t === "0") return false;
+  }
+  return null;
+}
+
+function parseAirtableStringList(v: unknown): string[] {
+  if (Array.isArray(v)) return v.map((x) => String(x).trim()).filter(Boolean);
+  if (typeof v === "string" && v.trim()) return [v.trim()];
+  return [];
+}
+
+function parseMightyMemberIdField(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim()) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function airtableFieldName(envKey: string, fallback: string): string {
+  return (process.env[envKey] || fallback).trim();
+}
+
+/** Airtable column stamped when Mighty → Airtable sync runs. */
+export function getAirtableLastSyncDateFieldName(): string {
+  return airtableFieldName("AIRTABLE_LAST_SYNC_DATE_FIELD", "Last Sync Date");
+}
+
+/** Rows with a Mighty Member ID (for bulk Mighty ↔ Airtable / subscription jobs). */
+export async function fetchMightySyncRowsWithMemberId(): Promise<{ rows: MightySyncRowWithMemberId[] }> {
+  const cfg = getMightySyncTableConfig();
+  if (!cfg) return { rows: [] };
+
+  const paidActiveField = airtableFieldName("AIRTABLE_IS_PAID_ACTIVE_FIELD", "isPaidActive");
+  const planNamesField = airtableFieldName("AIRTABLE_PLAN_NAMES_FIELD", "planNames");
+  const planIdsField = airtableFieldName("AIRTABLE_PLAN_IDS_FIELD", "planIds");
+  const statusesField = getAirtableSubscriptionStatusesFieldName();
+
+  const tableEnc = encodeURIComponent(cfg.table);
+  const baseUrl = `https://api.airtable.com/v0/${encodeURIComponent(cfg.baseId)}/${tableEnc}`;
+  const rows: MightySyncRowWithMemberId[] = [];
+  let offset: string | undefined;
+
+  do {
+    const q = new URLSearchParams({
+      pageSize: "100",
+      filterByFormula: '{Mighty Member ID} != BLANK()',
+    });
+    if (offset) q.set("offset", offset);
+    const data = (await airtableFetchJson(`${baseUrl}?${q.toString()}`, { method: "GET" })) as {
+      records?: AirtableRecord[];
+      offset?: string;
+    };
+    for (const r of data.records ?? []) {
+      const f = r.fields || {};
+      const mightyId = parseMightyMemberIdField(f["Mighty Member ID"]);
+      if (mightyId == null) continue;
+      const paidRaw = f[paidActiveField] ?? f["isPaidActive"];
+      const statusRaw = f[statusesField] ?? f["Paid Subscription Status"];
+      rows.push({
+        recordId: r.id,
+        email: typeof f["Primary Email"] === "string" ? f["Primary Email"] : null,
+        firstName: typeof f["First Name"] === "string" ? f["First Name"] : null,
+        lastName: typeof f["Last Name"] === "string" ? f["Last Name"] : null,
+        mightyId,
+        isPaidActive: parseAirtableBooleanField(paidRaw),
+        planNames: parseAirtableStringList(f[planNamesField] ?? f.planNames),
+        planIds: parseAirtableStringList(f[planIdsField] ?? f.planIds),
+        subscriptionStatuses: parseAirtableStringList(f[statusesField] ?? f.subscriptionStatuses),
+        paidSubscriptionStatus:
+          typeof statusRaw === "string" && statusRaw.trim() ? statusRaw.trim().toLowerCase() : null,
+      });
+    }
+    offset = data.offset;
+  } while (offset);
+
+  return { rows };
+}
+
+/** Skip Mighty plan API when Airtable already has definitive subscription state. */
+export function airtableSubscriptionRowIsDefinitive(row: MightySyncRowWithMemberId): boolean {
+  if (typeof row.isPaidActive === "boolean") return true;
+  if (subscriptionStatusesIndicateDeactivated(row.subscriptionStatuses)) return true;
+  const paid = row.paidSubscriptionStatus?.trim().toLowerCase();
+  if (paid === "paid" || paid === "unpaid" || paid === "deactivated") return true;
+  return false;
+}
 
 export async function fetchMightySyncRowsMissingMemberId(opts?: {
   includeBlankEmail?: boolean;
@@ -244,6 +356,8 @@ function pickAirtableFields(member: {
     statuses?: string[];
     updatedAt?: string;
   };
+  /** When true, stamp Last Sync Date (scheduled Mighty → Airtable jobs). Default false for partial webhook writes. */
+  touchLastSyncDate?: boolean;
 }): Record<string, any> {
   // Keep this mapping conservative to avoid schema mismatch failures.
   const fields: Record<string, any> = {};
@@ -293,6 +407,10 @@ function pickAirtableFields(member: {
   const subUpdatedField = process.env.AIRTABLE_SUBSCRIPTION_UPDATED_AT_FIELD?.trim();
   if (subUpdatedField && member.subscription?.updatedAt) {
     fields[subUpdatedField] = member.subscription.updatedAt;
+  }
+
+  if (member.touchLastSyncDate) {
+    fields[getAirtableLastSyncDateFieldName()] = new Date().toISOString();
   }
 
   return fields;
@@ -363,6 +481,7 @@ export async function upsertAirtableMightyMember(member: {
     statuses?: string[];
     updatedAt?: string;
   };
+  touchLastSyncDate?: boolean;
 }): Promise<{ skipped: boolean; action?: "created" | "updated"; recordId?: string }> {
   if (!airtableEnabled()) return { skipped: true };
 
