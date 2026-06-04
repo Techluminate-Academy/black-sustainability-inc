@@ -27,7 +27,7 @@ function isRealHeadshotUrl(url: string | null): boolean {
 export function memberHasDisplayPhoto(
   fields: Record<string, unknown> | null | undefined
 ): boolean {
-  return getMemberPhotoSortTier({ fields }) > 0;
+  return getMemberPhotoSortTier({ fields: fields ?? undefined }) > 0;
 }
 
 /** Directory/marker record (getData, getMarkers, search). */
