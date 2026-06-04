@@ -80,10 +80,10 @@ describe("/api/getMarkers", () => {
     expect(body.success).toBe(true);
     expect(body.data).toHaveLength(1);
 
-    expect(capture.redisGetKeys).toEqual(["map-locations:v5:mightyMembers"]);
+    expect(capture.redisGetKeys).toEqual(["map-locations:v9:mightyMembers"]);
     expect(capture.redisSetexCalls).toHaveLength(1);
     const cached = capture.redisSetexCalls[0];
-    expect(cached.key).toBe("map-locations:v5:mightyMembers");
+    expect(cached.key).toBe("map-locations:v9:mightyMembers");
     expect(cached.ttl).toBeGreaterThan(0);
 
     // Cached value is base64(deflate(JSON.stringify(response)))
@@ -117,6 +117,63 @@ describe("/api/getMarkers", () => {
     const pipeline = capture.aggregateCalls[0];
     expect(pipeline[0]).toEqual({
       $match: { $nor: [{ _id: "viewer-id" }, { mightyId: 7 }] },
+    });
+  });
+
+  it("coalesces legacy Airtable photo proxy into marker PHOTO when avatarUrl is empty", async () => {
+    wireMocks({ aggregateResult: [] });
+
+    await callHandler();
+
+    const pipeline = capture.aggregateCalls[0];
+    const addFields = pipeline.find((s: any) => s.$addFields?._mapPhotoUrl);
+    expect(addFields).toBeDefined();
+    const project = pipeline.find((s: any) => s.$project?.userphoto === "$_mapPhotoUrl");
+    expect(project).toBeDefined();
+    expect(project.$project.fields.PHOTO).toBeDefined();
+    expect(project.$project.fields["Profile Photo URL"]).toBe("$_mapPhotoUrl");
+  });
+
+  it("projects FULL NAME, ORGANIZATION NAME, and LOGO for viewport-synced cards", async () => {
+    wireMocks({ aggregateResult: [] });
+
+    await callHandler();
+
+    const pipeline = capture.aggregateCalls[0];
+    const project = pipeline.find((s: any) => s.$project?.fields);
+    expect(project).toBeDefined();
+    expect(project.$project.fields["FULL NAME"]).toEqual({
+      $trim: {
+        input: {
+          $concat: [
+            { $ifNull: ["$firstName", ""] },
+            " ",
+            { $ifNull: ["$lastName", ""] },
+          ],
+        },
+      },
+    });
+    expect(project.$project.fields["ORGANIZATION NAME"]).toEqual({
+      $ifNull: ["$organizationName", ""],
+    });
+    expect(project.$project.fields.LOGO).toEqual({
+      $cond: {
+        if: {
+          $isArray: {
+            $getField: {
+              field: "LOGO",
+              input: { $ifNull: ["$fields", {}] },
+            },
+          },
+        },
+        then: {
+          $getField: {
+            field: "LOGO",
+            input: { $ifNull: ["$fields", {}] },
+          },
+        },
+        else: [],
+      },
     });
   });
 

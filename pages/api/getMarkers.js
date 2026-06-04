@@ -4,6 +4,7 @@ import { promisify } from "util";
 import zlib from "zlib";
 import { getExcludeViewerMighty } from "../../lib/mapViewerGating";
 import { memberBioCoalesceExpr } from "../../lib/memberBio.js";
+import { memberMapPhotoCoalesceExpr } from "../../lib/memberMapPhotoUrl.js";
 import CACHE_EXPIRY from '../../constants/CacheExpiry';
 
 const COLLECTION_NAME = "mightyMembers";
@@ -52,6 +53,12 @@ function buildMarkerPipeline({ excludeMongoId, excludeMightyId, bounds }) {
   }
 
   pipeline.push({
+    $addFields: {
+      _mapPhotoUrl: memberMapPhotoCoalesceExpr(),
+    },
+  });
+
+  pipeline.push({
     $project: {
       id: {
         $cond: {
@@ -63,24 +70,55 @@ function buildMarkerPipeline({ excludeMongoId, excludeMightyId, bounds }) {
       fields: {
         "FIRST NAME": "$firstName",
         "LAST NAME": "$lastName",
+        "FULL NAME": {
+          $trim: {
+            input: {
+              $concat: [
+                { $ifNull: ["$firstName", ""] },
+                " ",
+                { $ifNull: ["$lastName", ""] },
+              ],
+            },
+          },
+        },
         "EMAIL ADDRESS": "$email",
         WEBSITE: { $literal: "" },
         BIO: memberBioCoalesceExpr(),
         "MEMBER LEVEL": { $literal: "" },
         "PRIMARY INDUSTRY HOUSE": "$industry",
         "Location (Nearest City)": "$location",
-        "ORGANIZATION NAME": { $literal: "" },
-        PHOTO: {
+        "ORGANIZATION NAME": {
+          $ifNull: ["$organizationName", ""],
+        },
+        LOGO: {
           $cond: {
             if: {
-              $and: [{ $ne: [{ $ifNull: ["$avatarUrl", ""] }, ""] }],
+              $isArray: {
+                $getField: {
+                  field: "LOGO",
+                  input: { $ifNull: ["$fields", {}] },
+                },
+              },
             },
-            then: [{ url: "$avatarUrl" }],
+            then: {
+              $getField: {
+                field: "LOGO",
+                input: { $ifNull: ["$fields", {}] },
+              },
+            },
+            else: [],
+          },
+        },
+        "Profile Photo URL": "$_mapPhotoUrl",
+        PHOTO: {
+          $cond: {
+            if: { $gt: [{ $strLenCP: { $ifNull: ["$_mapPhotoUrl", ""] } }, 0] },
+            then: [{ url: "$_mapPhotoUrl" }],
             else: [],
           },
         },
       },
-      userphoto: "$avatarUrl",
+      userphoto: "$_mapPhotoUrl",
       location: {
         type: { $literal: "Point" },
         coordinates: ["$longitude", "$latitude"],
@@ -94,7 +132,7 @@ function buildMarkerPipeline({ excludeMongoId, excludeMightyId, bounds }) {
 
 export default async function handler(req, res) {
   try {
-    const cacheKey = `map-locations:v6:${COLLECTION_NAME}`;
+    const cacheKey = `map-locations:v9:${COLLECTION_NAME}`;
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
     const bounds = parseBoundsQuery(req.query);

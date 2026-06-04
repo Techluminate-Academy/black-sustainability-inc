@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useMemo } from "react";
 import UserCard from "../../common/UserCard";
 import { getMemberDisplayImage } from "@/lib/getMemberDisplayImage";
+import { sortMembersPhotosFirst } from "@/lib/sortMembersPhotosFirst";
 
 interface IProps {
   filteredData: any;
@@ -27,6 +28,11 @@ const Sidebar: React.FC<IProps> = ({
   viewportLoading,
   onRecordClick,
 }) => {
+  const displayData = useMemo(
+    () => (Array.isArray(filteredData) ? sortMembersPhotosFirst(filteredData) : []),
+    [filteredData]
+  );
+
   // If we're still loading, don't render any search results or messages.
   if (loading) return null;
 
@@ -75,7 +81,7 @@ const Sidebar: React.FC<IProps> = ({
         ) : null}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 w-full min-w-0">
-        {filteredData?.map((data: any, idx: any) => (
+        {displayData.map((data: any, idx: any) => (
           <UserCard
             key={data?.id != null ? String(data.id) : idx}
             onClick={onRecordClick ? () => onRecordClick(data) : undefined}

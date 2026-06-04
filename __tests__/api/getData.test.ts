@@ -31,6 +31,7 @@ jest.mock("../../lib/mightyMemberAirtableShape", () => ({
 
 const wireMocks = (opts: {
   findDocs?: any[];
+  aggregateDocs?: any[];
   count?: number;
   cacheHit?: string | null;
   excludeMongoId?: any;
@@ -42,6 +43,7 @@ const wireMocks = (opts: {
 
   const collection = makeFakeCollection({
     findResult: { docs: opts.findDocs ?? [], count: opts.count ?? (opts.findDocs?.length ?? 0) },
+    aggregateResult: opts.aggregateDocs ?? opts.findDocs ?? [],
     capture,
   });
   (connectToDatabase as jest.Mock).mockResolvedValue({
@@ -92,13 +94,24 @@ describe("/api/getData", () => {
     expect(body.limit).toBe(50);
   });
 
+  it("sorts directory members with profile photos first", async () => {
+    wireMocks({ aggregateDocs: [], count: 0 });
+
+    await callHandler({ page: "1", limit: "50" });
+
+    expect(capture.aggregateCalls).toHaveLength(1);
+    const pipeline = capture.aggregateCalls[0];
+    expect(pipeline[1]).toEqual({ $addFields: { _photoSortTier: expect.any(Object) } });
+    expect(pipeline[2]).toEqual({ $sort: { _photoSortTier: -1, _id: 1 } });
+  });
+
   it("applies industry-house filter via $or when industryHouse is supplied", async () => {
-    wireMocks({ findDocs: [], count: 0 });
+    wireMocks({ aggregateDocs: [], count: 0 });
 
     await callHandler({ industryHouse: "☀️ Alternative Energy" });
 
-    expect(capture.findCalls).toHaveLength(1);
-    const q = capture.findCalls[0];
+    expect(capture.aggregateCalls).toHaveLength(1);
+    const q = capture.aggregateCalls[0][0].$match;
     expect(Array.isArray(q.$or)).toBe(true);
     // Should query both `industry` and the legacy field
     const fields = new Set(q.$or.map((c: any) => Object.keys(c)[0]));
@@ -116,7 +129,7 @@ describe("/api/getData", () => {
 
     await callHandler({ page: "1" });
 
-    const q = capture.findCalls[0];
+    const q = capture.aggregateCalls[0][0].$match;
     expect(q.$nor).toEqual([{ _id: "viewer" }, { mightyId: 99 }]);
   });
 
@@ -128,7 +141,7 @@ describe("/api/getData", () => {
     expect(capture.redisGetKeys).toHaveLength(1);
     const key = capture.redisGetKeys[0];
     expect(key).toBe(
-      "getData:v8:primary-backfill:mightyMembers:💧Water:page=3:limit=25"
+      "getData:v13:photo-tier:mightyMembers:💧Water:page=3:limit=25"
     );
   });
 
@@ -140,7 +153,7 @@ describe("/api/getData", () => {
 
     await callHandler({ page: "1", limit: "50" });
 
-    expect(capture.findCalls).toHaveLength(0);
+    expect(capture.aggregateCalls).toHaveLength(0);
     expect(capture.countCalls).toHaveLength(0);
   });
 

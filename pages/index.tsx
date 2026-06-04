@@ -20,6 +20,7 @@ import Loader from "@/components/common/loader";
 import MemberAccessModal from "@/components/common/MemberAccessModal";
 import { LatLngBounds } from "leaflet";
 import { testPerformanceMonitoring } from "@/lib/testPerformance";
+import { sortMembersPhotosFirst } from "@/lib/sortMembersPhotosFirst";
 
 /** Stable reference — inline `() => {}` in JSX was recreating MapboxMap every render. */
 const noopMarkerHover = () => {};
@@ -602,18 +603,19 @@ export default function Home() {
 
             // Use startTransition for non-critical state updates
             filterDataInChunks(result.data).then((filteredNullData) => {
+              const sortedData = sortMembersPhotosFirst(filteredNullData);
               initialDataLoadedRef.current = true;
               startTransition(() => {
                 // Save the full total count
                 setFullTotalCount(result.totalCount);
                 setTotalCount(result.totalCount);
                 // Set data for sidebar and for map progressive loading
-                setOriginalData(filteredNullData);
-                setFilteredData(filteredNullData);
-                const totalRecords = filteredNullData.length;
+                setOriginalData(sortedData);
+                setFilteredData(sortedData);
+                const totalRecords = sortedData.length;
                 const chunkSize = Math.ceil(totalRecords / 3);
                 setChunkSizes([chunkSize, chunkSize, totalRecords - 2 * chunkSize]);
-                setLoadedData(filteredNullData.slice(0, chunkSize));
+                setLoadedData(sortedData.slice(0, chunkSize));
                 setCurrentIndex(chunkSize);
                 setChunkIndex(1);
                 setSidebarPage(1);
@@ -709,8 +711,8 @@ export default function Home() {
         const newRecords = result.data.filter((item: any) => item !== null);
         // Batch non-critical state updates to avoid blocking UI
         startTransition(() => {
-          setFilteredData((prev: any) => [...prev, ...newRecords]);
-          setOriginalData((prev: any) => [...prev, ...newRecords]);
+          setFilteredData((prev: any) => sortMembersPhotosFirst([...prev, ...newRecords]));
+          setOriginalData((prev: any) => sortMembersPhotosFirst([...prev, ...newRecords]));
           setSidebarPage(nextPage);
         });
       } else {
@@ -756,7 +758,7 @@ export default function Home() {
               const searchTotal =
                 typeof result.totalCount === "number" ? result.totalCount : data.length;
               startTransition(() => {
-                setFilteredData(data);
+                setFilteredData(sortMembersPhotosFirst(data));
                 setTotalCount(searchTotal);
                 setSidebarPage(1);
               });
@@ -844,7 +846,7 @@ export default function Home() {
         industryFilteredTotalRef.current = tc;
         // Batch data updates to avoid blocking UI
         startTransition(() => {
-          setFilteredData(result.data);
+          setFilteredData(sortMembersPhotosFirst(result.data));
           setTotalCount(tc);
           setSidebarPage(1);
         });
@@ -924,7 +926,9 @@ export default function Home() {
       if (searchQueryRef.current.trim() !== "" || selectedIndustryRef.current !== "") return;
 
       if (result.success && Array.isArray(result.data)) {
-        const data = result.data.filter((item: any) => item !== null);
+        const data = sortMembersPhotosFirst(
+          result.data.filter((item: any) => item !== null)
+        );
         startTransition(() => {
           setLazyLoaded(true);
           setFilteredData(data);

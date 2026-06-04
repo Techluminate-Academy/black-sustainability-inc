@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     const useCache = !excludeViewer;
 
     const queryParams = req.query;
-    const cacheKey = `search:v3:${COLLECTION_NAME}:${JSON.stringify(queryParams)}`;
+    const cacheKey = `search:v4:${COLLECTION_NAME}:${JSON.stringify(queryParams)}`;
 
     if (useCache) {
       const cachedData = await redis.get(cacheKey);

@@ -6,6 +6,7 @@ import {
   normalizeIndustryHouseQueryParam,
 } from "../../lib/buildIndustryHouseQuery";
 import { toAirtableishDoc } from "../../lib/mightyMemberAirtableShape";
+import { fetchDirectoryMembersPage } from "../../lib/mightyMembersDirectoryQuery";
 
 const COLLECTION_NAME = "mightyMembers";
 import CACHE_EXPIRY from '../../constants/CacheExpiry'
@@ -31,7 +32,7 @@ export default async function handler(req, res) {
     const excludeViewer = !!excludeMongoId || excludeMightyId != null;
     const useCache = !excludeViewer;
 
-    const cacheKey = `getData:v9:bio-fields:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
+    const cacheKey = `getData:v13:photo-tier:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
     if (useCache) {
       const cacheStart = Date.now();
       const cachedData = await redis.get(cacheKey);
@@ -55,11 +56,11 @@ export default async function handler(req, res) {
     const mongoStart = Date.now();
     const [totalCount, data] = await Promise.all([
       collection.countDocuments(query),
-      collection.find(query)
-        .skip(skip)
-        .limit(recordsPerPage)
-        .sort({ _id: 1 })
-        .toArray()
+      fetchDirectoryMembersPage(collection, {
+        match: query,
+        skip,
+        limit: recordsPerPage,
+      }),
     ]);
     console.log(`MongoDB Fetch Time: ${Date.now() - mongoStart}ms`);
 

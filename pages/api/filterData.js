@@ -6,6 +6,7 @@ import {
   normalizeIndustryHouseQueryParam,
 } from "../../lib/buildIndustryHouseQuery";
 import { toAirtableishDoc } from "../../lib/mightyMemberAirtableShape";
+import { fetchDirectoryMembersPage } from "../../lib/mightyMembersDirectoryQuery";
 import CACHE_EXPIRY from '../../constants/CacheExpiry'
 
 const COLLECTION_NAME = "mightyMembers";
@@ -25,7 +26,7 @@ export default async function handler(req, res) {
     const excludeViewer = !!excludeMongoId || excludeMightyId != null;
     const useCache = !excludeViewer;
 
-    const cacheKey = `filterData:v8:primary-backfill:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
+    const cacheKey = `filterData:v11:photo-tier:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
     if (useCache) {
       const cacheStart = Date.now();
       const cachedData = await redis.get(cacheKey);
@@ -44,12 +45,11 @@ export default async function handler(req, res) {
     }
 
     const totalCount = await collection.countDocuments(query);
-    const data = await collection
-      .find(query)
-      .skip(skip)
-      .limit(recordsPerPage)
-      .sort({ _id: 1 })
-      .toArray();
+    const data = await fetchDirectoryMembersPage(collection, {
+      match: query,
+      skip,
+      limit: recordsPerPage,
+    });
 
     const response = {
       success: true,
