@@ -20,6 +20,7 @@ import {
 import {
   classifyMightyToAirtableError,
   filterRowsNeedingMightySync,
+  normalizeAirtableSelectOption,
   type MightyToAirtableErrorKind,
 } from "@/lib/domain/sync/mightyToAirtableSyncHelpers";
 
@@ -124,9 +125,24 @@ export async function markMightyMemberMissingInAirtable(row: {
     [getAirtableLastSyncDateFieldName()]: new Date().toISOString(),
   };
   const statusField = getAirtableMightySyncStatusFieldName();
-  if (statusField) {
-    fields[statusField] = "Mighty Not Found";
+  const notFoundLabel = normalizeAirtableSelectOption(
+    process.env.AIRTABLE_MIGHTY_SYNC_NOT_FOUND_STATUS || "Mighty Not Found"
+  );
+
+  if (statusField && notFoundLabel) {
+    try {
+      await patchAirtableMightyMemberByRecordId(row.recordId, {
+        ...fields,
+        [statusField]: notFoundLabel,
+      });
+      return;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!/INVALID_MULTIPLE_CHOICE_OPTIONS|422/.test(msg)) throw e;
+      // Select option may not exist and token cannot create it — still stamp Last Sync Date.
+    }
   }
+
   await patchAirtableMightyMemberByRecordId(row.recordId, fields);
 }
 
