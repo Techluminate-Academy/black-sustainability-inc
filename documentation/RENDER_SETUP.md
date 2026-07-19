@@ -1,5 +1,18 @@
 # Render Setup - Cache Warming Configuration
 
+## Membership synchronization cron
+
+- **Render service:** `crn-cv06r8tumphs73chrb20`
+- **Branch:** `main-copy`
+- **Command:** `node utils/sync-airtable.js`
+- **Schedule:** 02:00 UTC and 06:00 UTC
+
+The command is a required four-stage pipeline: Mighty Networks → Airtable Mighty
+Members → MongoDB `mightyMembers` → Redis cache invalidation. Any required stage
+must exit nonzero on failure so Render does not mark a partial synchronization as
+successful. Use `--skip-mighty` or `--skip-cache` only for deliberate manual
+maintenance, never in the scheduled Render command.
+
 ## 🎯 What We've Set Up
 
 ### ✅ Automatically Configured:
@@ -54,4 +67,3 @@ npm run warm-cache
 - **Before:** First page load = 5-10 seconds
 - **After:** First page load = 400-600ms
 - **Improvement:** ~90% faster! 🚀
-

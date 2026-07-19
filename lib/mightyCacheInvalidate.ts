@@ -39,8 +39,9 @@ async function delByPattern(pattern: string): Promise<number> {
  * Called after a successful Mighty webhook upsert so the public site reflects
  * profile updates on the next request instead of waiting for the TTL.
  */
-export async function invalidateMightyMemberCaches(): Promise<{ totalDeleted: number }> {
+export async function invalidateMightyMemberCaches(options: { throwOnError?: boolean } = {}): Promise<{ totalDeleted: number }> {
   let totalDeleted = 0;
+  const failures: Error[] = [];
   try {
     if (FIXED_KEYS.length) {
       const removed = await (redis as any).del(...FIXED_KEYS);
@@ -51,6 +52,7 @@ export async function invalidateMightyMemberCaches(): Promise<{ totalDeleted: nu
         totalDeleted += await delByPattern(pattern);
       } catch (e: any) {
         console.warn("[mighty cache invalidate] pattern failed:", pattern, e?.message || e);
+        failures.push(e instanceof Error ? e : new Error(String(e)));
       }
     }
     if (totalDeleted > 0) {
@@ -58,6 +60,10 @@ export async function invalidateMightyMemberCaches(): Promise<{ totalDeleted: nu
     }
   } catch (e: any) {
     console.warn("[mighty cache invalidate] non-fatal error:", e?.message || e);
+    failures.push(e instanceof Error ? e : new Error(String(e)));
+  }
+  if (options.throwOnError && failures.length) {
+    throw new Error(`Mighty member cache invalidation failed: ${failures[0].message}`);
   }
   return { totalDeleted };
 }

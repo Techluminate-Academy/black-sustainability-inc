@@ -108,7 +108,11 @@ async function main() {
         })
       );
     } else {
-      const code = runStep("airtable_to_mongo", "node", ["utils/sync-airtable.js"]);
+      const code = runStep("airtable_to_mongo", "node", [
+        "utils/sync-airtable.js",
+        "--skip-mighty",
+        "--skip-cache",
+      ]);
       if (code !== 0) process.exit(code);
     }
   }

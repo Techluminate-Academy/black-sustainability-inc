@@ -16,6 +16,7 @@
 //   node utils/sync-airtable.js --sleep-ms 500
 //   node utils/sync-airtable.js --stale-only          # lighter run (failed/old rows only)
 //   node utils/sync-airtable.js --skip-mighty        # Airtable → Mongo only
+//   node utils/sync-airtable.js --skip-cache         # do not invalidate Redis
 //
 // Env: MIGHTY_SYNC_SLEEP_MS (default 450), MIGHTY_SYNC_RETRY_ROUNDS (default 3),
 //      MIGHTY_SYNC_STALE_ONLY=1 for incremental runs,
@@ -140,8 +141,7 @@ const getAllRecordsFromAirtable = async () => {
   do {
     const data = await fetchDataFromAirtable(offset);
     if (!data) {
-      // Exit if there was an error
-      break;
+      throw new Error("Airtable Mighty Members fetch failed before pagination completed");
     }
     // Append the cleaned records
     allRecords.push(...data.records);
@@ -160,16 +160,14 @@ const getAllRecordsFromAirtable = async () => {
 const syncAirtableToMongoDB = async () => {
   // Fetch all records from Airtable
   const records = await getAllRecordsFromAirtable();
-  if (!records) {
-    console.error("No records fetched from Airtable.");
-    return;
+  if (!records.length) {
+    throw new Error("No records fetched from Airtable Mighty Members table");
   }
   
   // MongoDB configuration
   const MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI || process.env.MONGODB_URI;
   if (!MONGODB_URI) {
-    console.error("MONGODB_URI is not defined in environment variables.");
-    return;
+    throw new Error("MONGODB_URI is not defined in environment variables");
   }
   
   // Define your database and collection names
@@ -299,6 +297,7 @@ const syncAirtableToMongoDB = async () => {
     }
   } catch (error) {
     console.error("Error syncing records to MongoDB:", error);
+    throw error;
   } finally {
     await client.close();
     console.log("MongoDB connection closed.");
@@ -310,6 +309,8 @@ module.exports = {
   getAllRecordsFromAirtable,
   syncAirtableToMongoDB,
   runMightyToAirtableSync,
+  runCacheInvalidation,
+  runScheduledMembershipSync,
   parseSyncCliArgs,
 };
 
@@ -340,6 +341,7 @@ function parseSyncCliArgs(argv = process.argv.slice(2)) {
         ? Math.max(1, parseInt(argv[retryIdx + 1], 10) || 1)
         : defaultRetry,
     requireComplete,
+    skipCache: argv.includes("--skip-cache") || process.env.SKIP_CACHE_INVALIDATION === "1",
   };
 }
 
@@ -384,6 +386,16 @@ function runMightyToAirtableSync(sleepMs, retryRounds, staleOnly) {
   return exitCode;
 }
 
+function runCacheInvalidation() {
+  const repoRoot = path.join(__dirname, "..");
+  const args = ["tsx", "scripts/invalidate-mighty-member-caches.ts"];
+  console.error(JSON.stringify({ msg: "sync_airtable_cache_step_start", command: "npx", args }));
+  const result = spawnSync("npx", args, { stdio: "inherit", env: process.env, cwd: repoRoot });
+  const exitCode = result.status ?? 1;
+  console.error(JSON.stringify({ msg: "sync_airtable_cache_step_done", exitCode }));
+  if (exitCode !== 0) throw new Error(`Redis cache invalidation failed with exit code ${exitCode}`);
+}
+
 async function runScheduledMembershipSync() {
   const args = parseSyncCliArgs();
 
@@ -410,15 +422,18 @@ async function runScheduledMembershipSync() {
       process.exit(mightyExit);
     }
   } else if (!args.skipMighty) {
-    console.error(
-      JSON.stringify({
-        msg: "sync_airtable_mighty_step_skipped",
-        reason: "missing Mighty or Airtable env (set SKIP_MIGHTY_SYNC=1 to silence)",
-      })
-    );
+    throw new Error("Mighty → Airtable sync is not configured (use --skip-mighty only intentionally)");
   }
 
-  await syncAirtableToMongoDB();
+  const mongoResult = await syncAirtableToMongoDB();
+  console.error(JSON.stringify({
+    msg: "sync_airtable_mongo_step_done",
+    matchedCount: mongoResult?.matchedCount ?? 0,
+    modifiedCount: mongoResult?.modifiedCount ?? 0,
+    upsertedCount: mongoResult?.upsertedCount ?? 0,
+  }));
+  if (!args.skipCache) runCacheInvalidation();
+  console.error(JSON.stringify({ msg: "sync_airtable_scheduled_done" }));
 }
 
 // If this file is executed directly, run the full scheduled sync
