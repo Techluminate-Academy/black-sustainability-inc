@@ -1,6 +1,8 @@
 // Google Places Autocomplete Types
 export interface GooglePlacesOption {
   label: string;
+  latitude?: number;
+  longitude?: number;
   value: {
     place_id: string;
     structured_formatting: {
@@ -74,4 +76,4 @@ export interface FormState {
   isSubmitting: boolean;
   isSubmitted: boolean;
   touched: Array<keyof FreeFormData>;
-} 
+}

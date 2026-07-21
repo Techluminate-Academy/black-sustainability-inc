@@ -12,7 +12,6 @@ import {
   FreeSubmissionPayload
 } from "./types";
 import AirtableUtils from "@/features/freeSignup/airtableUtils";
-import { geocodeByPlaceId, getLatLng } from "react-google-places-autocomplete";
 import { uploadFile, sendToAirtable } from "./freeSignupService";
 
 export function useFreeSignupForm() {
@@ -145,7 +144,8 @@ export function useFreeSignupForm() {
           latitude: null,
           longitude: null
         },
-        touched: [...prev.touched, "address"]
+        touched: Array.from(new Set([...prev.touched, "address"])),
+        errors: prev.errors.filter(error => error.field !== "address")
       }));
       return;
     }
@@ -154,37 +154,19 @@ export function useFreeSignupForm() {
       ...prev,
       data: {
         ...prev.data,
-        address: val.label
+        address: val.label,
+        latitude: val.latitude ?? null,
+        longitude: val.longitude ?? null
       },
-      touched: [...prev.touched, "address"]
+      touched: Array.from(new Set([...prev.touched, "address"])),
+      errors:
+        val.latitude == null || val.longitude == null
+          ? [
+              ...prev.errors.filter(error => error.field !== "address"),
+              { field: "address", message: "Select a valid address from suggestions." }
+            ]
+          : prev.errors.filter(error => error.field !== "address")
     }));
-
-    try {
-      const results = await geocodeByPlaceId(val.value.place_id);
-      const { lat, lng } = await getLatLng(results[0]);
-      setFormState(prev => ({
-        ...prev,
-        data: {
-          ...prev.data,
-          latitude: lat,
-          longitude: lng
-        }
-      }));
-    } catch (error) {
-      console.error("Geocoding error:", error);
-      setFormState(prev => ({
-        ...prev,
-        data: {
-          ...prev.data,
-          latitude: null,
-          longitude: null
-        },
-        errors: [...prev.errors, {
-          field: "address",
-          message: "Failed to get location coordinates"
-        }]
-      }));
-    }
   };
 
   const handleFieldChange = (field: keyof FreeFormData, value: string): void => {

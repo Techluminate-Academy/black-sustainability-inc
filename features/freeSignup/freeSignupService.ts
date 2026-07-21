@@ -14,8 +14,8 @@ export async function sendToAirtable(data: FreeSubmissionPayload): Promise<void>
     "LAST NAME": data.lastName,
     "EMAIL ADDRESS": data.email,
     Address: data.address,
-    Latitude: data.latitude !== undefined && data.latitude !== null ? data.latitude.toString() : undefined,
-    Longitude: data.longitude !== undefined && data.longitude !== null ? data.longitude.toString() : undefined,
+    Latitude: data.latitude !== undefined && data.latitude !== null ? data.latitude : undefined,
+    Longitude: data.longitude !== undefined && data.longitude !== null ? data.longitude : undefined,
   };
 
   // Only add primaryIndustry if it's not empty

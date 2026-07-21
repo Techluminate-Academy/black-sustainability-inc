@@ -3,7 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import GooglePlacesAutocomplete from "react-google-places-autocomplete";
+import AddressAutocomplete from "./AddressAutocomplete";
 import { FreeFormData, GooglePlacesOption, IndustryOption } from "./types";
 import logo from "@/public/png/bsn-logo.png";
 
@@ -364,74 +364,11 @@ const FreeSignupForm: React.FC<FreeSignupFormProps> = ({
             >
               Address <span className="text-red-600">*</span>
             </label>
-            <GooglePlacesAutocomplete
+            <AddressAutocomplete
               apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}
-              autocompletionRequest={{ types: ["address"] }}
-              selectProps={{
-                value: formData.address
-                  ? { label: formData.address, value: { place_id: "", structured_formatting: { main_text: "", secondary_text: "" } } }
-                  : null,
-                onChange: onAddressSelect,
-                placeholder: "Start typing your address...",
-                styles: {
-                  control: (provided, state) => ({
-                    ...provided,
-                    minHeight: '42px',
-                    padding: '2px',
-                    borderColor: errors.address ? '#f87171' : '#d1d5db',
-                    borderRadius: '0.5rem',
-                    boxShadow: state.isFocused ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none',
-                    '&:hover': {
-                      borderColor: errors.address ? '#f87171' : '#9ca3af',
-                    },
-                    '@media (max-width: 640px)': {
-                      fontSize: '16px',
-                    }
-                  }),
-                  menu: (provided) => ({
-                    ...provided,
-                    zIndex: 1000,
-                    marginTop: '4px',
-                    borderRadius: '0.5rem',
-                    overflow: 'hidden',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                  }),
-                  option: (provided, state) => ({
-                    ...provided,
-                    padding: '10px 12px',
-                    cursor: 'pointer',
-                    backgroundColor: state.isFocused ? '#f3f4f6' : 'white',
-                  }),
-                  dropdownIndicator: () => ({
-                    display: "none",
-                  }),
-                  indicatorSeparator: () => ({
-                    display: "none",
-                  }),
-                  singleValue: (provided) => ({
-                    ...provided,
-                    color: "#374151",
-                  }),
-                  input: (provided) => ({
-                    ...provided,
-                    color: "#374151",
-                  }),
-                },
-                className: "mt-1",
-                classNamePrefix: "",
-                theme: (theme) => ({
-                  ...theme,
-                  borderRadius: 8,
-                  colors: {
-                    ...theme.colors,
-                    primary: '#3b82f6',
-                    primary25: '#eff6ff',
-                    neutral0: "white",
-                    neutral20: errors.address ? '#f87171' : '#d1d5db',
-                    neutral30: errors.address ? '#f87171' : '#9ca3af',
-                  },
-                }),
-              }}
+              value={formData.address}
+              error={errors.address}
+              onSelect={onAddressSelect}
             />
             {errors.address && touched.includes('address') && (
               <p 

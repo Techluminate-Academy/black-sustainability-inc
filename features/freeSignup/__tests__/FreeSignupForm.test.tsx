@@ -29,14 +29,16 @@ jest.mock('next/navigation', () => ({
   })
 }));
 
-// Mock Google Places Autocomplete
-jest.mock('react-google-places-autocomplete', () => ({
+// Mock the address autocomplete component
+jest.mock('../AddressAutocomplete', () => ({
   __esModule: true,
-  default: ({ selectProps }: any) => (
+  default: ({ onSelect }: any) => (
     <input
       data-testid="google-places-autocomplete"
-      onChange={(e) => selectProps.onChange({ 
+      onChange={(e) => onSelect({
         label: e.target.value,
+        latitude: 40.7128,
+        longitude: -74.0060,
         value: { 
           place_id: 'test-place-id',
           structured_formatting: {
@@ -216,4 +218,4 @@ describe('FreeSignupForm', () => {
     
     expect(screen.getByText('Failed to submit form. Please try again.')).toBeInTheDocument();
   });
-}); 
+});

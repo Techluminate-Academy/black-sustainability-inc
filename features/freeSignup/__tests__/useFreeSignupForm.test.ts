@@ -21,19 +21,6 @@ jest.mock('../airtableUtils', () => ({
   submitToAirtable: jest.fn().mockResolvedValue(undefined)
 }));
 
-// Mock geocoding functions
-jest.mock('react-google-places-autocomplete', () => ({
-  geocodeByPlaceId: jest.fn().mockResolvedValue([{
-    geometry: {
-      location: {
-        lat: () => 40.7128,
-        lng: () => -74.0060
-      }
-    }
-  }]),
-  getLatLng: jest.fn().mockResolvedValue({ lat: 40.7128, lng: -74.0060 })
-}));
-
 describe('useFreeSignupForm', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -157,6 +144,8 @@ describe('useFreeSignupForm', () => {
     const { result } = renderHook(() => useFreeSignupForm());
     const mockAddress = {
       label: '123 Test St',
+      latitude: 40.7128,
+      longitude: -74.0060,
       value: {
         place_id: 'test-place-id',
         structured_formatting: {
@@ -175,6 +164,32 @@ describe('useFreeSignupForm', () => {
     expect(result.current.formData.longitude).toBe(-74.0060);
   });
 
+  it('clears the address error as soon as a valid suggestion is selected', async () => {
+    const { result } = renderHook(() => useFreeSignupForm());
+
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+    expect(result.current.errors.address).toBe('Address is required.');
+
+    await act(async () => {
+      await result.current.handleAddressSelect({
+        label: '123 Test St',
+        latitude: 40.7128,
+        longitude: -74.0060,
+        value: {
+          place_id: 'test-place-id',
+          structured_formatting: {
+            main_text: '123 Test St',
+            secondary_text: 'New York, NY'
+          }
+        }
+      });
+    });
+
+    expect(result.current.errors.address).toBeUndefined();
+  });
+
   it('handles submission errors', async () => {
     const mockError = new Error('Submission failed');
     mockedSignupService.sendToAirtable.mockRejectedValueOnce(mockError);
@@ -191,6 +206,8 @@ describe('useFreeSignupForm', () => {
       await result.current.handleFileChange('photo', mockPhoto);
       await result.current.handleAddressSelect({
         label: '123 Test St',
+        latitude: 40.7128,
+        longitude: -74.0060,
         value: {
           place_id: 'test-place-id',
           structured_formatting: {
@@ -227,6 +244,8 @@ describe('useFreeSignupForm', () => {
       
       await result.current.handleAddressSelect({
         label: '123 Test St',
+        latitude: 40.7128,
+        longitude: -74.0060,
         value: {
           place_id: 'test-place-id',
           structured_formatting: {

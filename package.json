@@ -51,6 +51,7 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@google-analytics/data": "^5.2.0",
+    "@googlemaps/js-api-loader": "^2.1.1",
     "@googlemaps/markerclusterer": "^2.5.3",
     "@headlessui/react": "^2.2.5",
     "@heroicons/react": "^2.2.0",

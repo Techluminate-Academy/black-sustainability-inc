@@ -38,6 +38,24 @@ function getTableName(): string {
   return v;
 }
 
+function getJoinMapBaseId(): string {
+  return (
+    process.env.AIRTABLE_JOIN_MAP_BASE_ID?.trim() ||
+    process.env.AIRTABLE_MIGHTY_SYNC_BASE_ID?.trim() ||
+    getBaseId()
+  );
+}
+
+function getJoinMapTableName(): string {
+  return (
+    process.env.AIRTABLE_JOIN_MAP_TABLE_ID?.trim() ||
+    process.env.AIRTABLE_JOIN_MAP_TABLE_NAME?.trim() ||
+    process.env.AIRTABLE_MIGHTY_SYNC_TABLE_ID?.trim() ||
+    process.env.AIRTABLE_MIGHTY_SYNC_TABLE_NAME?.trim() ||
+    getTableName()
+  );
+}
+
 async function airtableFetch(url: string, init: RequestInit): Promise<Response> {
   const apiKey = getApiKey();
   return fetch(url, {
@@ -99,6 +117,47 @@ export function pickPublicWritableFreeSignupFields(
     }
   }
   return out;
+}
+
+/** Translate the public Join Map payload into the current Mighty Members table. */
+export function mapJoinMapFieldsToMightyMembers(
+  fields: Record<string, unknown>
+): Record<string, unknown> {
+  const mapped: Record<string, unknown> = {
+    "First Name": fields["FIRST NAME"],
+    "Last Name": fields["LAST NAME"],
+    "Primary Email": fields["EMAIL ADDRESS"],
+    City: fields.Address,
+    Latitude: fields.Latitude,
+    Longitude: fields.Longitude,
+    "Industry / Sector": fields["PRIMARY INDUSTRY HOUSE"],
+    "Extended Bio": fields.BIO,
+    "Present in Mighty Networks": false,
+    "Needs Review": true,
+  };
+
+  const photo = fields.PHOTO;
+  if (Array.isArray(photo) && typeof photo[0]?.url === "string") {
+    mapped["Profile Photo URL"] = photo[0].url;
+  }
+
+  const notes = [
+    "Source: Join Map form",
+    fields["ORGANIZATION NAME"]
+      ? `Organization: ${String(fields["ORGANIZATION NAME"])}`
+      : null,
+    fields["AFFILIATED ENTITY"]
+      ? `Affiliated Entity: ${String(fields["AFFILIATED ENTITY"])}`
+      : null,
+    Array.isArray(fields.LOGO) && typeof fields.LOGO[0]?.url === "string"
+      ? `Logo URL: ${fields.LOGO[0].url}`
+      : null,
+  ].filter((line): line is string => Boolean(line));
+  mapped["Internal Notes"] = notes.join("\n");
+
+  return Object.fromEntries(
+    Object.entries(mapped).filter(([, value]) => value !== undefined && value !== null && value !== "")
+  );
 }
 
 export type FreeSignupFieldMeta = {
@@ -188,19 +247,32 @@ export async function fetchFreeSignupRecordById(
   return { id: data.id, fields: data.fields || {} };
 }
 
-export async function createFreeSignupRecord(fields: Record<string, unknown>): Promise<unknown> {
-  const baseId = getBaseId();
-  const tableName = getTableName();
+export async function createFreeSignupRecord(
+  fields: Record<string, unknown>
+): Promise<{ id?: string; fields?: Record<string, unknown>; [key: string]: unknown }> {
+  const baseId = getJoinMapBaseId();
+  const tableName = getJoinMapTableName();
   const url = `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(tableName)}`;
   const res = await airtableFetch(url, {
     method: "POST",
-    body: JSON.stringify({ fields }),
+    body: JSON.stringify({ fields: mapJoinMapFieldsToMightyMembers(fields) }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`Airtable create error (${res.status}): ${text || res.statusText}`);
   }
   return res.json();
+}
+
+export async function deleteFreeSignupRecord(recordId: string): Promise<void> {
+  const baseId = getJoinMapBaseId();
+  const tableName = getJoinMapTableName();
+  const url = `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(tableName)}/${encodeURIComponent(recordId)}`;
+  const res = await airtableFetch(url, { method: "DELETE" });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Airtable delete error (${res.status}): ${text || res.statusText}`);
+  }
 }
 
 export async function updateFreeSignupRecord(

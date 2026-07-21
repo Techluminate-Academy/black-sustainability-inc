@@ -2,10 +2,12 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createHash } from "crypto";
 import {
   createFreeSignupRecord,
+  deleteFreeSignupRecord,
   updateFreeSignupRecord,
   fetchFreeSignupRecordById,
   pickPublicWritableFreeSignupFields,
 } from "@/lib/server/airtableFreeSignupServer";
+import { upsertJoinMapMongoMember } from "@/lib/server/joinMapSignupServer";
 import {
   envPositiveInt,
   respondIfRateLimited,
@@ -41,7 +43,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     try {
       const data = await createFreeSignupRecord(fields);
-      return res.status(200).json(data);
+      if (!data.id) {
+        throw new Error("Airtable did not return a record id.");
+      }
+
+      try {
+        await upsertJoinMapMongoMember(fields, data.id);
+      } catch (mongoError) {
+        try {
+          await deleteFreeSignupRecord(data.id);
+        } catch (rollbackError) {
+          console.error(
+            "[free-signup-record POST] Airtable rollback failed",
+            rollbackError instanceof Error ? rollbackError.message : String(rollbackError)
+          );
+        }
+        throw mongoError;
+      }
+
+      return res.status(200).json({ ...data, mongoSynced: true });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("[free-signup-record POST]", msg);
