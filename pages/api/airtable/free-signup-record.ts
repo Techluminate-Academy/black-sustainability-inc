@@ -1,13 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createHash } from "crypto";
 import {
-  createFreeSignupRecord,
-  deleteFreeSignupRecord,
   updateFreeSignupRecord,
   fetchFreeSignupRecordById,
   pickPublicWritableFreeSignupFields,
 } from "@/lib/server/airtableFreeSignupServer";
-import { upsertJoinMapMongoMember } from "@/lib/server/joinMapSignupServer";
+import {
+  createFreeSignupAcrossPlatforms,
+  FreeSignupDuplicateEmailError,
+} from "@/lib/server/freeSignupOrchestrator";
 import {
   envPositiveInt,
   respondIfRateLimited,
@@ -42,29 +43,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "No allowed fields to write" });
     }
     try {
-      const data = await createFreeSignupRecord(fields);
-      if (!data.id) {
-        throw new Error("Airtable did not return a record id.");
-      }
-
-      try {
-        await upsertJoinMapMongoMember(fields, data.id);
-      } catch (mongoError) {
-        try {
-          await deleteFreeSignupRecord(data.id);
-        } catch (rollbackError) {
-          console.error(
-            "[free-signup-record POST] Airtable rollback failed",
-            rollbackError instanceof Error ? rollbackError.message : String(rollbackError)
-          );
-        }
-        throw mongoError;
-      }
-
-      return res.status(200).json({ ...data, mongoSynced: true });
+      const result = await createFreeSignupAcrossPlatforms(fields);
+      return res.status(200).json({
+        id: result.airtableRecordId,
+        mightySynced: true,
+        mongoSynced: true,
+      });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("[free-signup-record POST]", msg);
+      if (e instanceof FreeSignupDuplicateEmailError) {
+        return res.status(409).json({ error: e.message });
+      }
       return res.status(500).json({ error: "Failed to create Airtable record" });
     }
   }

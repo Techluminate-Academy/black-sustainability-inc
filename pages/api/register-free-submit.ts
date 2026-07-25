@@ -1,5 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createFreeSignupRecord } from '@/lib/server/airtableFreeSignupServer';
+import {
+  createFreeSignupAcrossPlatforms,
+  FreeSignupDuplicateEmailError,
+} from '@/lib/server/freeSignupOrchestrator';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -41,12 +44,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       airtableFields["LOGO"] = [{ url: formData.logo }];
     }
 
-    await createFreeSignupRecord(airtableFields);
+    await createFreeSignupAcrossPlatforms(airtableFields);
 
     return res.status(200).json({ success: true, message: 'Data successfully submitted to Airtable' });
 
   } catch (error: any) {
     console.error('Server error in register-free-submit:', error);
+    if (error instanceof FreeSignupDuplicateEmailError) {
+      return res.status(409).json({ error: error.message });
+    }
     res.status(500).json({ error: 'An unexpected server error occurred.' });
   }
 } 
