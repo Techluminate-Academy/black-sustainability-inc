@@ -4,8 +4,10 @@
  */
 import redis from "../redis";
 import CACHE_EXPIRY from "../../constants/CacheExpiry";
+import { getAirtableMightyIndustryHouseFieldName } from "../airtableMightyMembers";
 
-const FREE_SIGNUP_META_CACHE_KEY = "airtable:free-signup:metadata:v1";
+// v2 reads the live Join Map destination (Mighty Members), not the legacy roster.
+const FREE_SIGNUP_META_CACHE_KEY = "airtable:free-signup:metadata:v2:mighty-industry-house";
 
 function getApiKey(): string {
   const k =
@@ -121,7 +123,8 @@ export function pickPublicWritableFreeSignupFields(
 
 /** Translate the public Join Map payload into the current Mighty Members table. */
 export function mapJoinMapFieldsToMightyMembers(
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  mightyId?: number
 ): Record<string, unknown> {
   const mapped: Record<string, unknown> = {
     "First Name": fields["FIRST NAME"],
@@ -131,10 +134,17 @@ export function mapJoinMapFieldsToMightyMembers(
     Latitude: fields.Latitude,
     Longitude: fields.Longitude,
     "Industry / Sector": fields["PRIMARY INDUSTRY HOUSE"],
+    // Mirrors the Join Map dropdown selection into the singleSelect column
+    // created by scripts/airtable-create-industry-house-field.ts, so new
+    // signups don't need the backfill script to get a real Airtable choice.
+    [getAirtableMightyIndustryHouseFieldName()]: fields["PRIMARY INDUSTRY HOUSE"],
     "Extended Bio": fields.BIO,
-    "Present in Mighty Networks": false,
-    "Needs Review": true,
+    "Present in Mighty Networks": mightyId !== undefined,
+    "Needs Review": mightyId === undefined,
   };
+  if (mightyId !== undefined) {
+    mapped["Mighty Member ID"] = mightyId;
+  }
 
   const photo = fields.PHOTO;
   if (Array.isArray(photo) && typeof photo[0]?.url === "string") {
@@ -176,8 +186,9 @@ export async function fetchFreeSignupTableFieldMetadata(): Promise<FreeSignupFie
     console.warn("[airtableFreeSignup] metadata cache read failed:", (e as Error)?.message);
   }
 
-  const baseId = getBaseId();
-  const tableName = getTableName();
+  const baseId = getJoinMapBaseId();
+  const tableName = getJoinMapTableName();
+  const industryHouseFieldName = getAirtableMightyIndustryHouseFieldName();
   const url = `https://api.airtable.com/v0/meta/bases/${encodeURIComponent(baseId)}/tables`;
   const res = await airtableFetch(url, { method: "GET" });
   if (!res.ok) {
@@ -191,31 +202,35 @@ export async function fetchFreeSignupTableFieldMetadata(): Promise<FreeSignupFie
     throw new Error(`Airtable table '${tableName}' not found in base metadata.`);
   }
 
-  const metadata = (targetTable.fields as any[]).map((field: any) => {
-    let options: Array<{ id: string; name: string; icon: unknown }> = [];
-    if (field.type === "singleSelect" || field.type === "multipleSelects") {
-      options = (field.options?.choices || [])
+  const industryHouseField = (targetTable.fields as any[]).find(
+    (field: any) => field.name === industryHouseFieldName
+  );
+  if (!industryHouseField) {
+    throw new Error(
+      `Airtable field '${industryHouseFieldName}' not found in Join Map table '${tableName}'.`
+    );
+  }
+  if (industryHouseField.type !== "singleSelect") {
+    throw new Error(
+      `Airtable field '${industryHouseFieldName}' must be a singleSelect; received '${industryHouseField.type}'.`
+    );
+  }
+
+  // The client form continues to use its stable legacy field name internally,
+  // while choices now come from the new Mighty Members table.
+  const metadata: FreeSignupFieldMeta[] = [
+    {
+      fieldName: "PRIMARY INDUSTRY HOUSE",
+      fieldType: industryHouseField.type,
+      options: (industryHouseField.options?.choices || [])
         .filter((choice: any) => choice.name && String(choice.name).trim() !== "")
         .map((choice: any) => ({
           id: choice.id,
           name: choice.name,
           icon: choice.icon || null,
-        }));
-      if (field.name === "GENDER") {
-        options = options.filter(
-          (choice) => choice.name !== "Uganda" && choice.name !== "GENDER"
-        );
-      }
-      if (field.name === "Name (from Location)") {
-        options = options.filter((choice) => choice.name !== "Name (from Location)");
-      }
-    }
-    return {
-      fieldName: field.name,
-      fieldType: field.type,
-      options,
-    };
-  });
+        })),
+    },
+  ];
 
   try {
     await redis.setex(FREE_SIGNUP_META_CACHE_KEY, CACHE_EXPIRY, JSON.stringify(metadata));
@@ -248,14 +263,15 @@ export async function fetchFreeSignupRecordById(
 }
 
 export async function createFreeSignupRecord(
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  mightyId?: number
 ): Promise<{ id?: string; fields?: Record<string, unknown>; [key: string]: unknown }> {
   const baseId = getJoinMapBaseId();
   const tableName = getJoinMapTableName();
   const url = `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(tableName)}`;
   const res = await airtableFetch(url, {
     method: "POST",
-    body: JSON.stringify({ fields: mapJoinMapFieldsToMightyMembers(fields) }),
+    body: JSON.stringify({ fields: mapJoinMapFieldsToMightyMembers(fields, mightyId) }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");

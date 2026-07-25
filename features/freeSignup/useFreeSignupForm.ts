@@ -12,6 +12,7 @@ import {
   FreeSubmissionPayload
 } from "./types";
 import AirtableUtils from "@/features/freeSignup/airtableUtils";
+import { FALLBACK_INDUSTRY_OPTIONS } from "@/constants/industry-house-options";
 import { uploadFile, sendToAirtable } from "./freeSignupService";
 
 export function useFreeSignupForm() {
@@ -39,7 +40,9 @@ export function useFreeSignupForm() {
     touched: []
   });
 
-  const [industryOptions, setIndustryOptions] = useState<IndustryOption[]>([]);
+  const [industryOptions, setIndustryOptions] = useState<IndustryOption[]>(
+    [...FALLBACK_INDUSTRY_OPTIONS]
+  );
 
   // Load "Primary Industry House" options once
   useEffect(() => {
@@ -49,27 +52,27 @@ export function useFreeSignupForm() {
         const field = metadata.find(
           (f: any) => f.fieldName === "PRIMARY INDUSTRY HOUSE"
         );
-        if (field) {
-          const filtered = field.options
-            .filter((opt: any) => opt.name !== "PRIMARY INDUSTRY HOUSE")
-            .sort((a: any, b: any) => {
-              const strip = (s: string) => s.replace(/^[^a-zA-Z]+/, "").trim();
-              return strip(a.name).localeCompare(strip(b.name), "en", {
-                sensitivity: "base",
-              });
-            })
-            .map((o: any) => ({ id: o.id, name: o.name }));
+        if (!field?.options?.length) {
+          return;
+        }
+        const filtered = field.options
+          .filter((opt: any) => opt.name && opt.name !== "PRIMARY INDUSTRY HOUSE")
+          .sort((a: any, b: any) => {
+            const strip = (s: string) => s.replace(/^[^a-zA-Z]+/, "").trim();
+            return strip(a.name).localeCompare(strip(b.name), "en", {
+              sensitivity: "base",
+            });
+          })
+          .map((o: any) => ({ id: o.id, name: o.name }));
+        // Never replace the canonical fallback with an empty list — that makes
+        // Join Map unsubmittable (Primary Industry House is required).
+        if (filtered.length > 0) {
           setIndustryOptions(filtered);
         }
       } catch (err) {
         console.error("Error loading industry options:", err);
-        setFormState(prev => ({
-          ...prev,
-          errors: [...prev.errors, {
-            field: "primaryIndustry",
-            message: "Failed to load industry options"
-          }]
-        }));
+        // The canonical fallback options are already rendered. Metadata is an
+        // enhancement and must never prevent a new member from registering.
       }
     })();
   }, []);

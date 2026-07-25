@@ -1,4 +1,5 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
+import { FALLBACK_INDUSTRY_OPTIONS } from '@/constants/industry-house-options';
 import { useFreeSignupForm } from '../useFreeSignupForm';
 import AirtableUtils from '../airtableUtils';
 import * as freeSignupService from '../freeSignupService';
@@ -65,6 +66,40 @@ describe('useFreeSignupForm', () => {
       { id: '2', name: 'Healthcare' },
       { id: '1', name: 'Technology' }
     ]);
+  });
+
+  it('keeps the mandatory industry dropdown usable when metadata fails', async () => {
+    (AirtableUtils.fetchTableMetadata as jest.Mock).mockRejectedValueOnce(
+      new Error('Metadata unavailable')
+    );
+
+    const { result } = renderHook(() => useFreeSignupForm());
+
+    await waitFor(() => {
+      expect(AirtableUtils.fetchTableMetadata).toHaveBeenCalled();
+    });
+
+    expect(result.current.industryOptions).toEqual(FALLBACK_INDUSTRY_OPTIONS);
+    expect(result.current.industryOptions.length).toBeGreaterThan(0);
+    expect(result.current.errors.primaryIndustry).toBeUndefined();
+  });
+
+  it('keeps fallback Industry House options when metadata returns an empty list', async () => {
+    (AirtableUtils.fetchTableMetadata as jest.Mock).mockResolvedValueOnce([
+      {
+        fieldName: 'PRIMARY INDUSTRY HOUSE',
+        options: [],
+      },
+    ]);
+
+    const { result } = renderHook(() => useFreeSignupForm());
+
+    await waitFor(() => {
+      expect(AirtableUtils.fetchTableMetadata).toHaveBeenCalled();
+    });
+
+    expect(result.current.industryOptions).toEqual(FALLBACK_INDUSTRY_OPTIONS);
+    expect(result.current.industryOptions.length).toBeGreaterThan(0);
   });
 
   it('handles field changes correctly', async () => {
@@ -274,4 +309,4 @@ describe('useFreeSignupForm', () => {
       photoUrl: 'http://cloudinary.com/photo.png',
     }));
   });
-}); 
+});

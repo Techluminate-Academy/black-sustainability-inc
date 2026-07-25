@@ -30,6 +30,7 @@ describe("mapJoinMapFieldsToMightyMembers", () => {
       Latitude: "33.749",
       Longitude: "-84.388",
       "Industry / Sector": "☀️ Alternative Energy",
+      "Industry House": "☀️ Alternative Energy",
       "Extended Bio": "Community solar organizer",
       "Profile Photo URL": "https://example.com/photo.jpg",
       "Present in Mighty Networks": false,
@@ -40,6 +41,23 @@ describe("mapJoinMapFieldsToMightyMembers", () => {
         "Affiliated Entity: BSN Atlanta",
         "Logo URL: https://example.com/logo.jpg",
       ].join("\n"),
+    });
+  });
+
+  it("marks a provisioned free signup as present in Mighty", () => {
+    expect(
+      mapJoinMapFieldsToMightyMembers(
+        {
+          "FIRST NAME": "Amina",
+          "LAST NAME": "Jones",
+          "EMAIL ADDRESS": "amina@example.com",
+        },
+        12345
+      )
+    ).toMatchObject({
+      "Mighty Member ID": 12345,
+      "Present in Mighty Networks": true,
+      "Needs Review": false,
     });
   });
 });

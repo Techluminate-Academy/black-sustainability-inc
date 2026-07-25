@@ -4,6 +4,7 @@ import {
   envPositiveInt,
   respondIfRateLimited,
 } from "@/lib/server/fixedWindowRateLimit";
+import { FALLBACK_INDUSTRY_FIELD_METADATA } from "@/constants/industry-house-options";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -24,10 +25,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const metadata = await fetchFreeSignupTableFieldMetadata();
+    const industryField = metadata.find(
+      (field) => field.fieldName === "PRIMARY INDUSTRY HOUSE"
+    );
+    // Schema fetch can succeed while the Industry House select has no choices
+    // (wrong table, empty field, or permissions that omit choice names).
+    if (!industryField?.options?.length) {
+      res.setHeader("X-BSN-Metadata-Source", "fallback-industry");
+      const withoutIndustry = metadata.filter(
+        (field) => field.fieldName !== "PRIMARY INDUSTRY HOUSE"
+      );
+      return res.status(200).json([FALLBACK_INDUSTRY_FIELD_METADATA, ...withoutIndustry]);
+    }
     return res.status(200).json(metadata);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[free-signup-metadata]", msg);
-    return res.status(500).json({ error: "Failed to load Airtable metadata" });
+    // Record creation and Airtable schema access use different permissions.
+    // A schema outage must not empty the required Join Map dropdown.
+    res.setHeader("X-BSN-Metadata-Source", "fallback");
+    return res.status(200).json([FALLBACK_INDUSTRY_FIELD_METADATA]);
   }
 }

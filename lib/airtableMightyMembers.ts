@@ -338,6 +338,18 @@ export function getAirtableMightyBioFieldName(): string {
   return "Extended Bio";
 }
 
+/**
+ * singleSelect field mirroring the Join Map "PRIMARY INDUSTRY HOUSE" dropdown.
+ * Created via scripts/airtable-create-industry-house-field.ts; backfilled from
+ * the legacy "Industry / Sector" free-text column via
+ * scripts/backfill-mighty-members-industry-house.ts.
+ */
+export function getAirtableMightyIndustryHouseFieldName(): string {
+  const explicit = process.env.AIRTABLE_MIGHTY_INDUSTRY_HOUSE_FIELD?.trim();
+  if (explicit) return explicit;
+  return "Industry House";
+}
+
 /** Optional second column during migration (e.g. `Extended Bio` while primary remains `Short Bio`). */
 function getAirtableMightyBioMirrorFieldName(): string | null {
   const mirror = process.env.AIRTABLE_MIGHTY_BIO_ALSO_WRITE?.trim();
