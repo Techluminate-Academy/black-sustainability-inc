@@ -18,7 +18,7 @@ export async function fetchMightyMemberById(mightyMemberId: string | number): Pr
   const networkId = getNetworkId();
 
   const memberId = String(mightyMemberId);
-  const url = `${getBaseUrl()}/admin/v1/networks/${encodeURIComponent(networkId)}/members/${encodeURIComponent(memberId)}`;
+  const url = `${getBaseUrl()}/admin/v1/networks/${encodeURIComponent(networkId)}/members/${encodeURIComponent(memberId)}/`;
 
   const res = await fetch(url, {
     method: "GET",
@@ -34,6 +34,31 @@ export async function fetchMightyMemberById(mightyMemberId: string | number): Pr
   }
 
   return (await res.json()) as MightyAdminMember;
+}
+
+/**
+ * Remove a Mighty member by ID. Intended for explicitly authorized test-data
+ * cleanup; callers must independently ensure the ID belongs to their test.
+ */
+export async function deleteMightyMember(
+  mightyMemberId: string | number
+): Promise<{ deleted: boolean; status: number; error?: string }> {
+  const apiKey = getApiKey();
+  const networkId = getNetworkId();
+  const memberId = String(mightyMemberId);
+  const url = `${getBaseUrl()}/admin/v1/networks/${encodeURIComponent(networkId)}/members/${encodeURIComponent(memberId)}/`;
+
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
+    },
+  });
+
+  if (res.ok) return { deleted: true, status: res.status };
+  const text = await res.text().catch(() => "");
+  return { deleted: false, status: res.status, error: text || res.statusText };
 }
 
 /** Fields allowed on PUT /members/{id}/ per Mighty Admin API (MemberUpdateRequest). */

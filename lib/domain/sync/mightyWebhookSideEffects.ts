@@ -1,5 +1,6 @@
 import { upsertAirtableMightyMember } from "@/lib/airtableMightyMembers";
 import { invalidateMightyMemberCaches } from "@/lib/mightyCacheInvalidate";
+import { isJoinMapSignupInFlight } from "@/lib/server/joinMapSignupLock";
 
 export type MightyWebhookSideEffectInput = {
   member: {
@@ -26,6 +27,18 @@ export type MightyWebhookSideEffectInput = {
 export async function runMightyWebhookSideEffects(result: MightyWebhookSideEffectInput): Promise<void> {
   await Promise.resolve()
     .then(async () => {
+      if (await isJoinMapSignupInFlight(result.member.email)) {
+        console.info(
+          JSON.stringify({
+            msg: "mighty_webhook_airtable_upsert",
+            skipped: true,
+            reason: "join_map_signup_in_flight",
+            mightyId: result.member.mightyId,
+          })
+        );
+        return;
+      }
+
       const airtable = await upsertAirtableMightyMember({
         ...result.member,
         subscription: result.subscription,

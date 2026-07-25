@@ -13,7 +13,8 @@ function toFiniteNumber(value: unknown): number | null {
 
 export function mapJoinMapFieldsToMongoMember(
   fields: Record<string, unknown>,
-  airtableRecordId: string
+  airtableRecordId: string,
+  mightyId?: number
 ): Record<string, unknown> {
   const email = normalizeEmail(fields["EMAIL ADDRESS"]);
   const latitude = toFiniteNumber(fields.Latitude);
@@ -38,8 +39,9 @@ export function mapJoinMapFieldsToMongoMember(
     geo: hasCoordinates
       ? { type: "Point", coordinates: [longitude, latitude] }
       : null,
-    presentInMightyNetworks: false,
-    needsReview: true,
+    ...(mightyId !== undefined ? { mightyId } : {}),
+    presentInMightyNetworks: mightyId !== undefined,
+    needsReview: mightyId === undefined,
     source: "join_map",
     airtable: { recordId: airtableRecordId },
     fields: Array.isArray(logo) ? { LOGO: logo } : {},
@@ -49,13 +51,14 @@ export function mapJoinMapFieldsToMongoMember(
 
 export async function upsertJoinMapMongoMember(
   fields: Record<string, unknown>,
-  airtableRecordId: string
+  airtableRecordId: string,
+  mightyId?: number
 ): Promise<void> {
   const email = normalizeEmail(fields["EMAIL ADDRESS"]);
   if (!email) throw new Error("Join Map Mongo upsert requires an email address.");
 
   const { db } = await connectToDatabase();
-  const member = mapJoinMapFieldsToMongoMember(fields, airtableRecordId);
+  const member = mapJoinMapFieldsToMongoMember(fields, airtableRecordId, mightyId);
 
   await db.collection("mightyMembers").updateOne(
     { email },
@@ -79,4 +82,36 @@ export async function upsertJoinMapMongoMember(
       error instanceof Error ? error.message : String(error)
     );
   });
+}
+
+/**
+ * Delete one exact Join Map test record. Every identifier is required so this
+ * cannot delete a pre-existing member merely because an email was reused.
+ */
+export async function deleteJoinMapTestMongoMember(params: {
+  email: string;
+  firstName: string;
+  lastName: string;
+  airtableRecordId: string;
+  mightyId: number;
+}): Promise<boolean> {
+  const { db } = await connectToDatabase();
+  const result = await db.collection("mightyMembers").deleteOne({
+    email: normalizeEmail(params.email),
+    firstName: params.firstName,
+    lastName: params.lastName,
+    mightyId: params.mightyId,
+    source: "join_map",
+    "airtable.recordId": params.airtableRecordId,
+  });
+
+  if (result.deletedCount > 0) {
+    await invalidateMightyMemberCaches().catch((error) => {
+      console.warn(
+        "[join-map-signup] cache invalidation failed after test cleanup:",
+        error instanceof Error ? error.message : String(error)
+      );
+    });
+  }
+  return result.deletedCount > 0;
 }

@@ -3,6 +3,7 @@ import {
   deleteFreeSignupRecord,
 } from "@/lib/server/airtableFreeSignupServer";
 import { upsertJoinMapMongoMember } from "@/lib/server/joinMapSignupServer";
+import { beginJoinMapSignup, endJoinMapSignup } from "@/lib/server/joinMapSignupLock";
 import { createMightyMember } from "@/lib/mightyAdmin";
 
 function requiredText(fields: Record<string, unknown>, key: string): string {
@@ -43,38 +44,43 @@ export async function createFreeSignupAcrossPlatforms(
     throw new Error("Free signup requires first name, last name, and email.");
   }
 
-  const mighty = await createMightyMember({
-    email,
-    first_name: firstName,
-    last_name: lastName,
-    send_welcome_email: true,
-  });
-  if (!mighty.ok) {
-    throw new Error(`Mighty member provisioning failed (${mighty.status}).`);
-  }
-  if (mighty.alreadyExisted) {
-    throw new FreeSignupDuplicateEmailError();
-  }
-
-  const airtable = await createFreeSignupRecord(fields, mighty.id);
-  if (!airtable.id) {
-    throw new Error("Airtable did not return a record id.");
-  }
-
+  const lockHeld = await beginJoinMapSignup(email);
   try {
-    await upsertJoinMapMongoMember(fields, airtable.id, mighty.id);
-  } catch (error) {
-    await deleteFreeSignupRecord(airtable.id).catch((rollbackError) => {
-      console.error(
-        "[free-signup] Airtable rollback failed",
-        rollbackError instanceof Error ? rollbackError.message : String(rollbackError)
-      );
+    const mighty = await createMightyMember({
+      email,
+      first_name: firstName,
+      last_name: lastName,
+      send_welcome_email: true,
     });
-    throw error;
-  }
+    if (!mighty.ok) {
+      throw new Error(`Mighty member provisioning failed (${mighty.status}).`);
+    }
+    if (mighty.alreadyExisted) {
+      throw new FreeSignupDuplicateEmailError();
+    }
 
-  return {
-    airtableRecordId: airtable.id,
-    mightyId: mighty.id,
-  };
+    const airtable = await createFreeSignupRecord(fields, mighty.id);
+    if (!airtable.id) {
+      throw new Error("Airtable did not return a record id.");
+    }
+
+    try {
+      await upsertJoinMapMongoMember(fields, airtable.id, mighty.id);
+    } catch (error) {
+      await deleteFreeSignupRecord(airtable.id).catch((rollbackError) => {
+        console.error(
+          "[free-signup] Airtable rollback failed",
+          rollbackError instanceof Error ? rollbackError.message : String(rollbackError)
+        );
+      });
+      throw error;
+    }
+
+    return {
+      airtableRecordId: airtable.id,
+      mightyId: mighty.id,
+    };
+  } finally {
+    if (lockHeld) await endJoinMapSignup(email);
+  }
 }

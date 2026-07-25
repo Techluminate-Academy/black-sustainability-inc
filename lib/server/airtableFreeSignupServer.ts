@@ -4,7 +4,10 @@
  */
 import redis from "../redis";
 import CACHE_EXPIRY from "../../constants/CacheExpiry";
-import { getAirtableMightyIndustryHouseFieldName } from "../airtableMightyMembers";
+import {
+  findAirtableMightyMemberByEmail,
+  getAirtableMightyIndustryHouseFieldName,
+} from "../airtableMightyMembers";
 
 // v2 reads the live Join Map destination (Mighty Members), not the legacy roster.
 const FREE_SIGNUP_META_CACHE_KEY = "airtable:free-signup:metadata:v2:mighty-industry-house";
@@ -269,15 +272,29 @@ export async function createFreeSignupRecord(
   const baseId = getJoinMapBaseId();
   const tableName = getJoinMapTableName();
   const url = `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(tableName)}`;
+  const mappedFields = mapJoinMapFieldsToMightyMembers(fields, mightyId);
+  const email = typeof fields["EMAIL ADDRESS"] === "string" ? fields["EMAIL ADDRESS"] : "";
+  const existing = email ? await findAirtableMightyMemberByEmail(email) : null;
+
   const res = await airtableFetch(url, {
-    method: "POST",
-    body: JSON.stringify({ fields: mapJoinMapFieldsToMightyMembers(fields, mightyId) }),
+    method: existing ? "PATCH" : "POST",
+    body: JSON.stringify(
+      existing
+        ? { records: [{ id: existing.recordId, fields: mappedFields }] }
+        : { fields: mappedFields }
+    ),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`Airtable create error (${res.status}): ${text || res.statusText}`);
+    throw new Error(`Airtable signup write error (${res.status}): ${text || res.statusText}`);
   }
-  return res.json();
+  const data = await res.json();
+  if (existing) {
+    const updated = (data as { records?: Array<{ id?: string; fields?: Record<string, unknown> }> })
+      .records?.[0];
+    return updated || data;
+  }
+  return data;
 }
 
 export async function deleteFreeSignupRecord(recordId: string): Promise<void> {

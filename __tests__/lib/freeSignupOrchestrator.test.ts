@@ -16,6 +16,10 @@ jest.mock("@/lib/server/airtableFreeSignupServer", () => ({
 jest.mock("@/lib/server/joinMapSignupServer", () => ({
   upsertJoinMapMongoMember: jest.fn(),
 }));
+jest.mock("@/lib/server/joinMapSignupLock", () => ({
+  beginJoinMapSignup: jest.fn().mockResolvedValue(true),
+  endJoinMapSignup: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock("@/lib/mightyAdmin", () => ({
   createMightyMember: jest.fn(),
 }));

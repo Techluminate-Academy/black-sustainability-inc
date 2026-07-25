@@ -113,6 +113,16 @@ export async function patchAirtableMightyMemberByRecordId(
   });
 }
 
+/** Delete a known Mighty Members Airtable row (for explicitly authorized test cleanup). */
+export async function deleteAirtableMightyMemberByRecordId(recordId: string): Promise<void> {
+  const cfg = getMightySyncTableConfig();
+  if (!cfg) throw new Error("Airtable Mighty sync not configured");
+  if (!recordId?.trim()) throw new Error("recordId required");
+
+  const url = `https://api.airtable.com/v0/${encodeURIComponent(cfg.baseId)}/${encodeURIComponent(cfg.table)}/${encodeURIComponent(recordId)}`;
+  await airtableFetchJson(url, { method: "DELETE" });
+}
+
 export type MightySyncRowMissingMemberId = {
   recordId: string;
   email: string | null;
