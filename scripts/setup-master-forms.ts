@@ -2,6 +2,12 @@ import { connectToDatabase } from '../lib/mongodb';
 import type { Collection } from 'mongodb';
 import type { FormVersion } from '@/models/formVersion';
 import { FieldType } from '@/models/field';
+import { INDUSTRY_HOUSE_NAMES } from '@/constants/industry-house-options';
+
+const industryHouseOptions = INDUSTRY_HOUSE_NAMES.map((name) => ({
+  value: name,
+  label: name,
+}));
 
 async function setupMasterForms() {
   const { db } = await connectToDatabase();
@@ -276,16 +282,7 @@ async function setupMasterForms() {
         required: true,
         step: 2,
         placeholder: 'Select your primary industry',
-        options: [
-          { value: 'Agriculture', label: '🌾 Agriculture/Sustainable Food Production / Land Management' },
-          { value: 'Alternative Energy', label: '☀️ Alternative Energy' },
-          { value: 'Community Development', label: '🏘 Community Development' },
-          { value: 'Education', label: '🧑🏾‍🏫 Education & Cultural Preservation' },
-          { value: 'Green Building', label: '🏗️ Green Building' },
-          { value: 'Waste Management', label: '♻️ Waste Management' },
-          { value: 'Water', label: '💧 Water' },
-          { value: 'Wholistic', label: '🌍 Wholistic' }
-        ]
+        options: industryHouseOptions
       },
       {
         id: 'additionalFocus',
@@ -295,16 +292,7 @@ async function setupMasterForms() {
         required: false,
         step: 2,
         placeholder: 'Select additional industries',
-        options: [
-          { value: 'Agriculture', label: '🌾 Agriculture/Sustainable Food Production / Land Management' },
-          { value: 'Alternative Energy', label: '☀️ Alternative Energy' },
-          { value: 'Community Development', label: '🏘 Community Development' },
-          { value: 'Education', label: '🧑🏾‍🏫 Education & Cultural Preservation' },
-          { value: 'Green Building', label: '🏗️ Green Building' },
-          { value: 'Waste Management', label: '♻️ Waste Management' },
-          { value: 'Water', label: '💧 Water' },
-          { value: 'Wholistic', label: '🌍 Wholistic' }
-        ]
+        options: industryHouseOptions
       },
       {
         id: 'address',

@@ -61,6 +61,11 @@ const CustomIconContent: React.FC<IProps> = (
       bgColor: "#6D1199",
     },
     {
+      label: "Climate/Environmental Justice",
+      source: "AlternativeEnP",
+      bgColor: "#00FF00",
+    },
+    {
       label: "Environmental Justice/Advocacy",
       source: "AlternativeEnP",
       bgColor: "#00FF00",
@@ -78,6 +83,8 @@ const CustomIconContent: React.FC<IProps> = (
       source: "agric",
       bgColor: "#82DD3A",
     },
+    { label: "🌾 Reparative Agriculture", source: "agric", bgColor: "#82DD3A" },
+    { label: "💻 Technology", source: "AlternativeEnP", bgColor: "#4A90E2" },
     { label: "🗑 Waste", source: "waste", bgColor: "#2C4F40" },
     { label: "💧Water", source: "water", bgColor: "#8CB1CF" },
     { label: "🧘🏿‍♀️ Wholistic Health", source: "wholistic", bgColor: "#ED751C" },

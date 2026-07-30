@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { fetchMainRosterTableMetadata } from "@/lib/server/airtableMainRosterServer";
+import { FALLBACK_INDUSTRY_FIELD_METADATA } from "@/constants/industry-house-options";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -9,8 +10,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const metadata = await fetchMainRosterTableMetadata();
+    const withoutIndustry = metadata.filter(
+      (field) => field.fieldName !== "PRIMARY INDUSTRY HOUSE"
+    );
     res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
-    return res.status(200).json(metadata);
+    return res.status(200).json([FALLBACK_INDUSTRY_FIELD_METADATA, ...withoutIndustry]);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[roster-metadata]", msg);

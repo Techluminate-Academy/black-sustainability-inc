@@ -118,14 +118,15 @@ function createBSNBatchUploadTemplate() {
   
   const primaryIndustryOptions = [
     "☀️ Alternative Energy",
-    "🌾 Agriculture/Sustainable Food Production / Land Management",
+    "🌾 Reparative Agriculture",
+    "💰 Alternative Economics",
     "🏘 Community Development",
     "🛖 Eco-friendly Building",
-    "💰 Alternative Economics",
     "🧑🏾‍🏫 Education & Cultural Preservation",
-    "Environmental Justice/Advocacy",
+    "Climate/Environmental Justice",
     "♻️ Green Lifestyle",
     "🆘 Survival/Preparedness",
+    "💻 Technology",
     "🗑 Waste",
     "💧Water",
     "🧘🏿‍♀️ Wholistic Health"
@@ -310,7 +311,7 @@ function createBSNBatchUploadTemplate() {
       "(555) 123-4567",
       "+44 20 1234 5678",
       "☀️ Alternative Energy",
-      "🌾 Agriculture/Sustainable Food Production / Land Management, 💧Water",
+      "🌾 Reparative Agriculture, 💧Water",
       "237990",
       "Partner Organization Name",
       "123 Main Street, City, Country",

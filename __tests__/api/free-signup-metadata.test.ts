@@ -28,7 +28,7 @@ describe("/api/airtable/free-signup-metadata", () => {
     jest.clearAllMocks();
   });
 
-  it("returns Airtable metadata when Industry House choices are present", async () => {
+  it("replaces newer Airtable Industry House choices with the official list", async () => {
     const metadata = [
       {
         fieldName: "PRIMARY INDUSTRY HOUSE",
@@ -41,7 +41,13 @@ describe("/api/airtable/free-signup-metadata", () => {
     const res = await callHandler();
 
     expect(res.statusCode).toBe(200);
-    expect(res._getJSONData()).toEqual(metadata);
+    expect(res.getHeader("X-BSN-Metadata-Source")).toBe("canonical-industry");
+    expect(res._getJSONData()).toEqual([FALLBACK_INDUSTRY_FIELD_METADATA]);
+    const names = FALLBACK_INDUSTRY_FIELD_METADATA.options.map((option) => option.name);
+    expect(names.filter((name) => name === "🌾 Reparative Agriculture")).toHaveLength(1);
+    expect(names).not.toContain(
+      "🌾 Agriculture/Sustainable Food Production / Land Management"
+    );
   });
 
   it("injects fallback Industry House options when Airtable returns none", async () => {
@@ -54,7 +60,7 @@ describe("/api/airtable/free-signup-metadata", () => {
     const res = await callHandler();
 
     expect(res.statusCode).toBe(200);
-    expect(res.getHeader("X-BSN-Metadata-Source")).toBe("fallback-industry");
+    expect(res.getHeader("X-BSN-Metadata-Source")).toBe("canonical-industry");
     const body = res._getJSONData();
     expect(body[0]).toEqual(FALLBACK_INDUSTRY_FIELD_METADATA);
     expect(body[0].options.length).toBeGreaterThan(0);

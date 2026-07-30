@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { INDUSTRY_HOUSE_NAMES } from "@/constants/industry-house-options";
 
 // Dropdown options from BSN form
 const IDENTIFICATION_OPTIONS = [
@@ -20,20 +21,7 @@ const GENDER_OPTIONS = [
   "Prefer not to say"
 ];
 
-const PRIMARY_INDUSTRY_OPTIONS = [
-  "☀️ Alternative Energy",
-  "🌾 Agriculture/Sustainable Food Production / Land Management",
-  "🏘 Community Development",
-  "🛖 Eco-friendly Building",
-  "💰 Alternative Economics",
-  "🧑🏾‍🏫 Education & Cultural Preservation",
-  "Environmental Justice/Advocacy",
-  "♻️ Green Lifestyle",
-  "🆘 Survival/Preparedness",
-  "🗑 Waste",
-  "💧Water",
-  "🧘🏿‍♀️ Wholistic Health"
-];
+const PRIMARY_INDUSTRY_OPTIONS = [...INDUSTRY_HOUSE_NAMES];
 
 const US_STATES = [
   "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",

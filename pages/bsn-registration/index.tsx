@@ -15,6 +15,7 @@ import { allCountries } from "country-telephone-data";
 import logo from '@/public/png/bsn-logo.png'
 import CountryCodeDropdown from "../../components/CountryCodeDropdown/CountryCodeDropdown";
 import { HARDCODED_MEMBER_LEVELS } from '@/constants/member-levels';
+import { INDUSTRY_HOUSE_NAMES } from "@/constants/industry-house-options";
 import MembershipOptions from '@/features/loginUpgrade/MembershipOptions';
 
 // 1. TYPES & INTERFACES
@@ -480,20 +481,7 @@ const Step2: React.FC<{
         </div>
         {formData.showDropdown && (
           <div className="absolute z-10 bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-auto w-full">
-            {[
-              "☀️ Alternative Energy",
-              "🌾 Agriculture/Sustainable Food Production / Land Management",
-              "🏘 Community Development",
-              "🛖 Eco-friendly Building",
-              "💰 Alternative Economics",
-              "🧑🏾‍🏫 Education & Cultural Preservation",
-              "Environmental Justice/Advocacy",
-              "♻️ Green Lifestyle",
-              "🆘 Survival/Preparedness",
-              "🗑 Waste",
-              "💧Water",
-              "🧘🏿‍♀️ Wholistic Health"
-            ].map((focus) => (
+            {INDUSTRY_HOUSE_NAMES.map((focus) => (
               <div
                 key={focus}
                 className="px-4 py-2 hover:bg-blue-100 cursor-pointer"

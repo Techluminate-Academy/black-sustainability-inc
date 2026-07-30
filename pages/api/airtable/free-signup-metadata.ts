@@ -25,19 +25,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const metadata = await fetchFreeSignupTableFieldMetadata();
-    const industryField = metadata.find(
-      (field) => field.fieldName === "PRIMARY INDUSTRY HOUSE"
+    // The legacy roster is the source of truth for official Industry House names.
+    // Do not expose choices from the newer Airtable field, which may contain duplicates.
+    const withoutIndustry = metadata.filter(
+      (field) => field.fieldName !== "PRIMARY INDUSTRY HOUSE"
     );
-    // Schema fetch can succeed while the Industry House select has no choices
-    // (wrong table, empty field, or permissions that omit choice names).
-    if (!industryField?.options?.length) {
-      res.setHeader("X-BSN-Metadata-Source", "fallback-industry");
-      const withoutIndustry = metadata.filter(
-        (field) => field.fieldName !== "PRIMARY INDUSTRY HOUSE"
-      );
-      return res.status(200).json([FALLBACK_INDUSTRY_FIELD_METADATA, ...withoutIndustry]);
-    }
-    return res.status(200).json(metadata);
+    res.setHeader("X-BSN-Metadata-Source", "canonical-industry");
+    return res.status(200).json([FALLBACK_INDUSTRY_FIELD_METADATA, ...withoutIndustry]);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[free-signup-metadata]", msg);

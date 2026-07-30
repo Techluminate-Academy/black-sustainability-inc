@@ -38,7 +38,7 @@ export const IndustryHouses = [
     ),
   },
   {
-    value: "Environmental Justice/Advocacy",
+    value: "Climate/Environmental Justice",
     label: (
       <div className="flex items-center space-x-2 ">
         <span
@@ -51,7 +51,7 @@ export const IndustryHouses = [
           className="w-[26px] h-[26px] rounded-full"
         />
         <span className="text-sm text-[#242424] font-lexend capitalize ">
-          Environmental Justice/Advocacy
+          Climate/Environmental Justice
         </span>
       </div>
     ),
@@ -93,16 +93,6 @@ export const IndustryHouses = [
     ),
   },
   {
-    value: "🌾 Agriculture/Sustainable Food Production / Land Management",
-    label: (
-      <SelectOption
-        label="Sustainable Agriculture and Land Management"
-        color="#82DD3A"
-        source="agric"
-      />
-    ),
-  },
-  {
     value: "🌾 Reparative Agriculture",
     label: (
       <SelectOption
@@ -111,6 +101,10 @@ export const IndustryHouses = [
         source="agric"
       />
     ),
+  },
+  {
+    value: "💻 Technology",
+    label: <SelectOption label="Technology" color="#4A90E2" source="all" />,
   },
   {
     value: "🗑 Waste",

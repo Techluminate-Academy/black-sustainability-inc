@@ -14,9 +14,9 @@ describe("resolveCanonicalIndustryHouse", () => {
     );
     expect(resolveCanonicalIndustryHouse("Community Development")).toBe("🏘 Community Development");
     expect(resolveCanonicalIndustryHouse("Climate/Environmental Justice")).toBe(
-      "Environmental Justice/Advocacy"
+      "Climate/Environmental Justice"
     );
-    expect(resolveCanonicalIndustryHouse("💻 Technology")).toBe("❓ Other");
+    expect(resolveCanonicalIndustryHouse("💻 Technology")).toBe("💻 Technology");
     expect(resolveCanonicalIndustryHouse("Water")).toBe("💧Water");
     expect(resolveCanonicalIndustryHouse("Reparative Agriculture")).toBe("🌾 Reparative Agriculture");
   });

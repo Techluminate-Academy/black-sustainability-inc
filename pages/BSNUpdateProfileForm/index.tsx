@@ -11,6 +11,7 @@ import logo from "@/public/png/bsn-logo.png";
 import CountryCodeDropdown from "../../components/CountryCodeDropdown/CountryCodeDropdown";
 import Link from "next/link";
 import { HARDCODED_MEMBER_LEVELS } from '@/constants/member-levels';
+import { INDUSTRY_HOUSE_NAMES } from "@/constants/industry-house-options";
 
 export interface FormData {
   email: string;
@@ -435,26 +436,7 @@ const Step2: React.FC<Step2Props> = ({
       </div>
       {formData.showDropdown && (
         <div className="absolute z-10 bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-auto w-full">
-          {[
-            "🌾 Agriculture/Sustainable Food Production / Land Management",
-            "☀️ Alternative Energy",
-            "💰 Alternative Economics",
-            "🏘 Community Development",
-            "🛖 Eco-friendly Building",
-            "🧑🏾‍🏫 Education & Cultural Preservation",
-            "Environmental Justice",
-            "♻️ Green Lifestyle",
-            "❓ Other",
-            "💧Water",
-            "💻 Technology",
-            "🗑 Waste",
-            "🧘🏿‍♀️ Wholistic Health",
-            "Climate",
-            "Spirituality",
-            "🆘 Survival/Preparedness",
-            "Youth",
-            "Africa",
-          ].map((focus) => (
+          {INDUSTRY_HOUSE_NAMES.map((focus) => (
             <div
               key={focus}
               className="px-4 py-2 hover:bg-blue-100 cursor-pointer"
