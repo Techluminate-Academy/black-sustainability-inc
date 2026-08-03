@@ -13,6 +13,24 @@ must exit nonzero on failure so Render does not mark a partial synchronization a
 successful. Use `--skip-mighty` or `--skip-cache` only for deliberate manual
 maintenance, never in the scheduled Render command.
 
+### Delta sync (default)
+
+Scheduled Mighty → Airtable now starts with a cheap Mighty member-list discovery
+pass, then detail-syncs only:
+
+1. Members whose Mighty `updated_at` is newer than Airtable `Last Sync Date`
+2. Members missing from Airtable or missing a valid `Last Sync Date`
+3. A small oldest-first safety batch (`MIGHTY_SYNC_SAFETY_BATCH`, default `100`)
+
+This keeps twice-daily runs short while still reconciling drift. For a full roster
+sweep (manual ops / recovery), run:
+
+```bash
+node utils/sync-airtable.js --full
+# or
+npx tsx scripts/mighty-to-airtable-sync.ts --apply --full
+```
+
 ## 🎯 What We've Set Up
 
 ### ✅ Automatically Configured:

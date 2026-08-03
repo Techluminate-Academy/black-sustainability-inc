@@ -61,6 +61,7 @@ describe("upsertAirtableMightyMember", () => {
       email: "Test@Example.com",
       firstName: "Test",
       lastName: "User",
+      touchLastSyncDate: true,
       subscription: { isPaidActive: true, statuses: ["MemberPurchased"], updatedAt: new Date().toISOString() },
     });
 
@@ -68,6 +69,36 @@ describe("upsertAirtableMightyMember", () => {
     expect(r.action).toBe("created");
     expect(r.recordId).toBe("rec_new");
     expect((global as any).fetch).toHaveBeenCalledTimes(2);
+    const createBody = JSON.parse((global as any).fetch.mock.calls[1][1].body);
+    expect(createBody.records[0].fields["Present in Mighty Networks"]).toBe(true);
+    expect(createBody.records[0].fields["Needs Review"]).toBe(false);
+  });
+
+  it("patches a known record without a formula lookup", async () => {
+    process.env.AIRTABLE_PAT = "pat";
+    process.env.AIRTABLE_MIGHTY_SYNC_BASE_ID = "base";
+    process.env.AIRTABLE_MIGHTY_SYNC_TABLE_NAME = "Mighty Members";
+
+    const { patchAirtableMightyMemberFromPayload } = await import("../lib/airtableMightyMembers");
+    (global as any).fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ records: [{ id: "rec_known", fields: {} }] }),
+      text: async () => "",
+      status: 200,
+      statusText: "OK",
+    });
+
+    const r = await patchAirtableMightyMemberFromPayload("rec_known", {
+      mightyId: 99,
+      email: "known@example.com",
+      touchLastSyncDate: true,
+    });
+    expect(r).toEqual({ skipped: false, action: "updated", recordId: "rec_known" });
+    expect((global as any).fetch).toHaveBeenCalledTimes(1);
+    const body = JSON.parse((global as any).fetch.mock.calls[0][1].body);
+    expect(body.records[0].id).toBe("rec_known");
+    expect(body.records[0].fields["Present in Mighty Networks"]).toBe(true);
+    expect(body.records[0].fields["Needs Review"]).toBe(false);
   });
 
   it("writes bio to Extended Bio by default", async () => {

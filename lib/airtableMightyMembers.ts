@@ -451,7 +451,23 @@ function pickAirtableFields(member: {
     fields[getAirtableLastSyncDateFieldName()] = new Date().toISOString();
   }
 
+  // Keep presence checkbox aligned whenever we write a known Mighty member.
+  if (typeof member.mightyId === "number" && Number.isFinite(member.mightyId)) {
+    fields["Present in Mighty Networks"] = true;
+    fields["Needs Review"] = false;
+  }
+
   return fields;
+}
+
+/** Build Airtable fields for create/update/patch from a Mighty member payload. */
+export function buildAirtableMightyMemberFields(
+  member: Parameters<typeof pickAirtableFields>[0]
+): Record<string, any> {
+  return pickAirtableFields({
+    ...member,
+    email: normalizeEmail(member.email) || undefined,
+  });
 }
 
 export async function findAirtableMightyMemberByEmail(
@@ -537,10 +553,7 @@ export async function upsertAirtableMightyMember(member: {
   const search = (await airtableFetchJson(searchUrl, { method: "GET" })) as { records: AirtableRecord[] };
   const existing = search.records?.[0];
 
-  const fields = pickAirtableFields({
-    ...member,
-    email: normalizeEmail(member.email) || undefined,
-  });
+  const fields = buildAirtableMightyMemberFields(member);
 
   if (!Object.keys(fields).length) return { skipped: true };
 
@@ -560,5 +573,20 @@ export async function upsertAirtableMightyMember(member: {
   })) as { records: AirtableRecord[] };
 
   return { skipped: false, action: "created", recordId: created.records?.[0]?.id };
+}
+
+/** Patch a known Airtable record without a second filter-by-formula lookup. */
+export async function patchAirtableMightyMemberFromPayload(
+  recordId: string,
+  member: Parameters<typeof upsertAirtableMightyMember>[0]
+): Promise<{ skipped: boolean; action?: "updated"; recordId?: string }> {
+  if (!airtableEnabled()) return { skipped: true };
+  if (!recordId?.trim()) throw new Error("recordId required");
+
+  const fields = buildAirtableMightyMemberFields(member);
+  if (!Object.keys(fields).length) return { skipped: true };
+
+  await patchAirtableMightyMemberByRecordId(recordId, fields);
+  return { skipped: false, action: "updated", recordId };
 }
 

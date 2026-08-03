@@ -1,8 +1,9 @@
 import {
+  patchAirtableMightyMemberByRecordId,
+  patchAirtableMightyMemberFromPayload,
+  upsertAirtableMightyMember,
   getAirtableLastSyncDateFieldName,
   getAirtableMightySyncStatusFieldName,
-  patchAirtableMightyMemberByRecordId,
-  upsertAirtableMightyMember,
   type MightySyncRowWithMemberId,
 } from "@/lib/airtableMightyMembers";
 import { extractMightyAvatarUrl } from "@/lib/domain/members/mightyAvatar";
@@ -21,11 +22,20 @@ import {
   classifyMightyToAirtableError,
   filterRowsNeedingMightySync,
   normalizeAirtableSelectOption,
+  type DeltaSyncCandidate,
   type MightyToAirtableErrorKind,
 } from "@/lib/domain/sync/mightyToAirtableSyncHelpers";
 
 export type { MightyToAirtableErrorKind } from "@/lib/domain/sync/mightyToAirtableSyncHelpers";
 export { classifyMightyToAirtableError, filterRowsNeedingMightySync };
+
+/** Work item for batch sync: existing Airtable row or newly discovered Mighty member. */
+export type MightySyncWorkItem = {
+  mightyId: number;
+  email?: string | null;
+  recordId?: string | null;
+  reason?: string;
+};
 
 export type MightyToAirtableRowResult =
   | { ok: true; action: "created" | "updated" | "skipped"; recordId?: string; email?: string }
@@ -146,13 +156,20 @@ export async function markMightyMemberMissingInAirtable(row: {
   await patchAirtableMightyMemberByRecordId(row.recordId, fields);
 }
 
-export async function syncMightyMemberToAirtable(mightyId: number): Promise<{
+export async function syncMightyMemberToAirtable(
+  mightyId: number,
+  opts?: { recordId?: string | null }
+): Promise<{
   skipped: boolean;
   action?: "created" | "updated";
   recordId?: string;
   email?: string;
 }> {
   const payload = await buildMightyToAirtablePayload(mightyId);
+  if (opts?.recordId?.trim()) {
+    const result = await patchAirtableMightyMemberFromPayload(opts.recordId, payload);
+    return { ...result, email: payload.email ?? undefined };
+  }
   const result = await upsertAirtableMightyMember(payload);
   return { ...result, email: payload.email ?? undefined };
 }
@@ -160,7 +177,7 @@ export async function syncMightyMemberToAirtable(mightyId: number): Promise<{
 /** Mighty fetch + Airtable upsert with backoff on 429. */
 export async function syncMightyMemberToAirtableWithRetry(
   mightyId: number,
-  opts?: { maxAttempts?: number; baseDelayMs?: number }
+  opts?: { maxAttempts?: number; baseDelayMs?: number; recordId?: string | null }
 ): Promise<{ skipped: boolean; action?: "created" | "updated"; recordId?: string; email?: string }> {
   const maxAttempts = opts?.maxAttempts ?? 4;
   const baseDelayMs = opts?.baseDelayMs ?? 2500;
@@ -168,7 +185,7 @@ export async function syncMightyMemberToAirtableWithRetry(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      return await syncMightyMemberToAirtable(mightyId);
+      return await syncMightyMemberToAirtable(mightyId, { recordId: opts?.recordId });
     } catch (e) {
       lastError = e;
       const kind = classifyMightyToAirtableError(e);
@@ -180,23 +197,46 @@ export async function syncMightyMemberToAirtableWithRetry(
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
-export async function syncMightyRowToAirtable(row: MightySyncRowWithMemberId): Promise<MightyToAirtableRowResult> {
+export function candidateToWorkItem(candidate: DeltaSyncCandidate): MightySyncWorkItem {
+  return {
+    mightyId: candidate.mightyId,
+    email: candidate.email,
+    recordId: candidate.recordId,
+    reason: candidate.reason,
+  };
+}
+
+export function airtableRowToWorkItem(row: MightySyncRowWithMemberId): MightySyncWorkItem {
+  return {
+    mightyId: row.mightyId,
+    email: row.email,
+    recordId: row.recordId,
+  };
+}
+
+export async function syncMightyRowToAirtable(row: MightySyncWorkItem): Promise<MightyToAirtableRowResult> {
   const email = (row.email ?? "").trim().toLowerCase();
   try {
-    const result = await syncMightyMemberToAirtableWithRetry(row.mightyId);
+    const result = await syncMightyMemberToAirtableWithRetry(row.mightyId, {
+      recordId: row.recordId,
+    });
     if (result.skipped) {
-      return { ok: true, action: "skipped", recordId: row.recordId, email: result.email ?? email };
+      return { ok: true, action: "skipped", recordId: row.recordId ?? result.recordId, email: result.email ?? email };
     }
     return {
       ok: true,
       action: result.action ?? "updated",
-      recordId: result.recordId ?? row.recordId,
+      recordId: result.recordId ?? row.recordId ?? undefined,
       email: result.email ?? email,
     };
   } catch (e) {
     const kind = classifyMightyToAirtableError(e);
-    if (kind === "not_found") {
-      await markMightyMemberMissingInAirtable(row);
+    if (kind === "not_found" && row.recordId?.trim()) {
+      await markMightyMemberMissingInAirtable({
+        recordId: row.recordId,
+        mightyId: row.mightyId,
+        email: row.email,
+      });
       return {
         ok: true,
         action: "marked_not_found",
@@ -220,11 +260,17 @@ export type MightyToAirtableBatchSummary = {
   markedNotFound: number;
   retryableFailures: number;
   roundsUsed: number;
-  failedRows: Array<{ mightyId: number; email: string | null; recordId: string; kind: string; error: string }>;
+  failedRows: Array<{
+    mightyId: number;
+    email: string | null;
+    recordId: string | null;
+    kind: string;
+    error: string;
+  }>;
 };
 
 export async function runMightyToAirtableBatchSync(params: {
-  rows: MightySyncRowWithMemberId[];
+  rows: MightySyncWorkItem[];
   sleepMs: number;
   retryRounds: number;
   onRow?: (payload: Record<string, unknown>) => void;
@@ -246,7 +292,7 @@ export async function runMightyToAirtableBatchSync(params: {
   for (let round = 1; round <= maxRounds && pending.length > 0; round++) {
     summary.roundsUsed = round;
     const roundSleepMs = params.sleepMs * round;
-    const failedNext: MightySyncRowWithMemberId[] = [];
+    const failedNext: MightySyncWorkItem[] = [];
 
     for (const row of pending) {
       summary.processed++;
@@ -263,14 +309,15 @@ export async function runMightyToAirtableBatchSync(params: {
           round,
           mightyId: row.mightyId,
           email: result.email ?? email,
-          record_id: result.recordId ?? row.recordId,
+          record_id: result.recordId ?? row.recordId ?? null,
+          reason: row.reason ?? null,
         });
       } else {
         failedNext.push(row);
         summary.failedRows.push({
           mightyId: row.mightyId,
-          email: row.email,
-          recordId: row.recordId,
+          email: row.email ?? null,
+          recordId: row.recordId ?? null,
           kind: result.kind,
           error: result.error,
         });
@@ -279,9 +326,10 @@ export async function runMightyToAirtableBatchSync(params: {
           round,
           mightyId: row.mightyId,
           email,
-          record_id: row.recordId,
+          record_id: row.recordId ?? null,
           kind: result.kind,
           error: result.error,
+          reason: row.reason ?? null,
         });
       }
 
@@ -306,8 +354,8 @@ export async function runMightyToAirtableBatchSync(params: {
   summary.retryableFailures = pending.length;
   summary.failedRows = pending.map((row) => ({
     mightyId: row.mightyId,
-    email: row.email,
-    recordId: row.recordId,
+    email: row.email ?? null,
+    recordId: row.recordId ?? null,
     kind: "pending_after_retries",
     error: "Exhausted retry rounds",
   }));

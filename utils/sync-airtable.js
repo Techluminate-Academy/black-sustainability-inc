@@ -2,24 +2,26 @@
 //
 // Scheduled membership reconciliation (twice daily — morning + night):
 //   Mighty webhooks keep Mongo + Airtable mostly current in between; this job
-//   re-pulls Mighty → Airtable (Last Sync Date + profile) then Airtable → Mongo.
+//   runs discovery-first Mighty → Airtable (delta by default), then Airtable → Mongo.
 //   Default --sleep-ms 450 to stay under Mighty Admin API rate limits.
 //
 // Render: create TWO Cron Jobs with the same command (set timezone, e.g. America/New_York):
 //   Morning: 0 6 * * *
 //   Night:   0 2 * * *
 //   Command: node utils/sync-airtable.js
-//   Plan:    allow ~60–90 min per run
+//   Plan:    delta runs are typically much shorter than full roster sweeps
 //
 // Usage:
 //   node utils/sync-airtable.js
 //   node utils/sync-airtable.js --sleep-ms 500
-//   node utils/sync-airtable.js --stale-only          # lighter run (failed/old rows only)
+//   node utils/sync-airtable.js --full                # full Mighty→Airtable roster
+//   node utils/sync-airtable.js --stale-only          # Last Sync Date before today only
 //   node utils/sync-airtable.js --skip-mighty        # Airtable → Mongo only
 //   node utils/sync-airtable.js --skip-cache         # do not invalidate Redis
 //
 // Env: MIGHTY_SYNC_SLEEP_MS (default 450), MIGHTY_SYNC_RETRY_ROUNDS (default 3),
-//      MIGHTY_SYNC_STALE_ONLY=1 for incremental runs,
+//      MIGHTY_SYNC_SAFETY_BATCH (default 100 oldest rows each delta run),
+//      MIGHTY_SYNC_FULL=1 for full roster, MIGHTY_SYNC_STALE_ONLY=1 for stale filter,
 //      SYNC_REQUIRE_COMPLETE=0 to run Mongo when Mighty rows still failing,
 //      SKIP_MIGHTY_SYNC=1 to skip step 1
 
@@ -317,21 +319,29 @@ module.exports = {
 function parseSyncCliArgs(argv = process.argv.slice(2)) {
   const sleepIdx = argv.indexOf("--sleep-ms");
   const retryIdx = argv.indexOf("--retry-rounds");
+  const safetyIdx = argv.indexOf("--safety-batch");
   const envSleep = parseInt(process.env.MIGHTY_SYNC_SLEEP_MS || "", 10);
   const envRetry = parseInt(process.env.MIGHTY_SYNC_RETRY_ROUNDS || "", 10);
+  const envSafety = parseInt(process.env.MIGHTY_SYNC_SAFETY_BATCH || "", 10);
   const defaultSleep = Number.isFinite(envSleep) ? envSleep : DEFAULT_MIGHTY_SLEEP_MS;
   const defaultRetry = Number.isFinite(envRetry) ? Math.max(1, envRetry) : 3;
+  const defaultSafety = Number.isFinite(envSafety) ? Math.max(0, envSafety) : 100;
   const requireComplete = process.env.SYNC_REQUIRE_COMPLETE !== "0";
+  const full = argv.includes("--full") || process.env.MIGHTY_SYNC_FULL === "1";
   const staleOnly =
-    argv.includes("--stale-only") ||
-    argv.includes("--incremental") ||
-    process.env.MIGHTY_SYNC_STALE_ONLY === "1";
+    !full &&
+    (argv.includes("--stale-only") ||
+      argv.includes("--incremental") ||
+      process.env.MIGHTY_SYNC_STALE_ONLY === "1");
   return {
     skipMighty:
       argv.includes("--skip-mighty") ||
       argv.includes("--airtable-only") ||
       process.env.SKIP_MIGHTY_SYNC === "1",
+    full,
     staleOnly,
+    // Delta is default when neither full nor stale-only is requested.
+    delta: !full && !staleOnly,
     sleepMs:
       sleepIdx >= 0 && argv[sleepIdx + 1]
         ? Math.max(0, parseInt(argv[sleepIdx + 1], 10) || 0)
@@ -340,6 +350,10 @@ function parseSyncCliArgs(argv = process.argv.slice(2)) {
       retryIdx >= 0 && argv[retryIdx + 1]
         ? Math.max(1, parseInt(argv[retryIdx + 1], 10) || 1)
         : defaultRetry,
+    safetyBatch:
+      safetyIdx >= 0 && argv[safetyIdx + 1]
+        ? Math.max(0, parseInt(argv[safetyIdx + 1], 10) || 0)
+        : defaultSafety,
     requireComplete,
     skipCache: argv.includes("--skip-cache") || process.env.SKIP_CACHE_INVALIDATION === "1",
   };
@@ -352,7 +366,7 @@ function mightyToAirtableConfigured() {
   return Boolean(mightyKey && networkId && AIRTABLE_API_KEY && BASE_ID && TABLE_NAME);
 }
 
-function runMightyToAirtableSync(sleepMs, retryRounds, staleOnly) {
+function runMightyToAirtableSync({ sleepMs, retryRounds, full, staleOnly, safetyBatch }) {
   const repoRoot = path.join(__dirname, "..");
   const args = [
     "tsx",
@@ -362,14 +376,21 @@ function runMightyToAirtableSync(sleepMs, retryRounds, staleOnly) {
     String(sleepMs),
     "--retry-rounds",
     String(retryRounds),
+    "--safety-batch",
+    String(safetyBatch),
   ];
-  if (staleOnly) args.push("--stale-only");
+  if (full) args.push("--full");
+  else if (staleOnly) args.push("--stale-only");
+  // else: delta (script default)
   console.error(
     JSON.stringify({
       msg: "sync_airtable_mighty_step_start",
       sleepMs,
       retryRounds,
-      staleOnly,
+      full: Boolean(full),
+      staleOnly: Boolean(staleOnly),
+      delta: !full && !staleOnly,
+      safetyBatch,
       command: "npx",
       args,
     })
@@ -398,19 +419,27 @@ function runCacheInvalidation() {
 
 async function runScheduledMembershipSync() {
   const args = parseSyncCliArgs();
+  const selectionMode = args.full ? "full" : args.staleOnly ? "stale" : "delta";
 
   console.error(
     JSON.stringify({
       msg: "sync_airtable_scheduled_start",
-      mode: args.staleOnly ? "incremental" : "full",
+      mode: selectionMode,
       sleepMs: args.sleepMs,
       retryRounds: args.retryRounds,
+      safetyBatch: args.safetyBatch,
       requireComplete: args.requireComplete,
     })
   );
 
   if (!args.skipMighty && mightyToAirtableConfigured()) {
-    const mightyExit = runMightyToAirtableSync(args.sleepMs, args.retryRounds, args.staleOnly);
+    const mightyExit = runMightyToAirtableSync({
+      sleepMs: args.sleepMs,
+      retryRounds: args.retryRounds,
+      full: args.full,
+      staleOnly: args.staleOnly,
+      safetyBatch: args.safetyBatch,
+    });
     if (mightyExit !== 0 && args.requireComplete) {
       console.error(
         JSON.stringify({

@@ -340,6 +340,74 @@ export async function createMightyMember(params: MightyCreateMemberParams): Prom
 
 export type MightyMemberPlan = { id: number | string; name?: string };
 
+/** Lightweight member row from the paginated Admin list endpoint (discovery only). */
+export type MightyMemberListMetadata = {
+  mightyId: number;
+  email: string | null;
+  updatedAt: string | null;
+};
+
+/**
+ * Page through GET /members and keep only id / email / updated_at for delta sync.
+ * Stops when a page returns zero items (Mighty may still advertise a next link).
+ */
+export async function listMightyMemberMetadata(opts?: {
+  perPage?: number;
+  maxPages?: number;
+  onPage?: (info: { page: number; count: number; totalSoFar: number }) => void;
+}): Promise<MightyMemberListMetadata[]> {
+  const apiKey = getApiKey();
+  const networkId = getNetworkId();
+  const perPage = Math.min(100, Math.max(1, opts?.perPage ?? 100));
+  const maxPages = Math.max(1, opts?.maxPages ?? 200);
+  const out: MightyMemberListMetadata[] = [];
+
+  for (let page = 1; page <= maxPages; page++) {
+    const url = `${getBaseUrl()}/admin/v1/networks/${encodeURIComponent(
+      networkId
+    )}/members?per_page=${perPage}&page=${page}`;
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+      },
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(
+        `Mighty Admin API members list failed (${res.status}): ${text || res.statusText}`
+      );
+    }
+
+    const data = (await res.json()) as { items?: Record<string, unknown>[] };
+    const items = Array.isArray(data.items) ? data.items : [];
+    opts?.onPage?.({ page, count: items.length, totalSoFar: out.length + items.length });
+    if (!items.length) break;
+
+    for (const item of items) {
+      const idRaw = item.id;
+      const mightyId =
+        typeof idRaw === "number"
+          ? idRaw
+          : typeof idRaw === "string" && idRaw.trim()
+            ? Number(idRaw)
+            : NaN;
+      if (!Number.isFinite(mightyId)) continue;
+      const email =
+        typeof item.email === "string" && item.email.trim()
+          ? item.email.trim().toLowerCase()
+          : null;
+      const updatedAt =
+        typeof item.updated_at === "string" && item.updated_at.trim()
+          ? item.updated_at.trim()
+          : null;
+      out.push({ mightyId, email, updatedAt });
+    }
+  }
+
+  return out;
+}
+
 export async function listMemberPlans(
   mightyMemberId: string | number
 ): Promise<MightyMemberPlan[]> {

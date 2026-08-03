@@ -51,4 +51,25 @@ describe("scheduled Airtable to Mongo synchronization", () => {
       skipCache: true,
     });
   });
+
+  test("defaults to delta Mighty sync and accepts full/stale overrides", () => {
+    const { parseSyncCliArgs } = require("../utils/sync-airtable.js");
+    expect(parseSyncCliArgs([])).toMatchObject({
+      delta: true,
+      full: false,
+      staleOnly: false,
+      safetyBatch: 100,
+    });
+    expect(parseSyncCliArgs(["--full", "--safety-batch", "250"])).toMatchObject({
+      delta: false,
+      full: true,
+      staleOnly: false,
+      safetyBatch: 250,
+    });
+    expect(parseSyncCliArgs(["--stale-only"])).toMatchObject({
+      delta: false,
+      full: false,
+      staleOnly: true,
+    });
+  });
 });
