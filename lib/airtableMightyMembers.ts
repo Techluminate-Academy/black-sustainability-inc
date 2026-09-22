@@ -462,7 +462,7 @@ function pickAirtableFields(member: {
 
 /** Build Airtable fields for create/update/patch from a Mighty member payload. */
 export function buildAirtableMightyMemberFields(
-  member: Parameters<typeof pickAirtableFields>[0]
+  member: Omit<Parameters<typeof pickAirtableFields>[0], "email"> & { email?: string | null }
 ): Record<string, any> {
   return pickAirtableFields({
     ...member,

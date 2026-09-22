@@ -33,6 +33,28 @@ describe("upsertAirtableMightyMember", () => {
     expect(r.skipped).toBe(true);
   });
 
+  it.each([null, undefined, "", "   "])("omits an absent email (%j) while retaining member identity", async (email) => {
+    const { buildAirtableMightyMemberFields } = await import("../lib/airtableMightyMembers");
+    const fields = buildAirtableMightyMemberFields({ mightyId: 123, email });
+    expect(fields["Mighty Member ID"]).toBe(123);
+    expect(fields).not.toHaveProperty("Primary Email");
+  });
+
+  it.each(["upsert", "patch"])("supports null email in the %s path", async (mode) => {
+    process.env.AIRTABLE_PAT = "pat";
+    process.env.AIRTABLE_MIGHTY_SYNC_BASE_ID = "base";
+    process.env.AIRTABLE_MIGHTY_SYNC_TABLE_NAME = "Mighty Members";
+    const { upsertAirtableMightyMember, patchAirtableMightyMemberFromPayload } = await import("../lib/airtableMightyMembers");
+    const member = { mightyId: 123, email: null, firstName: "Member" };
+    if (mode === "upsert") await upsertAirtableMightyMember(member);
+    else await patchAirtableMightyMemberFromPayload("rec_known", member);
+    const write = (global.fetch as jest.Mock).mock.calls.find(([, options]) => options.method === "POST" || options.method === "PATCH");
+    expect(write).toBeDefined();
+    const fields = JSON.parse(write[1].body).records[0].fields;
+    expect(fields["Mighty Member ID"]).toBe(123);
+    expect(fields).not.toHaveProperty("Primary Email");
+  });
+
   it("creates when no existing record found", async () => {
     process.env.AIRTABLE_PAT = "pat";
     process.env.AIRTABLE_MIGHTY_SYNC_BASE_ID = "base";
