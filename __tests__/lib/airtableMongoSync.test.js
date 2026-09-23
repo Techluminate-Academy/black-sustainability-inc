@@ -6,7 +6,7 @@ const row = (fields = {}, id = 'rec1') => ({ id, fields: { 'Mighty Member ID': 1
 function fixture(records = [row()], docs = []) {
   const http = { get: jest.fn().mockResolvedValue({ data: { records } }) };
   const session = { endSession: jest.fn().mockResolvedValue(), withTransaction: jest.fn(async (callback) => callback()) };
-  const collection = { createIndex: jest.fn().mockResolvedValue('index'),
+  const collection = { indexes: jest.fn().mockResolvedValue([]), createIndex: jest.fn().mockResolvedValue('index'),
     find: jest.fn(() => ({ toArray: jest.fn().mockResolvedValue(docs) })),
     bulkWrite: jest.fn().mockResolvedValue({ modifiedCount: 1, upsertedCount: 0 }) };
   const client = { connect: jest.fn().mockResolvedValue(), close: jest.fn().mockResolvedValue(),
@@ -238,4 +238,61 @@ test('Mongo errors and cleanup errors preserve the original transaction failure'
   f.client.close.mockRejectedValue(new Error('close failed'));
   await expect(syncAirtableToMongoDB(f.options)).rejects.toThrow('write conflict');
   expect(f.client.close).toHaveBeenCalled();
+});
+
+describe('existing identity indexes', () => {
+  const mighty = { name: 'mightyId_1', key: { mightyId: 1 }, unique: true,
+    partialFilterExpression: { mightyId: { $type: 'number' } } };
+  test('reuses the production numeric index and creates missing identity protection', async () => {
+    const f = fixture();
+    f.collection.indexes.mockResolvedValue([mighty, { name: 'email_1', key: { email: 1 }, unique: true,
+      partialFilterExpression: { email: { $type: 'string' } } }]);
+    await syncAirtableToMongoDB(f.options);
+    expect(f.collection.createIndex.mock.calls.map(([key]) => key)).toEqual([{ 'airtable.recordId': 1 }, { email: 1 }]);
+    expect(f.collection.createIndex.mock.calls[1][1].collation).toEqual({ locale: 'en', strength: 2 });
+    expect(f.collection.bulkWrite).toHaveBeenCalled();
+  });
+  test('repeated runs reuse compatible indexes, including server-expanded collation', async () => {
+    const f = fixture();
+    f.collection.indexes.mockResolvedValue([mighty,
+      { key: { 'airtable.recordId': -1 }, unique: true },
+      { key: { email: 1 }, unique: true, partialFilterExpression: { email: { $type: 'string', $gt: '' } },
+        collation: { locale: 'en', strength: 2, caseLevel: false, caseFirst: 'off', numericOrdering: false,
+          alternate: 'non-ignorable', maxVariable: 'punct', normalization: false, backwards: false, version: '57.1' } }]);
+    await syncAirtableToMongoDB(f.options);
+    await syncAirtableToMongoDB(f.options);
+    expect(f.collection.createIndex).not.toHaveBeenCalled();
+  });
+  test.each([
+    { unique: false },
+    { key: { mightyId: 1, email: 1 } },
+    { partialFilterExpression: { mightyId: { $type: 'number', $gt: 100 } } },
+    { partialFilterExpression: { mightyId: { $type: 'number' }, active: true } },
+  ])('does not reuse weaker index %j', async (override) => {
+    const f = fixture();
+    f.collection.indexes.mockResolvedValue([{ ...mighty, ...override }]);
+    const error = Object.assign(new Error('sensitive driver details'), { code: 85 });
+    f.collection.createIndex.mockRejectedValue(error);
+    await expect(syncAirtableToMongoDB(f.options)).rejects.toMatchObject({ code: 85, syncStage: 'mongo_indexes' });
+    expect(f.collection.bulkWrite).not.toHaveBeenCalled();
+  });
+  test('does not treat case-sensitive email collation as compatible', async () => {
+    const f = fixture();
+    f.collection.indexes.mockResolvedValue([{ key: { email: 1 }, unique: true, collation: { locale: 'en', strength: 2, caseLevel: true } }]);
+    await syncAirtableToMongoDB(f.options);
+    expect(f.collection.createIndex).toHaveBeenCalledWith({ email: 1 }, expect.objectContaining({ collation: { locale: 'en', strength: 2 } }));
+  });
+  test('creates indexes for a new collection only when catalog reports NamespaceNotFound', async () => {
+    const f = fixture();
+    f.collection.indexes.mockRejectedValue(Object.assign(new Error('missing'), { code: 26 }));
+    await syncAirtableToMongoDB(f.options);
+    expect(f.collection.createIndex).toHaveBeenCalledTimes(3);
+  });
+  test('catalog access failures stop before writes and retain diagnostic codes', async () => {
+    const f = fixture();
+    f.collection.indexes.mockRejectedValue(Object.assign(new Error('denied'), { code: 13 }));
+    await expect(syncAirtableToMongoDB(f.options)).rejects.toMatchObject({ code: 13, syncStage: 'mongo_indexes' });
+    expect(f.collection.createIndex).not.toHaveBeenCalled();
+    expect(f.collection.bulkWrite).not.toHaveBeenCalled();
+  });
 });

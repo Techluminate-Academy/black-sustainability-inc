@@ -41,6 +41,7 @@ module.exports = {
   runCacheInvalidation,
   runScheduledMembershipSync,
   parseSyncCliArgs,
+  formatSyncFailure,
 };
 
 function parseSyncCliArgs(argv = process.argv.slice(2)) {
@@ -195,13 +196,29 @@ async function runScheduledMembershipSync() {
   console.error(JSON.stringify({ msg: "sync_airtable_scheduled_done", status: degraded ? "degraded" : "success", cacheSkipped: args.skipCache }));
 }
 
+function formatSyncFailure(err) {
+  const codes = { 13: 'Unauthorized', 18: 'AuthenticationFailed', 26: 'NamespaceNotFound',
+    85: 'IndexOptionsConflict', 86: 'IndexKeySpecsConflict', 11000: 'DuplicateKey',
+    20: 'IllegalOperation', 112: 'WriteConflict', 251: 'NoSuchTransaction' };
+  const safeNames = ['MongoServerError', 'MongoServerSelectionError', 'MongoNetworkError',
+    'MongoNetworkTimeoutError', 'MongoParseError', 'MongoInvalidArgumentError'];
+  const safeCodes = ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EAI_AGAIN'];
+  const code = Number.isSafeInteger(err?.code) || safeCodes.includes(err?.code) ? err.code : undefined;
+  return {
+    msg: 'sync_airtable_scheduled_failed',
+    error: err instanceof Error && !err.name.startsWith('Mongo') && err.code === undefined && /^(AIRTABLE_|MONGODB_URI|REDIS_URL|Invalid sync option|Airtable |Invalid Airtable|Repeated Airtable|Identity conflict|Incompatible identity|Ambiguous |No usable identity|Multiple Airtable|Mighty to Airtable|Mighty → Airtable|Redis cache)/.test(err.message)
+      ? err.message : 'Membership sync failed; check database connectivity, identity indexes, and transaction support',
+    ...(code !== undefined ? { code, ...(codes[code] ? { codeName: codes[code] } : {}) } : {}),
+    ...(safeNames.includes(err?.name) ? { errorType: err.name } : {}),
+    ...(['mongo_connect', 'mongo_indexes', 'mongo_transaction'].includes(err?.syncStage) ? { stage: err.syncStage } : {}),
+  };
+}
+
 // If this file is executed directly, run the full scheduled sync
 if (require.main === module) {
   runScheduledMembershipSync().catch((err) => {
     // Driver errors may embed credentials or member data; never dump raw errors.
-    console.error(JSON.stringify({ msg: "sync_airtable_scheduled_failed", error:
-      err instanceof Error && /^(AIRTABLE_|MONGODB_URI|REDIS_URL|Invalid sync option|Airtable |Invalid Airtable|Repeated Airtable|Identity conflict|Incompatible identity|Ambiguous |No usable identity|Multiple Airtable|Mighty to Airtable|Mighty → Airtable|Redis cache)/.test(err.message)
-        ? err.message : "Membership sync failed; check database connectivity, identity indexes, and transaction support" }));
+    console.error(JSON.stringify(formatSyncFailure(err)));
     process.exitCode = 1;
   });
 }

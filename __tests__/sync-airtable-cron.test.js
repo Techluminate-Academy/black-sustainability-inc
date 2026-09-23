@@ -90,3 +90,29 @@ test('actual CLI exits nonzero and reports missing config without secrets', () =
   expect(result.stderr).toContain('AIRTABLE_MIGHTY_SYNC_BASE_ID is required');
   expect(result.stderr).not.toContain('do-not-log-this');
 });
+
+describe('safe failure diagnostics', () => {
+  const { formatSyncFailure } = require('../utils/sync-airtable');
+  test.each([[85, 'IndexOptionsConflict'], [11000, 'DuplicateKey'], [20, 'IllegalOperation'], [13, 'Unauthorized']])('reports database code %s without raw details', (code, codeName) => {
+    const error = Object.assign(new Error('mongodb://user:secret@host member@example.org'), {
+      code, codeName: 'untrusted-secret', name: 'MongoServerError', syncStage: 'mongo_indexes',
+      keyValue: { email: 'member@example.org' }, cause: new Error('secret'),
+    });
+    const log = formatSyncFailure(error);
+    expect(log).toMatchObject({ code, codeName, errorType: 'MongoServerError', stage: 'mongo_indexes' });
+    expect(JSON.stringify(log)).not.toMatch(/secret|member@example.org|keyValue|stack|cause/);
+  });
+  test('omits untrusted string codes, names and stages', () => {
+    const error = Object.assign(new Error('secret'), { code: 'secret', name: 'secret', syncStage: 'secret' });
+    expect(JSON.stringify(formatSyncFailure(error))).not.toContain('secret');
+  });
+  test('never allows a driver message through the application-message filter', () => {
+    const error = Object.assign(new Error('Airtable secret database payload'), { name: 'MongoServerError', code: 85 });
+    expect(JSON.stringify(formatSyncFailure(error))).not.toContain('secret');
+  });
+  test('identifies connectivity errors without printing connection strings', () => {
+    const error = Object.assign(new Error('mongodb://secret'), { name: 'MongoServerSelectionError', syncStage: 'mongo_connect', code: 'ETIMEDOUT' });
+    expect(formatSyncFailure(error)).toMatchObject({ errorType: 'MongoServerSelectionError', stage: 'mongo_connect', code: 'ETIMEDOUT' });
+    expect(JSON.stringify(formatSyncFailure(error))).not.toContain('secret');
+  });
+});
