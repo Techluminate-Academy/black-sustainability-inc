@@ -470,6 +470,28 @@ export function buildAirtableMightyMemberFields(
   });
 }
 
+/** Cron-only fill-missing policy. Interactive edits and webhooks retain their explicit update path. */
+export function preserveExistingAirtableProfile(fields: Record<string, any>, existing: Record<string, any>): Record<string, any> {
+  const result = { ...fields };
+  const populated = (value: unknown) => value != null && !(typeof value === "string" && !value.trim()) && !(Array.isArray(value) && value.length === 0);
+  const lat = process.env.AIRTABLE_COORD_LAT_FIELD || "Latitude";
+  const lng = process.env.AIRTABLE_COORD_LNG_FIELD || "Longitude";
+  const keys = ["Primary Email", "First Name", "Last Name", "Profile Photo URL", "City", "Industry / Sector",
+    getAirtableMightyBioFieldName(), getAirtableMightyBioMirrorFieldName(), getAirtableOrganizationFieldName()];
+  for (const key of keys) if (key && (populated(existing[key]) || !populated(result[key]))) delete result[key];
+  // Never replace a legacy bio through an empty newer bio column.
+  if (getMemberBioFromAirtableFields(existing)) {
+    delete result[getAirtableMightyBioFieldName()];
+    const mirror = getAirtableMightyBioMirrorFieldName();
+    if (mirror) delete result[mirror];
+  }
+  const hasCoordinates = populated(existing[lat]) || populated(existing[lng]);
+  const differentCity = populated(existing.City) && populated(fields.City) && existing.City !== fields.City;
+  if (hasCoordinates || differentCity) { delete result[lat]; delete result[lng]; }
+  if (hasCoordinates) delete result.City;
+  return result;
+}
+
 export async function findAirtableMightyMemberByEmail(
   email: string
 ): Promise<AirtableMightyMemberLookup | null> {
@@ -536,7 +558,7 @@ export async function upsertAirtableMightyMember(member: {
     updatedAt?: string;
   };
   touchLastSyncDate?: boolean;
-}): Promise<{ skipped: boolean; action?: "created" | "updated"; recordId?: string }> {
+}, options?: { preserveExistingProfile?: boolean }): Promise<{ skipped: boolean; action?: "created" | "updated"; recordId?: string }> {
   if (!airtableEnabled()) return { skipped: true };
 
   const baseId = getBaseId();
@@ -553,7 +575,8 @@ export async function upsertAirtableMightyMember(member: {
   const search = (await airtableFetchJson(searchUrl, { method: "GET" })) as { records: AirtableRecord[] };
   const existing = search.records?.[0];
 
-  const fields = buildAirtableMightyMemberFields(member);
+  const mapped = buildAirtableMightyMemberFields(member);
+  const fields = options?.preserveExistingProfile && existing ? preserveExistingAirtableProfile(mapped, existing.fields) : mapped;
 
   if (!Object.keys(fields).length) return { skipped: true };
 
@@ -578,12 +601,19 @@ export async function upsertAirtableMightyMember(member: {
 /** Patch a known Airtable record without a second filter-by-formula lookup. */
 export async function patchAirtableMightyMemberFromPayload(
   recordId: string,
-  member: Parameters<typeof upsertAirtableMightyMember>[0]
+  member: Parameters<typeof upsertAirtableMightyMember>[0],
+  options?: { preserveExistingProfile?: boolean }
 ): Promise<{ skipped: boolean; action?: "updated"; recordId?: string }> {
   if (!airtableEnabled()) return { skipped: true };
   if (!recordId?.trim()) throw new Error("recordId required");
 
-  const fields = buildAirtableMightyMemberFields(member);
+  let fields = buildAirtableMightyMemberFields(member);
+  if (options?.preserveExistingProfile) {
+    const url = `https://api.airtable.com/v0/${encodeURIComponent(getBaseId()!)}/${encodeURIComponent(getTableNameOrId()!)}/${encodeURIComponent(recordId)}`;
+    const existing = await airtableFetchJson(url, { method: "GET" }) as AirtableRecord;
+    if (existing.id !== recordId || !existing.fields) throw new Error("Invalid Airtable record during protected sync");
+    fields = preserveExistingAirtableProfile(fields, existing.fields);
+  }
   if (!Object.keys(fields).length) return { skipped: true };
 
   await patchAirtableMightyMemberByRecordId(recordId, fields);

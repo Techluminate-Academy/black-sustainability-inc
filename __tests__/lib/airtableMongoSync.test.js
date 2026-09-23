@@ -296,3 +296,36 @@ describe('existing identity indexes', () => {
     expect(f.collection.bulkWrite).not.toHaveBeenCalled();
   });
 });
+
+describe('cron preserves populated member profiles', () => {
+  test('keeps existing profile and location while syncing subscription changes', async () => {
+    const f = fixture([row({ 'First Name': 'incoming', 'Last Name': 'incoming', 'Extended Bio': 'incoming',
+      City: 'Other city', 'Profile Photo URL': 'incoming.jpg', 'Industry / Sector': 'incoming',
+      Latitude: 40, Longitude: 50, isPaidActive: false, planIds: [], 'Last Sync Date': '2026-09-23T00:00:00Z' })],
+    [{ _id: 'a', mightyId: 123, email: 'member@example.org', airtable: { recordId: 'rec1' },
+      firstName: 'Keep', lastName: 'Keep', bio: 'Keep', avatarUrl: 'keep.jpg', industry: 'Keep',
+      location: 'Keep city', latitude: 0, longitude: 0, geo: { type: 'Point', coordinates: [0, 0] },
+      subscription: { isPaidActive: true, planIds: ['paid'] } }]);
+    await syncAirtableToMongoDB(f.options);
+    const set = f.collection.bulkWrite.mock.calls[0][0][0].updateOne.update.$set;
+    for (const key of ['firstName','lastName','bio','avatarUrl','industry','location','latitude','longitude','geo','email']) expect(set).not.toHaveProperty(key);
+    expect(set).toMatchObject({ 'subscription.isPaidActive': false, 'subscription.planIds': [], lastSyncDate: '2026-09-23T00:00:00Z' });
+  });
+  test('fills missing fields and coordinates', async () => {
+    const f = fixture([row({ 'Extended Bio': 'New bio', City: 'City', Latitude: 12, Longitude: 34 })],
+      [{ _id: 'a', mightyId: 123, bio: ' ', latitude: null, longitude: null }]);
+    await syncAirtableToMongoDB(f.options);
+    expect(f.collection.bulkWrite.mock.calls[0][0][0].updateOne.update.$set).toMatchObject({ bio: 'New bio', location: 'City', latitude: 12, longitude: 34, geo: { type: 'Point', coordinates: [34,12] } });
+  });
+  test.each([{ latitude: 12 }, { geo: { type: 'Point', coordinates: [34,12] } }, { location: 'Different city' }])('does not combine incoming coordinates with existing location %j', async (existing) => {
+    const f = fixture([row({ City: 'Incoming city', Latitude: 20, Longitude: 30 })], [{ _id: 'a', mightyId: 123, ...existing }]);
+    await syncAirtableToMongoDB(f.options);
+    const set = f.collection.bulkWrite.mock.calls[0][0][0].updateOne.update.$set;
+    for (const key of ['latitude','longitude','geo']) expect(set).not.toHaveProperty(key);
+  });
+  test('retains linked member email rather than replacing it from the source', async () => {
+    const f = fixture([row()], [{ _id: 'a', mightyId: 123, airtable: { recordId: 'rec1' }, email: 'kept@example.org' }]);
+    await syncAirtableToMongoDB(f.options);
+    expect(f.collection.bulkWrite).not.toHaveBeenCalled();
+  });
+});

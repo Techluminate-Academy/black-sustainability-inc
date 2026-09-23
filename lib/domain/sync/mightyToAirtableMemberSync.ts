@@ -167,10 +167,10 @@ export async function syncMightyMemberToAirtable(
 }> {
   const payload = await buildMightyToAirtablePayload(mightyId);
   if (opts?.recordId?.trim()) {
-    const result = await patchAirtableMightyMemberFromPayload(opts.recordId, payload);
+    const result = await patchAirtableMightyMemberFromPayload(opts.recordId, payload, { preserveExistingProfile: true });
     return { ...result, email: payload.email ?? undefined };
   }
-  const result = await upsertAirtableMightyMember(payload);
+  const result = await upsertAirtableMightyMember(payload, { preserveExistingProfile: true });
   return { ...result, email: payload.email ?? undefined };
 }
 

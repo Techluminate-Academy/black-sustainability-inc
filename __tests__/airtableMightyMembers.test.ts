@@ -192,3 +192,37 @@ describe("upsertAirtableMightyMember", () => {
   });
 });
 
+
+describe('protected cron Airtable writes', () => {
+  const oldEnv = process.env;
+  const oldFetch = global.fetch;
+  beforeEach(() => {
+    process.env = { ...oldEnv, AIRTABLE_PAT: 'test', AIRTABLE_MIGHTY_SYNC_BASE_ID: 'base', AIRTABLE_MIGHTY_SYNC_TABLE_ID: 'table', AIRTABLE_MIGHTY_BIO_FIELD: 'Extended Bio' };
+  });
+  afterEach(() => { process.env = oldEnv; global.fetch = oldFetch; });
+  it.each(['patch', 'upsert'])('preserves populated fields in the %s path and still stamps sync metadata', async mode => {
+    const { patchAirtableMightyMemberFromPayload, upsertAirtableMightyMember } = await import('../lib/airtableMightyMembers');
+    const record = { id: 'rec1', fields: { 'First Name': 'Keep', 'Primary Email': 'keep@example.org', 'Extended Bio': 'Keep bio', City: 'Keep city', Latitude: 0, Longitude: 20 } };
+    global.fetch = jest.fn().mockResolvedValueOnce({ ok: true, json: async () => mode === 'patch' ? record : { records: [record] } })
+      .mockResolvedValue({ ok: true, json: async () => ({ records: [record] }) });
+    const payload = { mightyId: 123, email: 'new@example.org', firstName: 'New', lastName: 'Fill', bio: 'New bio', location: 'New city', latitude: 50, longitude: 60, touchLastSyncDate: true };
+    if (mode === 'patch') await patchAirtableMightyMemberFromPayload('rec1', payload, { preserveExistingProfile: true });
+    else await upsertAirtableMightyMember(payload, { preserveExistingProfile: true });
+    const fields = JSON.parse((global.fetch as jest.Mock).mock.calls[1][1].body).records[0].fields;
+    for (const key of ['First Name','Primary Email','Extended Bio','City','Latitude','Longitude']) expect(fields).not.toHaveProperty(key);
+    expect(fields['Last Name']).toBe('Fill');
+    expect(fields['Last Sync Date']).toBeDefined();
+    expect(fields['Present in Mighty Networks']).toBe(true);
+  });
+  it('fails closed if reading the current Airtable record fails', async () => {
+    const { patchAirtableMightyMemberFromPayload } = await import('../lib/airtableMightyMembers');
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 403, text: async () => 'forbidden' });
+    await expect(patchAirtableMightyMemberFromPayload('rec1', { mightyId: 123, bio: 'New' }, { preserveExistingProfile: true })).rejects.toThrow();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+  it('protects a legacy bio and coordinate pairs while allowing billing fields', async () => {
+    const { preserveExistingAirtableProfile } = await import('../lib/airtableMightyMembers');
+    const result = preserveExistingAirtableProfile({ 'Extended Bio': 'New', Latitude: 3, Longitude: 4, City: 'New', isPaidActive: false }, { BIO: 'Legacy', Latitude: 0 });
+    expect(result).toEqual({ isPaidActive: false });
+  });
+});
