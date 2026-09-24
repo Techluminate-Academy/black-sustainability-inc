@@ -148,3 +148,12 @@ describe("getMemberMapProfileView", () => {
     );
   });
 });
+
+ test("profile reads preserve a recovered legacy photo instead of restoring the broken Mighty URL", async () => {
+  const recovered = "https://maps.blacksustainability.org/api/member-legacy-asset?recordId=rec12345678901234&kind=photo";
+  const updateOne = jest.fn();
+  const db = { collection: () => ({ findOne: jest.fn(async () => ({ avatarUrl: recovered })), updateOne }) } as unknown as import("mongodb").Db;
+  const view = await getMemberMapProfileView(db, {email: "jerry@example.com", mightyId: 99, firstName: "Jerry", lastName: "Bony"});
+  expect(view.photoUrl).toBe(recovered);
+  for (const call of updateOne.mock.calls) expect(call[1].$set).not.toHaveProperty("avatarUrl");
+});

@@ -147,7 +147,11 @@ export async function getMemberMapProfileView(
       }
 
       const mightyAvatar = extractMightyAvatarUrl(member);
-      if (mightyAvatar) {
+      // Preserve recovered legacy photos during automatic profile reads.
+      const recoveredPhoto = mongoAvatarUrl?.startsWith(
+        "https://maps.blacksustainability.org/api/member-legacy-asset?"
+      );
+      if (mightyAvatar && !recoveredPhoto) {
         photoUrl = mightyAvatar;
         if (mightyAvatar !== mongoAvatarUrl) {
           heal.avatarUrl = mightyAvatar;
