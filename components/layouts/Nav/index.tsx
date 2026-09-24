@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import ProfilePhoto from "./ProfilePhoto";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -284,14 +284,8 @@ const Nav: React.FC<IProps> = ({
                     onClick={openProfileModal}
                   >
                     <div className="relative h-8 w-8">
-                      <Image
-                        src={
-                          parsedUser?.profile?.profilePhoto?.url
-                            ? decodeURIComponent(parsedUser.profile.profilePhoto.url)
-                            : "/png/default.png"
-                        }
-                        alt=""
-                        fill
+                      <ProfilePhoto
+                        src={parsedUser?.profile?.profilePhoto?.url}
                         className="rounded-full object-cover"
                       />
                     </div>
@@ -461,14 +455,8 @@ const Nav: React.FC<IProps> = ({
                           }}
                         >
                           <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full">
-                            <Image
-                              src={
-                                parsedUser?.profile?.profilePhoto?.url
-                                  ? decodeURIComponent(parsedUser.profile.profilePhoto.url)
-                                  : "/png/default.png"
-                              }
-                              alt=""
-                              fill
+                            <ProfilePhoto
+                              src={parsedUser?.profile?.profilePhoto?.url}
                               className="object-cover"
                             />
                           </div>
