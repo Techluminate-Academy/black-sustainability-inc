@@ -247,7 +247,7 @@ const Nav: React.FC<IProps> = ({
                     className={desktopNavBtn}
                     onClick={() => openUpdateLocationModal()}
                   >
-                    My location
+                    Update location
                   </button>
                   <button
                     type="button"
@@ -422,7 +422,7 @@ const Nav: React.FC<IProps> = ({
                           openUpdateLocationModal();
                         }}
                       >
-                        My location
+                        Update location
                       </button>
                       <button
                         type="button"
