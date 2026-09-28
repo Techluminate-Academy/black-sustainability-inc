@@ -64,7 +64,9 @@ describe('FreeSignupForm', () => {
     logo: null,
     photoUrl: '',
     logoUrl: '',
-    form: ''
+    form: '',
+    membershipStatusNotes: 'Free',
+    affiliatedEntity: '',
   };
 
   const mockIndustryOptions: IndustryOption[] = [
@@ -158,12 +160,26 @@ describe('FreeSignupForm', () => {
   });
 
   it('calls onSubmit when form is submitted', async () => {
-    render(<FreeSignupForm {...defaultProps} />);
+    const filledProps = {
+      ...defaultProps,
+      formData: {
+        ...mockFormData,
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        email: 'ada@example.com',
+        address: '123 Test St',
+        latitude: 1,
+        longitude: 2,
+        primaryIndustry: 'Technology',
+        photo: new File(['x'], 'p.png', { type: 'image/png' }),
+      },
+    };
+    render(<FreeSignupForm {...filledProps} />);
     
     const submitButton = screen.getByRole('button', { name: /submit/i });
     await userEvent.click(submitButton);
 
-    expect(defaultProps.onSubmit).toHaveBeenCalled();
+    expect(filledProps.onSubmit).toHaveBeenCalled();
   });
 
   it('shows loading state when isSubmitting is true', () => {
@@ -174,8 +190,9 @@ describe('FreeSignupForm', () => {
 
     render(<FreeSignupForm {...submittingProps} />);
     
-    expect(screen.getByRole('button')).toBeDisabled();
-    expect(screen.getByRole('button').querySelector('.animate-spin')).toBeInTheDocument();
+    const submitButton = screen.getByRole('button', { name: /submitting/i });
+    expect(submitButton).toBeDisabled();
+    expect(submitButton.querySelector('.animate-spin')).toBeInTheDocument();
   });
 
   it('shows thank you message when form is submitted', () => {

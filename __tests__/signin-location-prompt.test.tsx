@@ -44,6 +44,16 @@ describe("signin → location prompt integration", () => {
         "/update-location?forced=1&next=%2Fdirectory"
       );
     });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/auth/login",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          email: "jerry@techluminateacademy.com",
+        }),
+      })
+    );
   });
 
   it("does not redirect when member opted out", async () => {
