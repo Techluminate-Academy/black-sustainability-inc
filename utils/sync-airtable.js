@@ -19,52 +19,6 @@ const TABLE_NAME =
   process.env.AIRTABLE_MIGHTY_SYNC_TABLE_NAME ||
   process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME ||
   "Mighty Members";
-/**
- * fetchDataFromAirtable(offset):
- *  - Makes one GET request to Airtable for up to 100 records at a time.
- *  - Removes image fields (userphoto, attachments, PHOTO, etc.)
- *  - Returns {records, offset} or null on error.
- */
-// const fetchDataFromAirtable = async (offset = "") => {
-//   const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}`;
-
-//   try {
-//     const response = await axios.get(url, {
-//       headers: {
-//         Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-//       },
-//       params: {
-//         pageSize: 100, // up to 100 per request
-//         offset,
-//         // Uncomment the next line if you want to fetch from a specific view:
-//         // view: VIEW_ID,
-//       },
-//     });
-
-//     // Remove large image fields from each record
-//     const cleanedRecords = response.data.records.map((record) => {
-//       const { fields } = record;
-//       const { userphoto, attachments, PHOTO, ...restFields } = fields;
-//       return {
-//         ...record,
-//         fields: restFields,
-//       };
-//     });
-
-//     return {
-//       records: cleanedRecords,
-//       offset: response.data.offset || "",
-//     };
-//   } catch (error) {
-//     console.error(
-//       "Error fetching data from Airtable:",
-//       error?.response?.data || error
-//     );
-//     return null;
-//   }
-// };
-
-
 const fetchDataFromAirtable = async (offset = "") => {
   if (!AIRTABLE_API_KEY || !BASE_ID || !TABLE_NAME) {
     console.error("Missing Airtable env vars for Mighty Members sync table.");
@@ -80,7 +34,6 @@ const fetchDataFromAirtable = async (offset = "") => {
       params: {
         pageSize: 100, // up to 100 per request
         offset,
-        // view: VIEW_ID, // Uncomment if needed
       },
     });
 
@@ -103,7 +56,7 @@ const fetchDataFromAirtable = async (offset = "") => {
 /**
  * getAllRecordsFromAirtable():
  *  - Repeatedly calls fetchDataFromAirtable() until no more offset is returned.
- *  - Returns all records (with image fields removed).
+ *  - Returns all records with their source fields retained.
  */
 const getAllRecordsFromAirtable = async () => {
   let allRecords = [];
@@ -116,7 +69,7 @@ const getAllRecordsFromAirtable = async () => {
       // Exit if there was an error
       break;
     }
-    // Append the cleaned records
+    // Append the fetched records
     allRecords.push(...data.records);
     offset = data.offset;
   } while (offset);
