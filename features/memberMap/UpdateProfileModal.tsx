@@ -42,8 +42,7 @@ export default function UpdateProfileModal({
   const [organizationName, setOrganizationName] = useState("");
   const [bio, setBio] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
-  const [photoSaving, setPhotoSaving] = useState(false);
-  const busy = saving || photoSaving;
+  const busy = saving;
 
   useEffect(() => {
     setMounted(true);
@@ -221,7 +220,7 @@ export default function UpdateProfileModal({
                   </li>
                   <li>
                     Write an extended bio members can scan quickly: your focus, who you serve, and how to
-                    connect. Use Save photo below to change your profile picture. Member level cannot be changed here.
+                    connect. Use the Mighty Networks link below to change your profile picture. Member level cannot be changed here.
                   </li>
                 </ol>
                 {email ? (
@@ -231,8 +230,7 @@ export default function UpdateProfileModal({
                 ) : null}
               </div>
 
-              <ProfilePhotoEditor photoUrl={photoUrl} disabled={saving} onBusyChange={setPhotoSaving}
-                onSaved={(url) => { setPhotoUrl(url); onSaved?.(); }} />
+              <ProfilePhotoEditor photoUrl={photoUrl} />
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
