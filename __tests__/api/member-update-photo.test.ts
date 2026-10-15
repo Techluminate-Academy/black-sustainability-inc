@@ -1,0 +1,11 @@
+import handler from '@/pages/api/member/update-photo';
+import { createMocks } from 'node-mocks-http';
+const mockSession = jest.fn();
+const mockUpdate = jest.fn();
+jest.mock('@/lib/bsnSession', () => ({getBsnSessionFromReq: () => mockSession(), createBsnSessionToken: () => 'token', setBsnSessionCookie: jest.fn()}));
+jest.mock('@/lib/mongodb', () => ({connectToDatabase: async () => ({db: {}})}));
+jest.mock('@/lib/domain/members/memberPhotoUpdate.service', () => ({MemberPhotoUpdateError: class extends Error {}, updateMemberPhoto: (...a: unknown[]) => mockUpdate(...a)}));
+beforeEach(() => { jest.clearAllMocks(); mockSession.mockReturnValue({email:'me@example.com',mightyId:12}); mockUpdate.mockResolvedValue({photoUrl:'https://cdn.example.com/new.jpg', mightyId:12}); });
+it('requires authentication', async () => { mockSession.mockReturnValue(null); const {req,res}=createMocks({method:'POST',body:{photo:'image'}}); await handler(req as any,res as any); expect(res.statusCode).toBe(401); expect(mockUpdate).not.toHaveBeenCalled(); });
+it('uses the signed-in member, ignoring a supplied member id', async () => { const {req,res}=createMocks({method:'POST',body:{photo:'image', mightyId:999, email:'other@example.com'}}); await handler(req as any,res as any); expect(res.statusCode).toBe(200); expect(mockUpdate).toHaveBeenCalledWith({}, {email:'me@example.com',mightyId:12},'image'); });
+it('rejects GET', async () => {const {req,res}=createMocks({method:'GET'}); await handler(req as any,res as any); expect(res.statusCode).toBe(405);});

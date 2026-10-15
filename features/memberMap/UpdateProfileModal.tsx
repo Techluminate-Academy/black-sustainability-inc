@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import type { MemberMapProfileView } from "@/lib/domain/members/memberMapProfileView.service";
 
+import ProfilePhotoEditor from "./ProfilePhotoEditor";
+
 type Props = {
   isOpen: boolean;
   onClose: () => void;
@@ -39,6 +41,9 @@ export default function UpdateProfileModal({
   const [lastName, setLastName] = useState("");
   const [organizationName, setOrganizationName] = useState("");
   const [bio, setBio] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [photoSaving, setPhotoSaving] = useState(false);
+  const busy = saving || photoSaving;
 
   useEffect(() => {
     setMounted(true);
@@ -50,6 +55,7 @@ export default function UpdateProfileModal({
       return;
     }
     setLoading(true);
+    setPhotoUrl("");
     let cancelled = false;
 
     (async () => {
@@ -70,6 +76,7 @@ export default function UpdateProfileModal({
           setLastName(p.lastName || sessionData.user.lastName || sessionUser?.lastName || "");
           setOrganizationName(p.organizationName || "");
           setBio(p.bio || "");
+          setPhotoUrl(p.photoUrl || "");
         } else if (!cancelled) {
           setFirstName(sessionData.user.firstName || sessionUser?.firstName || "");
           setLastName(sessionData.user.lastName || sessionUser?.lastName || "");
@@ -93,7 +100,7 @@ export default function UpdateProfileModal({
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !busy) onClose();
     };
     document.addEventListener("keydown", onKeyDown);
     const prevOverflow = document.body.style.overflow;
@@ -102,10 +109,11 @@ export default function UpdateProfileModal({
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = prevOverflow;
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, busy]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
     setSaving(true);
     try {
       const res = await fetch("/api/member/update-profile", {
@@ -150,7 +158,7 @@ export default function UpdateProfileModal({
         style={{ backgroundColor: "rgba(0, 0, 0, 0.6)" }}
         aria-hidden="true"
         data-testid="update-profile-backdrop"
-        onClick={onClose}
+        onClick={() => { if (!busy) onClose(); }}
       />
       <div
         data-testid="update-profile-modal"
@@ -164,7 +172,7 @@ export default function UpdateProfileModal({
             </h2>
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => { if (!busy) onClose(); }}
               className="shrink-0 rounded-md px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
               aria-label="Close profile editor"
             >
@@ -199,20 +207,21 @@ export default function UpdateProfileModal({
                         type="button"
                         className="font-semibold text-green-700 underline underline-offset-2 hover:text-green-800"
                         onClick={() => {
+                          if (busy) return;
                           onClose();
                           onOpenUpdateLocation();
                         }}
                       >
-                        My location
+                        Update location
                       </button>
                     ) : (
-                      <span className="font-semibold text-gray-800">My location</span>
+                      <span className="font-semibold text-gray-800">Update location</span>
                     )}{" "}
                     in the menu and choose your city from the suggestions.
                   </li>
                   <li>
                     Write an extended bio members can scan quickly: your focus, who you serve, and how to
-                    connect. Member level and profile photo are not changed here.
+                    connect. Use Save photo below to change your profile picture. Member level cannot be changed here.
                   </li>
                 </ol>
                 {email ? (
@@ -221,6 +230,9 @@ export default function UpdateProfileModal({
                   </p>
                 ) : null}
               </div>
+
+              <ProfilePhotoEditor photoUrl={photoUrl} disabled={saving} onBusyChange={setPhotoSaving}
+                onSaved={(url) => { setPhotoUrl(url); onSaved?.(); }} />
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
@@ -286,7 +298,7 @@ export default function UpdateProfileModal({
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={busy}
                   className="flex-1 rounded-md bg-green-600 px-5 py-3 text-sm font-semibold uppercase text-white hover:bg-green-700 disabled:opacity-60 min-h-[44px]"
                   data-testid="update-profile-submit"
                 >
@@ -294,7 +306,7 @@ export default function UpdateProfileModal({
                 </button>
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={() => { if (!busy) onClose(); }}
                   className="rounded-md border border-gray-300 px-5 py-3 text-sm font-semibold uppercase text-gray-800 hover:bg-gray-50 min-h-[44px]"
                 >
                   Cancel
