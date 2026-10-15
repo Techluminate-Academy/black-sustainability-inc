@@ -51,7 +51,7 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, fields, ...UserProps }
             className={`w-full h-full rounded-md ${
               isPlatformIcon
                 ? "object-contain object-center p-2"
-                : "object-cover object-center"
+                : "object-contain object-center"
             } ${isAuthenticated ? "" : "blur-md"}`}
             alt=""
             loading="lazy"

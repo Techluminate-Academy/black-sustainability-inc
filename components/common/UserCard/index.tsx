@@ -73,7 +73,7 @@ const UserCard: React.FC<IProps> = ({
           className={`absolute inset-0 h-full w-full rounded-xl ${
             isPlatformIcon
               ? "object-contain object-center p-6 sm:p-10"
-              : "object-cover object-top"
+              : "object-contain object-center"
           } ${isAuthenticated ? "" : "blur-md"}`}
           onError={() => setPhotoSrc(BSN_PLATFORM_ICON)}
         />

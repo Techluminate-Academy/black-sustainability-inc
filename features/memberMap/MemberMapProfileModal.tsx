@@ -210,7 +210,7 @@ export default function MemberMapProfileModal({
                     src={photoSrc}
                     alt=""
                     fill
-                    className="object-cover"
+                    className="object-contain object-center"
                     unoptimized={!photoSrc.startsWith("/")}
                   />
                 </div>
