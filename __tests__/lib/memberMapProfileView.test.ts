@@ -1,5 +1,7 @@
 import { getMemberMapProfileView } from "@/lib/domain/members/memberMapProfileView.service";
 
+jest.mock("@/lib/mightyCacheInvalidate", () => ({ invalidateMightyMemberCaches: jest.fn(async () => ({})) }));
+
 const mockUpdateOne = jest.fn(async () => ({ matchedCount: 1 }));
 const mockFindOne = jest.fn(async () => ({
   firstName: "Jerry",
@@ -11,6 +13,7 @@ const mockFindOne = jest.fn(async () => ({
 
 const mockAirtableLookup = jest.fn(async () => null);
 jest.mock("@/lib/airtableMightyMembers", () => ({
+  upsertAirtableMightyMember: jest.fn(async () => ({})),
   findAirtableMightyMemberByEmail: (...args: unknown[]) => mockAirtableLookup(...args),
 }));
 
@@ -150,10 +153,25 @@ describe("getMemberMapProfileView", () => {
 });
 
  test("profile reads preserve a recovered legacy photo instead of restoring the broken Mighty URL", async () => {
+  global.fetch = jest.fn(async () => ({ ok: false })) as any;
   const recovered = "https://maps.blacksustainability.org/api/member-legacy-asset?recordId=rec12345678901234&kind=photo";
   const updateOne = jest.fn();
   const db = { collection: () => ({ findOne: jest.fn(async () => ({ avatarUrl: recovered })), updateOne }) } as unknown as import("mongodb").Db;
   const view = await getMemberMapProfileView(db, {email: "jerry@example.com", mightyId: 99, firstName: "Jerry", lastName: "Bony"});
   expect(view.photoUrl).toBe(recovered);
   for (const call of updateOne.mock.calls) expect(call[1].$set).not.toHaveProperty("avatarUrl");
+});
+
+ test("a working new Mighty photo replaces the recovered photo and clears map caches", async () => {
+  global.fetch = jest.fn(async () => ({ ok: true, headers: { get: () => "image/png" } })) as any;
+  const recovered = "https://maps.blacksustainability.org/api/member-legacy-asset?recordId=rec12345678901234&kind=photo";
+  const updateOne = jest.fn();
+  const db = { collection: () => ({ findOne: jest.fn(async () => ({ avatarUrl: recovered })), updateOne }) } as any;
+  const view = await getMemberMapProfileView(db, {email: "jerry@example.com", mightyId: 99});
+  expect(view.photoUrl).toBe("https://cdn.example/new-avatar.jpg");
+  expect(updateOne).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({$set: expect.objectContaining({avatarUrl: view.photoUrl})}));
+  const { upsertAirtableMightyMember } = await import("@/lib/airtableMightyMembers");
+  expect(upsertAirtableMightyMember).toHaveBeenCalledWith(expect.objectContaining({avatarUrl: view.photoUrl}));
+  const { invalidateMightyMemberCaches } = await import("@/lib/mightyCacheInvalidate");
+  expect(invalidateMightyMemberCaches).toHaveBeenCalled();
 });

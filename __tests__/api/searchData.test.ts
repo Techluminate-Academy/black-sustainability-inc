@@ -93,8 +93,10 @@ describe("/api/searchData", () => {
       "lastName",
       "email",
       "industry",
+      "organizationName", "affiliatedEntity", "fields.ORGANIZATION NAME", "fields.Organization",
+      "fields.AFFILIATED ENTITY", "fields.Affiliated Entity",
       "location",
-      "bio",
+      "bio", "fields.BIO", "fields.Extended Bio", "fields.Short Bio",
     ]);
     for (const cond of q.$or) {
       const re = Object.values(cond)[0] as RegExp;

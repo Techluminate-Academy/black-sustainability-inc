@@ -77,7 +77,7 @@ describe("/api/filterData", () => {
 
     await callHandler({ industryHouse: "🌾 Reparative Agriculture" });
 
-    const q = capture.findCalls[0];
+    const q = capture.aggregateCalls[0][0].$match;
     expect(Array.isArray(q.$or)).toBe(true);
     const fields = new Set(q.$or.map((c: any) => Object.keys(c)[0]));
     expect(fields).toContain("industry");
@@ -89,7 +89,7 @@ describe("/api/filterData", () => {
 
     await callHandler({ industryHouse: "" });
 
-    const q = capture.findCalls[0];
+    const q = capture.aggregateCalls[0][0].$match;
     expect(q.$or).toBeUndefined();
     expect(q.industry).toBeUndefined();
   });
@@ -100,7 +100,7 @@ describe("/api/filterData", () => {
     await callHandler({ page: "2", limit: "10", industryHouse: "💧Water" });
 
     expect(capture.redisGetKeys[0]).toBe(
-      "filterData:v8:primary-backfill:mightyMembers:💧Water:page=2:limit=10"
+      "filterData:v12:org:photo-tier:mightyMembers:💧Water:page=2:limit=10"
     );
   });
 
@@ -114,7 +114,7 @@ describe("/api/filterData", () => {
 
     await callHandler({ industryHouse: "" });
 
-    const q = capture.findCalls[0];
+    const q = capture.aggregateCalls[0][0].$match;
     expect(q.$nor).toEqual([{ _id: "viewer" }, { mightyId: 5 }]);
     expect(capture.redisGetKeys).toHaveLength(0);
     expect(capture.redisSetexCalls).toHaveLength(0);

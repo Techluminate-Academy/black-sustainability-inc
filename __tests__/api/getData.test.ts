@@ -141,7 +141,7 @@ describe("/api/getData", () => {
     expect(capture.redisGetKeys).toHaveLength(1);
     const key = capture.redisGetKeys[0];
     expect(key).toBe(
-      "getData:v13:photo-tier:mightyMembers:💧Water:page=3:limit=25"
+      "getData:v14:org:photo-tier:mightyMembers:💧Water:page=3:limit=25"
     );
   });
 

@@ -329,3 +329,41 @@ describe('cron preserves populated member profiles', () => {
     expect(f.collection.bulkWrite).not.toHaveBeenCalled();
   });
 });
+
+describe('Mighty photo propagation', () => {
+  const photo = 'https://media1-production-mightynetworks.imgix.net/asset/new/photo.png';
+  afterEach(() => { jest.restoreAllMocks(); });
+  test('replaces a legacy photo with a verified new Mighty photo', async () => {
+    global.fetch = jest.fn(async () => ({ ok: true, headers: { get: () => 'image/png' } }));
+    const f = fixture([row({ 'Profile Photo URL': photo, 'Last Sync Date': '2026-10-15T12:00:00Z' })],
+      [{ _id: 'a', mightyId: 123, avatarUrl: 'https://maps.blacksustainability.org/api/member-legacy-asset?recordId=old', updatedAt: new Date('2026-10-14') }]);
+    await syncAirtableToMongoDB(f.options);
+    expect(f.collection.bulkWrite.mock.calls[0][0][0].updateOne.update.$set.avatarUrl).toBe(photo);
+  });
+  test.each([false, true])('preserves the map photo if the source is broken or older (reachable=%s)', async reachable => {
+    global.fetch = jest.fn(async () => ({ ok: reachable, headers: { get: () => 'image/png' } }));
+    const f = fixture([row({ 'Profile Photo URL': photo, 'Last Sync Date': '2026-10-14T12:00:00Z' })],
+      [{ _id: 'a', mightyId: 123, avatarUrl: 'old.jpg', updatedAt: new Date('2026-10-15') }]);
+    await syncAirtableToMongoDB(f.options);
+    for (const [ops] of f.collection.bulkWrite.mock.calls) for (const op of ops) expect(op.updateOne.update.$set).not.toHaveProperty('avatarUrl');
+  });
+});
+
+describe('organization and affiliation mapping', () => {
+  test('imports independent organization and affiliated-entity fields', () => {
+    const result = normalizeRecords([row({ Organization: ' HABESHA, Inc. ', 'AFFILIATED ENTITY': ['Partner A', 'Partner B'] })]);
+    expect(result[0].fields).toMatchObject({ organizationName: 'HABESHA, Inc.', affiliatedEntity: 'Partner A, Partner B' });
+  });
+  test('honors the organization field configured for the Mighty Airtable writer', () => {
+    const result = normalizeRecords([row({ 'Business Name': 'Community Farm' })], { AIRTABLE_MIGHTY_ORG_FIELD: 'Business Name' });
+    expect(result[0].fields.organizationName).toBe('Community Farm');
+  });
+  test('fills missing organization details while preserving current member edits', async () => {
+    const f = fixture([row({ Organization: 'Imported organization', 'AFFILIATED ENTITY': 'Partner Network' })],
+      [{ _id: 'member', mightyId: 123, organizationName: 'Member-edited organization' }]);
+    await syncAirtableToMongoDB(f.options);
+    const updates = f.collection.bulkWrite.mock.calls[0][0][0].updateOne.update.$set;
+    expect(updates.affiliatedEntity).toBe('Partner Network');
+    expect(updates).not.toHaveProperty('organizationName');
+  });
+});

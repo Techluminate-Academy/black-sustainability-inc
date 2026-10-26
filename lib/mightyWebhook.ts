@@ -1,3 +1,4 @@
+import { extractMightyAvatarUrl } from "./domain/members/mightyAvatar";
 import { connectToDatabase } from "./mongodb";
 import { fetchMightyProfileCustomFields } from "./domain/members/memberMightyCustomFields";
 import { fetchMightyMemberById } from "./mightyAdmin";
@@ -299,12 +300,7 @@ function normalizeMemberDoc(member: AnyObj): AnyObj {
         ? member.lastName
         : undefined;
 
-  const avatarUrl =
-    typeof member.avatar_url === "string"
-      ? member.avatar_url
-      : typeof member.avatarUrl === "string"
-        ? member.avatarUrl
-        : undefined;
+  const avatarUrl = extractMightyAvatarUrl(member) ?? undefined;
 
   // Extended Bio custom field — not native member.bio (Mini Bio / About Me).
   const location =
@@ -619,7 +615,7 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
   // (Mighty's native `member.location` isn't reliably writable via Admin API; the
   // custom field answer is the source for Mighty UI, while Mongo is the map source.)
   const existing = await collection.findOne(filter, {
-    projection: { source: 1, memberLocationUpdatedAt: 1, memberProfileUpdatedAt: 1 },
+    projection: { source: 1, memberLocationUpdatedAt: 1, memberProfileUpdatedAt: 1, "webhooks.mighty.lastEventAt": 1 },
   });
   const existingMemberLocationUpdatedAt =
     existing?.memberLocationUpdatedAt instanceof Date
@@ -670,15 +666,24 @@ export async function upsertMightyMemberFromWebhook(payload: AnyObj): Promise<{
     delete memberDoc.firstName;
     delete memberDoc.lastName;
     delete memberDoc.bio;
-    delete memberDoc.avatarUrl;
+    // Photos are edited in Mighty, independently of protected map text fields.
+    if (profileUpdatedAtMs != null && eventAt.valueOf() < profileUpdatedAtMs) {
+      delete memberDoc.avatarUrl;
+    }
     if (!protectLocation) delete memberDoc.source;
+  }
+
+  const lastPhotoEvent = existing?.webhooks?.mighty?.lastEventAt;
+  if (lastPhotoEvent && eventAt.valueOf() < new Date(lastPhotoEvent).valueOf()) {
+    delete memberDoc.avatarUrl;
   }
 
   const setPatch: AnyObj = {
     ...memberDoc,
     ...coordPatch,
     updatedAt: new Date(),
-    "webhooks.mighty.lastEventAt": eventAt,
+    "webhooks.mighty.lastEventAt": lastPhotoEvent && new Date(lastPhotoEvent).valueOf() > eventAt.valueOf()
+      ? new Date(lastPhotoEvent) : eventAt,
     ...(eventId ? { "webhooks.mighty.lastEventId": eventId } : {}),
     "webhooks.mighty.lastEventType": eventType,
   };

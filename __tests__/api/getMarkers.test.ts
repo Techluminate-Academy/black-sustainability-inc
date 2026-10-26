@@ -80,17 +80,17 @@ describe("/api/getMarkers", () => {
     expect(body.success).toBe(true);
     expect(body.data).toHaveLength(1);
 
-    expect(capture.redisGetKeys).toEqual(["map-locations:v9:mightyMembers"]);
+    expect(capture.redisGetKeys).toEqual(["map-locations:v10:org:mightyMembers"]);
     expect(capture.redisSetexCalls).toHaveLength(1);
     const cached = capture.redisSetexCalls[0];
-    expect(cached.key).toBe("map-locations:v9:mightyMembers");
+    expect(cached.key).toBe("map-locations:v10:org:mightyMembers");
     expect(cached.ttl).toBeGreaterThan(0);
 
     // Cached value is base64(deflate(JSON.stringify(response)))
     const inflated = zlib
       .inflateSync(Buffer.from(cached.value, "base64"))
       .toString();
-    expect(JSON.parse(inflated)).toEqual({ success: true, data: docs });
+    expect(JSON.parse(inflated)).toEqual({ success: true, data: body.data });
   });
 
   it("returns cached data verbatim on cache hit and never hits Mongo", async () => {
@@ -237,4 +237,17 @@ describe("/api/getMarkers", () => {
     );
     expect(boundsMatch).toBeDefined();
   });
+});
+
+test("viewport markers preserve current and legacy organization links without exposing raw source fields", async () => {
+  capture = emptyCapture();
+  wireMocks({ aggregateResult: [
+    { id: "current", fields: { "FULL NAME": "Current Member" }, organizationName: "Community Farm", affiliatedEntity: "Partner Network" },
+    { id: "legacy", fields: { "FULL NAME": "Legacy Member" }, _organizationFields: { "ORGANIZATION NAME": "HABESHA, Inc.", "AFFILIATED ENTITY": "Partner B", "Internal note": "private" } },
+  ] });
+  const { body } = await callHandler();
+  expect(body.data[0].fields).toMatchObject({ "ORGANIZATION NAME": "Community Farm", "AFFILIATED ENTITY": "Partner Network" });
+  expect(body.data[1].fields).toMatchObject({ "ORGANIZATION NAME": "HABESHA, Inc.", "AFFILIATED ENTITY": "Partner B" });
+  expect(JSON.stringify(body)).not.toContain("Internal note");
+  expect(body.data[1]).not.toHaveProperty("_organizationFields");
 });

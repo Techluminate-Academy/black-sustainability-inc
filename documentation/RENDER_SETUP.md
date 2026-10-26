@@ -85,3 +85,25 @@ npm run warm-cache
 - **Before:** First page load = 5-10 seconds
 - **After:** First page load = 400-600ms
 - **Improvement:** ~90% faster! 🚀
+
+## Member profile photo synchronization
+
+Mighty Networks is the source of truth for member photos. Members change their
+photo in Mighty Networks (Personal Settings → Edit Profile). The Admin API accepts
+asset uploads but rejects `avatar` and `avatar_url` as member-update input fields;
+the map therefore links members to Mighty instead of offering an upload form.
+
+- Member webhooks read Mighty's native `avatar` field, update Mongo, mirror the
+  photo to Airtable Mighty Members, and invalidate the map/directory caches.
+  Photo changes are independent of protections for map-edited names and bios.
+- The scheduled Mighty → Airtable → Mongo pipeline provides reconciliation when
+  a webhook is missed. Changed photos from the Mighty image CDN are checked before
+  replacing an existing photo; older Airtable snapshots cannot replace newer map data.
+- Opening My Profile also reads Mighty. A recovered legacy photo is retained when
+  the Mighty image is unavailable, but a working replacement is mirrored to Airtable
+  and Mongo and clears map caches.
+
+Updates are eventual, not an atomic transaction across all three platforms. Webhook
+Airtable failures are retried by scheduled reconciliation. Existing open browser tabs
+may need a refresh. These paths preserve the existing picture when Mighty supplies
+no image; removing a photo is not currently propagated as a deletion.

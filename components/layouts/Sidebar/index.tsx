@@ -7,7 +7,7 @@ interface IProps {
   filteredData: any;
   isAuthenticated: boolean;
   totalNumber: any;
-  /** When set, sidebar cards are viewport-filtered; show this as a secondary hint. */
+  /** When set, the result count reflects members in the current map viewport. */
   visibleInViewport?: number;
   loading?: boolean;
   hasSearched?: boolean;
@@ -70,7 +70,7 @@ const Sidebar: React.FC<IProps> = ({
   return (
     <div className="w-full min-w-0 px-2 sm:px-3">
       <div className="px-3 sm:px-4 pb-2 flex items-center justify-between gap-2 flex-wrap">
-        <span className="font-bold">{totalNumber} result(s)</span>
+        <span className="font-bold">{visibleInViewport ?? totalNumber} result(s)</span>
         {typeof visibleInViewport === "number" ? (
           <span className="text-xs text-gray-600">
             {visibleInViewport} visible in map view
@@ -86,6 +86,8 @@ const Sidebar: React.FC<IProps> = ({
             key={data?.id != null ? String(data.id) : idx}
             onClick={onRecordClick ? () => onRecordClick(data) : undefined}
             AFFILIATION={data.fields["AFFILIATED ENTITY"]}
+            fields={data.fields}
+            BIO={data.fields.BIO}
             FULL_NAME={data.fields["FULL NAME"]}
             EMAIL_ADDRESS={data.fields["EMAIL ADDRESS"]}
             ORGANIZATION_NAME={data.fields["ORGANIZATION NAME"]}

@@ -6,6 +6,8 @@ import ReactDOMServer from "react-dom/server";
 import mapboxgl from "mapbox-gl";  
 import CustomIconContent from "./CustomIconContent";
 import InfoCard from "../InfoCard";
+import MemberProfilePreview from "@/features/memberMap/MemberProfilePreview";
+import { memberIndustryHouse } from "@/lib/memberIndustryHouse";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { LatLngBounds } from "leaflet";
 import { FeatureCollection, Point } from 'geojson';
@@ -647,44 +649,28 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                   
                   const popupContainer = document.createElement("div");
                   const authStatus = isAuthenticatedRef.current;
-                  popupContainer.innerHTML = `
-                    <div style="background-color: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: 500px;">
-                      <h3 style="margin: 0 0 12px 0; font-size: 18px; font-weight: bold; color: #000;">${pointCount} Members at this location</h3>
-                      <div style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
-                        ${leaves.map((leaf: any) => {
+                  const clusterRoot = createRoot(popupContainer);
+                  clusterRoot.render(
+                    <div className="bg-white p-4 rounded-lg shadow-lg max-w-[500px]">
+                      <h3 className="mb-3 text-lg font-bold text-black">{pointCount} Members at this location</h3>
+                      <div className="max-h-[400px] overflow-y-auto flex flex-col gap-3">
+                        {leaves.map((leaf: any) => {
                           const record = recordMap.get(leaf.properties.id);
-                          if (!record) return '';
-                          
-                          // Blur names for unauthenticated users
-                          const fullName = record.fields["FIRST NAME"] && record.fields["LAST NAME"] 
-                            ? record.fields["FIRST NAME"] + ' ' + record.fields["LAST NAME"] 
-                            : 'Member';
-                          const displayName = authStatus ? fullName : 'Member';
-                          const nameStyle = !authStatus ? 'filter: blur(4px); user-select: none;' : '';
-                          
-                          const orgName = record.fields["ORGANIZATION NAME"] || "";
-                          const orgDisplay = authStatus
-                            ? orgName || "No organization"
-                            : "Members only";
-                          const orgStyle = !authStatus
-                            ? "filter: blur(4px); user-select: none;"
-                            : "";
-                          
-                          return `
-                            <div style="background-color: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px;">
-                              <div style="font-weight: bold; margin-bottom: 4px; color: #000; font-size: 16px; ${nameStyle}">
-                                ${displayName}
-                              </div>
-                              <div style="color: #666; font-size: 14px; ${orgStyle}">
-                                ${orgDisplay}
-                              </div>
-                            </div>
-                          `;
-                        }).join('')}
+                          if (!record) return null;
+                          const fields = record.fields;
+                          const name = fields["FULL NAME"] || [fields["FIRST NAME"], fields["LAST NAME"]].filter(Boolean).join(" ") || "Member";
+                          return <div key={String(record.id)} className="bg-gray-50 border rounded-lg p-3">
+                            {authStatus ? <>
+                              <MemberProfilePreview fields={fields} className="font-bold text-base text-left text-green-800 underline underline-offset-2">{name}</MemberProfilePreview>
+                              <p className="text-sm text-gray-600 mt-1">Industry house: {memberIndustryHouse(fields["PRIMARY INDUSTRY HOUSE"])}</p>
+                            </> : <p className="text-sm text-gray-600">Sign in to view member profiles.</p>}
+                          </div>;
+                        })}
                       </div>
                     </div>
-                  `;
-                  
+                  );
+                  popup.on("close", () => { setTimeout(() => clusterRoot.unmount(), 0); });
+
                   popup.setDOMContent(popupContainer);
                   if (isMapReadyForMarkers(mapRef.current)) {
                     try {
@@ -857,6 +843,7 @@ const MapboxMapComponent: React.FC<IProps> = ({ isAuthenticated, onMarkerHover, 
                             );
                             
                             popup.setDOMContent(popupContainer);
+                            popup.on("close", () => { setTimeout(() => popupRoot.unmount(), 0); });
                             marker.setPopup(popup);
                             popup.addTo(mapRef.current!);
                           });

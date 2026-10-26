@@ -1,8 +1,11 @@
+import MemberOrganizationDetails from "@/features/memberMap/MemberOrganizationDetails";
 import React, { useEffect, useState } from "react";
 import icons from "@/icons";
 import IndustryHouseIcons from "../IndustryHouseIcons";
 import BlurText from "../BlurText";
 import Link from "next/link";
+import MemberProfilePreview from "@/features/memberMap/MemberProfilePreview";
+import { memberIndustryHouse } from "@/lib/memberIndustryHouse";
 import MemberAccessModal from "../MemberAccessModal";
 import {
   BSN_PLATFORM_ICON,
@@ -16,6 +19,7 @@ function pickPhotoUrl(imgUrl: unknown): string {
 
 interface IProps {
   FULL_NAME: string;
+  fields?: Record<string, unknown>;
   EMAIL_ADDRESS?: string;
   ORGANIZATION_NAME?: string;
   Nearest_City?: string;
@@ -35,6 +39,8 @@ interface IProps {
 
 const UserCard: React.FC<IProps> = ({
   FULL_NAME,
+  fields,
+  BIO,
   EMAIL_ADDRESS,
   Nearest_City,
   ORGANIZATION_NAME,
@@ -46,6 +52,12 @@ const UserCard: React.FC<IProps> = ({
   AFFILIATION,
   onClick,
 }) => {
+  const profileFields = fields || {
+    "FULL NAME": FULL_NAME, "EMAIL ADDRESS": EMAIL_ADDRESS, BIO,
+    "ORGANIZATION NAME": ORGANIZATION_NAME, "AFFILIATED ENTITY": AFFILIATION,
+    "PRIMARY INDUSTRY HOUSE": PRIMARY_INDUSTRY_HOUSE,
+    "Location (Nearest City)": Nearest_City, PHOTO: [{ url: imgUrl }],
+  };
   const [accessModalOpen, setAccessModalOpen] = useState(false);
   const resolvedSrc = pickPhotoUrl(imgUrl);
   const [photoSrc, setPhotoSrc] = useState(resolvedSrc);
@@ -55,29 +67,33 @@ const UserCard: React.FC<IProps> = ({
     setPhotoSrc(resolvedSrc);
   }, [resolvedSrc]);
 
+  const photoContainerClass = "relative block w-full aspect-[4/3] max-h-[280px] sm:max-h-[260px] min-h-[160px] rounded-xl overflow-hidden bg-[#FFF8E5]";
+  const photo = (
+    <img
+      src={photoSrc}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      className={`absolute inset-0 h-full w-full rounded-xl ${
+        isPlatformIcon ? "object-contain object-center p-6 sm:p-10" : "object-contain object-center"
+      } ${isAuthenticated ? "" : "blur-md"}`}
+      onError={() => setPhotoSrc(BSN_PLATFORM_ICON)}
+    />
+  );
+
   return (
     <div
       className="bg-white rounded-2xl p-2 sm:p-3 overflow-hidden space-y-3 min-w-0 w-full shadow-sm border border-gray-100/80"
       onClick={onClick}
-      role={onClick ? "button" : undefined}
       style={onClick ? { cursor: "pointer" } : undefined}
       data-testid="member-card"
     >
-      <div className="relative w-full aspect-[4/3] max-h-[280px] sm:max-h-[260px] min-h-[160px] rounded-xl overflow-hidden bg-[#FFF8E5]">
-        <img
-          src={photoSrc}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          referrerPolicy="no-referrer"
-          className={`absolute inset-0 h-full w-full rounded-xl ${
-            isPlatformIcon
-              ? "object-contain object-center p-6 sm:p-10"
-              : "object-contain object-center"
-          } ${isAuthenticated ? "" : "blur-md"}`}
-          onError={() => setPhotoSrc(BSN_PLATFORM_ICON)}
-        />
-      </div>
+      {isAuthenticated ? (
+        <MemberProfilePreview fields={profileFields} className={photoContainerClass}>
+          {photo}
+        </MemberProfilePreview>
+      ) : <div className={photoContainerClass}>{photo}</div>}
 
       <div className="flex justify-between items-start gap-3 min-w-0">
         <div className="px-1 sm:px-2 space-y-2.5 min-w-0 flex-1">
@@ -87,18 +103,10 @@ const UserCard: React.FC<IProps> = ({
             </span>
             <div className="group min-w-0 flex-1">
               {isAuthenticated ? (
-                <div>
-                  <p
-                    className={`text-sm sm:text-base font-medium truncate group-hover:invisible cursor-pointer`}
-                  >
-                    {FULL_NAME}
-                  </p>
-                  <p
-                    className={`text-sm sm:text-base absolute top-0 left-0 right-0 rounded-md bg-white p-1 shadow border border-gray-100 whitespace-normal hidden group-hover:block z-10`}
-                  >
-                    {FULL_NAME}
-                  </p>
-                </div>
+                <MemberProfilePreview fields={profileFields}
+                  className="text-sm sm:text-base font-medium text-left underline decoration-green-700/40 underline-offset-2 hover:text-green-700 break-words">
+                  {FULL_NAME}
+                </MemberProfilePreview>
               ) : (
                 <BlurText text={FULL_NAME || ""} blurAmount={1} />
               )}
@@ -139,30 +147,14 @@ const UserCard: React.FC<IProps> = ({
             <span className="w-4 h-4 shrink-0">
               <icons.organization />
             </span>
-            {isAuthenticated ? (
-              <p className={`text-sm sm:text-base truncate`}>
-                {ORGANIZATION_NAME || "not yet updated"}
-              </p>
-            ) : (
-              <BlurText
-                text={ORGANIZATION_NAME || "not yet updated"}
-                blurAmount={1}
-              />
-            )}
+            <div className="min-w-0 text-sm sm:text-base">
+              <p className="text-xs font-semibold text-gray-500">Industry house</p>
+              {isAuthenticated ? <p>{memberIndustryHouse(PRIMARY_INDUSTRY_HOUSE)}</p> :
+                <BlurText text={memberIndustryHouse(PRIMARY_INDUSTRY_HOUSE)} blurAmount={1} />}
+            </div>
           </div>
 
-          {AFFILIATION && AFFILIATION.trim() !== "" && (
-            <div className="flex items-center gap-1 mt-2 min-w-0">
-              <span className="text-yellow-500 text-xl shrink-0">⭐</span>
-              {isAuthenticated ? (
-                <span className="text-sm break-words">
-                  Affiliation - {AFFILIATION}
-                </span>
-              ) : (
-                <BlurText text={`Affiliation - ${AFFILIATION}`} blurAmount={1} />
-              )}
-            </div>
-          )}
+          <MemberOrganizationDetails fields={profileFields} isAuthenticated={isAuthenticated} />
         </div>
 
         <div className="shrink-0 pt-0.5">

@@ -8,6 +8,8 @@ import BioWithReadMore from "@/components/common/BioWithReadMore";
 import MapProfileInfoHint from "@/components/common/MapProfileInfoHint";
 import MemberLevelVisibilityHint from "@/components/common/MemberLevelVisibilityHint";
 import icons from "@/icons";
+import MemberOrganizationDetails from "./MemberOrganizationDetails";
+import { memberIndustryHouse } from "@/lib/memberIndustryHouse";
 import type { MemberMapProfileView } from "@/lib/domain/members/memberMapProfileView.service";
 import { BLACK_SUSTAINABILITY_NETWORK_COMMUNITY_URL } from "@/lib/mapSupportConfig";
 
@@ -21,7 +23,6 @@ type Props = {
   onClose: () => void;
   /** @deprecated Links removed from modal; kept for Nav call-site compatibility. */
   onEditProfile?: () => void;
-  /** @deprecated Links removed from modal; kept for Nav call-site compatibility. */
   onOpenUpdateLocation?: () => void;
   sessionUser: {
     firstName?: string | null;
@@ -63,6 +64,7 @@ export default function MemberMapProfileModal({
   isOpen,
   onClose,
   sessionUser,
+  onOpenUpdateLocation,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [profile, setProfile] = useState<MemberMapProfileView | null>(null);
@@ -184,7 +186,7 @@ export default function MemberMapProfileModal({
             data-testid="member-map-profile-guidance"
           >
             Preview of what other members see on the map. Use{" "}
-            <span className="font-semibold text-gray-800">My location</span> in the menu to move
+            <span className="font-semibold text-gray-800">Update location</span> in the menu to move
             your pin. To update your profile information, click the{" "}
             <span className="font-semibold text-gray-800">My profile</span> button. Member level is
             set by BSN and cannot be edited here.
@@ -235,14 +237,25 @@ export default function MemberMapProfileModal({
 
               <div className="space-y-3 border-t border-gray-200 pt-4">
                 <ProfileField icon={<icons.email />} label="Email" value={profile.email} />
-                <ProfileField icon={<icons.location />} label="Location" value={profile.location} />
+                {onOpenUpdateLocation ? (
+                  <button type="button" onClick={onOpenUpdateLocation}
+                    className="w-full text-left rounded-md hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-green-600 p-1"
+                    aria-label="Update your location">
+                    <ProfileField icon={<icons.location />} label="Location" value={profile.location || "Add your location"} />
+                    <span className="ml-7 text-xs text-green-700 underline">Update location</span>
+                  </button>
+                ) : <ProfileField icon={<icons.location />} label="Location" value={profile.location} />}
                 <ProfileField
                   icon={<icons.organization />}
-                  label="Organization"
-                  value={profile.organizationName}
+                  label="Industry house"
+                  value={memberIndustryHouse(profile.industryHouse)}
                 />
               </div>
 
+              <MemberOrganizationDetails isAuthenticated fields={{
+                "ORGANIZATION NAME": profile.organizationName,
+                "AFFILIATED ENTITY": profile.affiliatedEntity,
+              }} />
               <div className="border-t border-gray-200 pt-3" data-testid="member-map-profile-bio-section">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">
                   Bio

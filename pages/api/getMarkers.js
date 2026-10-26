@@ -1,3 +1,4 @@
+import { getMemberOrganization, getMemberAffiliation } from "../../lib/memberOrganizations";
 import redis from "../../lib/redis";
 import { connectToDatabase } from "../../lib/mongodb";
 import { promisify } from "util";
@@ -123,6 +124,14 @@ function buildMarkerPipeline({ excludeMongoId, excludeMightyId, bounds }) {
         type: { $literal: "Point" },
         coordinates: ["$longitude", "$latitude"],
       },
+      organizationName: 1,
+      affiliatedEntity: 1,
+      _organizationFields: {
+        "ORGANIZATION NAME": "$fields.ORGANIZATION NAME",
+        Organization: "$fields.Organization",
+        "AFFILIATED ENTITY": "$fields.AFFILIATED ENTITY",
+        "Affiliated Entity": "$fields.Affiliated Entity",
+      },
       _id: 0,
     },
   });
@@ -132,7 +141,7 @@ function buildMarkerPipeline({ excludeMongoId, excludeMightyId, bounds }) {
 
 export default async function handler(req, res) {
   try {
-    const cacheKey = `map-locations:v9:${COLLECTION_NAME}`;
+    const cacheKey = `map-locations:v10:org:${COLLECTION_NAME}`;
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
     const bounds = parseBoundsQuery(req.query);
@@ -174,7 +183,14 @@ export default async function handler(req, res) {
     const mongoStart = Date.now();
     const pipeline = buildMarkerPipeline({ excludeMongoId, excludeMightyId, bounds });
 
-    const data = await collection.aggregate(pipeline).toArray();
+    const rows = await collection.aggregate(pipeline).toArray();
+    const data = rows.map(({ organizationName, affiliatedEntity, _organizationFields, ...row }) => {
+      const member = { organizationName, affiliatedEntity, fields: _organizationFields };
+      return { ...row, fields: { ...row.fields,
+        "ORGANIZATION NAME": getMemberOrganization(member),
+        "AFFILIATED ENTITY": getMemberAffiliation(member),
+      } };
+    });
     console.log(`MongoDB Fetch Time: ${Date.now() - mongoStart}ms`);
 
     let totalCount = data.length;

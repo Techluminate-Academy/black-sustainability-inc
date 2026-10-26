@@ -55,6 +55,12 @@ const nextConfig = {
         hostname: '**.mightynetworks.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'media1-production-mightynetworks.imgix.net',
+        port: '',
+        pathname: '/**',
+      },
     ],
     // Optimize images for mobile
     formats: ['image/webp', 'image/avif'],

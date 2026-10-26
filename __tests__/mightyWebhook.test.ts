@@ -330,3 +330,21 @@ describe("upsertMightyMemberFromWebhook", () => {
   });
 });
 
+
+describe('photo updates independent of map profile text', () => {
+  it('reads native avatar and propagates it despite protected map profile fields', async () => {
+    mockedMongoCollection.findOne.mockResolvedValue({source:'member:profile-update',memberProfileUpdatedAt:new Date('2026-10-01')} as any);
+    mockedMongoCollection.updateOne.mockClear();
+    const { upsertMightyMemberFromWebhook } = await import('../lib/mightyWebhook');
+    const result = await upsertMightyMemberFromWebhook({ type:'MemberUpdated',id:'photo-new',created_at:'2026-10-15T12:00:00Z',member:{id:123,email:'test@example.com',first_name:'Test',avatar:'https://example.com/new.png'} } as any);
+    expect(mockedMongoCollection.updateOne.mock.calls[0][1].$set.avatarUrl).toBe('https://example.com/new.png');
+    expect(result.member?.avatarUrl).toBe('https://example.com/new.png');
+  });
+  it('does not restore a photo from an older webhook', async () => {
+    mockedMongoCollection.findOne.mockResolvedValue({webhooks:{mighty:{lastEventAt:new Date('2026-10-15')}}} as any);
+    mockedMongoCollection.updateOne.mockClear();
+    const { upsertMightyMemberFromWebhook } = await import('../lib/mightyWebhook');
+    await upsertMightyMemberFromWebhook({ type:'MemberUpdated',id:'photo-old',created_at:'2026-10-14T12:00:00Z',member:{id:123,email:'test@example.com',first_name:'Test',avatar:'https://example.com/old.png'} } as any);
+    expect(mockedMongoCollection.updateOne.mock.calls[0][1].$set).not.toHaveProperty('avatarUrl');
+  });
+});

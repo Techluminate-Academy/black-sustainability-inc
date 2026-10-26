@@ -82,13 +82,21 @@ test('upstream subprocess receives the same server-only table configuration', as
 });
 test('actual CLI exits nonzero and reports missing config without secrets', () => {
   const { spawnSync } = jest.requireActual('child_process');
-  const result = spawnSync(process.execPath, ['utils/sync-airtable.js'], {
-    cwd: require('path').join(__dirname, '..'),
-    env: { PATH: originalEnv.PATH, AIRTABLE_PAT: 'do-not-log-this' }, encoding: 'utf8', timeout: 10000,
-  });
-  expect(result.status).toBe(1);
-  expect(result.stderr).toContain('AIRTABLE_MIGHTY_SYNC_BASE_ID is required');
-  expect(result.stderr).not.toContain('do-not-log-this');
+  const fs = require('fs');
+  const path = require('path');
+  // dotenv resolves from cwd; isolate the CLI from a developer's real .env.
+  const cwd = fs.mkdtempSync(path.join(require('os').tmpdir(), 'bsn-cron-test-'));
+  try {
+    const result = spawnSync(process.execPath, [path.join(__dirname, '..', 'utils', 'sync-airtable.js')], {
+      cwd,
+      env: { PATH: originalEnv.PATH, AIRTABLE_PAT: 'do-not-log-this' }, encoding: 'utf8', timeout: 10000,
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('AIRTABLE_MIGHTY_SYNC_BASE_ID is required');
+    expect(result.stderr).not.toContain('do-not-log-this');
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
 });
 
 describe('safe failure diagnostics', () => {

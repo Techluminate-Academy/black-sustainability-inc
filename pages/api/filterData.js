@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     const excludeViewer = !!excludeMongoId || excludeMightyId != null;
     const useCache = !excludeViewer;
 
-    const cacheKey = `filterData:v11:photo-tier:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
+    const cacheKey = `filterData:v12:org:photo-tier:${COLLECTION_NAME}:${industryHouse || "all"}:page=${currentPage}:limit=${recordsPerPage}`;
     if (useCache) {
       const cacheStart = Date.now();
       const cachedData = await redis.get(cacheKey);

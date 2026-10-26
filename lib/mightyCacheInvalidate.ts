@@ -4,11 +4,11 @@ import redis from "./redis";
  * Cache key shapes maintained by the public list/map APIs.
  * Keep these in sync with: pages/api/getMarkers.js, getData.js, filterData.js, searchData.js.
  */
-const FIXED_KEYS: string[] = ["map-locations:v9:mightyMembers"];
+const FIXED_KEYS: string[] = ["map-locations:v10:org:mightyMembers"];
 const SCAN_PATTERNS: string[] = [
-  "getData:v13:photo-tier:mightyMembers:*",
-  "filterData:v11:photo-tier:mightyMembers:*",
-  "search:v4:mightyMembers:*",
+  "getData:v14:org:photo-tier:mightyMembers:*",
+  "filterData:v12:org:photo-tier:mightyMembers:*",
+  "search:v5:org:mightyMembers:*",
 ];
 
 const SCAN_COUNT = 200;

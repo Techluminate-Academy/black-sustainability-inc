@@ -85,6 +85,16 @@ describe("MemberMapProfileModal", () => {
     expect(screen.getByTestId("member-map-profile-info-hint")).toBeInTheDocument();
   });
 
+  it("opens location editing from the member's own profile", async () => {
+    const onOpenUpdateLocation = jest.fn();
+    render(<MemberMapProfileModal isOpen onClose={onClose} sessionUser={sessionUser}
+      onOpenUpdateLocation={onOpenUpdateLocation} />);
+    await screen.findByTestId("member-map-profile-name");
+    expect(screen.getByText("General member")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Update your location" }));
+    expect(onOpenUpdateLocation).toHaveBeenCalledTimes(1);
+  });
+
   it("shows profile info tooltip on hint click", async () => {
     render(<MemberMapProfileModal isOpen onClose={onClose} sessionUser={sessionUser} />);
     await screen.findByTestId("member-map-profile-name");

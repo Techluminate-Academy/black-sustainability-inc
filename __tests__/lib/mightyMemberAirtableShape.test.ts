@@ -144,7 +144,10 @@ describe("toAirtableishDoc — string defaults and shape stability", () => {
     const out = toAirtableishDoc({});
     expect(Object.keys(out.fields).sort()).toEqual(
       [
+        "AFFILIATED ENTITY",
         "BIO",
+        "LOGO",
+        "Profile Photo URL",
         "EMAIL ADDRESS",
         "FIRST NAME",
         "FULL NAME",
@@ -191,4 +194,16 @@ describe("toAirtableishDoc — string defaults and shape stability", () => {
       coordinates: [-38.5, -12.97],
     });
   });
+});
+
+// Organization names and affiliations are separate relationships; neither can
+// be replaced by the member's industry or silently erased by the map adapter.
+test("preserves organization and affiliation from current and legacy fields", () => {
+  const current = toAirtableishDoc({ organizationName: " HABESHA, Inc. ", affiliatedEntity: "Partner Network", fields: { "ORGANIZATION NAME": "Old name" } });
+  expect(current.fields["ORGANIZATION NAME"]).toBe("HABESHA, Inc.");
+  expect(current.fields["AFFILIATED ENTITY"]).toBe("Partner Network");
+  const legacy = toAirtableishDoc({ organizationName: " ", fields: { Organization: "HABESHA", "AFFILIATED ENTITY": ["Partner A", "Partner B"] } });
+  expect(legacy.fields["ORGANIZATION NAME"]).toBe("HABESHA");
+  expect(legacy.fields["AFFILIATED ENTITY"]).toBe("Partner A, Partner B");
+  expect(toAirtableishDoc({ affiliatedEntity: "Network" }).fields["ORGANIZATION NAME"]).toBe("");
 });

@@ -60,6 +60,7 @@ type Fields = {
   "Name (from Location)"?: string;
   "WELCOMED?"?: boolean;
   "ORGANIZATION NAME"?: string;
+  "AFFILIATED ENTITY"?: string;
   "MEMBER LEVEL"?: string[];
   "Send Welcome Email"?: boolean;
   State?: string;

@@ -1,9 +1,13 @@
 "use client";
 
+import MemberOrganizationDetails from "@/features/memberMap/MemberOrganizationDetails";
+
 import React, { useEffect, useState } from "react";
 import BioWithReadMore from "@/components/common/BioWithReadMore";
 import MemberLevelVisibilityHint from "@/components/common/MemberLevelVisibilityHint";
 import icons from "@/icons";
+import MemberProfilePreview from "@/features/memberMap/MemberProfilePreview";
+import { memberIndustryHouse } from "@/lib/memberIndustryHouse";
 import BlurText from "../BlurText";
 import MemberAccessInlineHint from "../MemberAccessInlineHint";
 import {
@@ -30,6 +34,12 @@ interface UserProps {
 }
 
 const InfoCard: React.FC<UserProps> = ({ isAuthenticated, fields, ...UserProps }) => {
+  const profileFields = fields || {
+    "FIRST NAME": UserProps.FIRST_NAME, "LAST NAME": UserProps.LAST_NAME,
+    "ORGANIZATION NAME": UserProps.ORGANIZATION_NAME,
+    BIO: UserProps.BIO, "PRIMARY INDUSTRY HOUSE": UserProps.PRIMARY_INDUSTRY_HOUSE,
+    "Location (Nearest City)": UserProps.Nearest_City, PHOTO: [{ url: UserProps.imgUrl }],
+  };
   const resolvedSrc = fields
     ? getMemberDisplayImage(fields)
     : typeof UserProps.imgUrl === "string" && UserProps.imgUrl.trim()
@@ -42,31 +52,36 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, fields, ...UserProps }
     setPhotoSrc(resolvedSrc);
   }, [resolvedSrc]);
 
+  const photoContainerClass = "relative block w-[35%] h-[100px] shrink-0 rounded-md overflow-hidden bg-[#f5f5f5]";
+  const photo = (
+    <img
+      src={photoSrc}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      className={`w-full h-full rounded-md ${
+        isPlatformIcon ? "object-contain object-center p-2" : "object-contain object-center"
+      } ${isAuthenticated ? "" : "blur-md"}`}
+      onError={() => setPhotoSrc(BSN_PLATFORM_ICON)}
+    />
+  );
+
   return (
     <div className="popup-info-card" style={{ maxWidth: "280px", minWidth: "250px" }}>
       <div className="flex gap-x-3 items-start ">
-        <div className="relative w-[35%] h-[100px] rounded-md overflow-hidden bg-[#f5f5f5]">
-          <img
-            src={photoSrc}
-            className={`w-full h-full rounded-md ${
-              isPlatformIcon
-                ? "object-contain object-center p-2"
-                : "object-contain object-center"
-            } ${isAuthenticated ? "" : "blur-md"}`}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            referrerPolicy="no-referrer"
-            onError={() => setPhotoSrc(BSN_PLATFORM_ICON)}
-          />
-        </div>
-        <div className="w-[65%] flex flex-col justify-between gap-y-0.5 h-[100px] p-1 ">
+        {isAuthenticated ? (
+          <MemberProfilePreview fields={profileFields} className={photoContainerClass}>
+            {photo}
+          </MemberProfilePreview>
+        ) : <div className={photoContainerClass}>{photo}</div>}
+        <div className="w-[65%] flex flex-col gap-y-2 min-h-[100px] p-1 ">
           <div className="flex items-center gap-x-5">
             <icons.profile />
             {isAuthenticated ? (
-              <span className={`text-xs`}>
+              <MemberProfilePreview fields={profileFields} className="text-xs text-left underline underline-offset-2 hover:text-green-700">
                 {UserProps.FIRST_NAME} {UserProps.LAST_NAME}
-              </span>
+              </MemberProfilePreview>
             ) : (
               <BlurText
                 text={`${UserProps.FIRST_NAME} ${UserProps.LAST_NAME}`}
@@ -92,28 +107,17 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, fields, ...UserProps }
               {`${UserProps?.Nearest_City || ""} ` || "Location unavailable"}
             </span>
           </div>
-          <div
-            className={`flex items-center gap-x-3.5 ${
-              UserProps.ORGANIZATION_NAME?.length === 0 && ""
-            }`}
-          >
+          <div className="flex items-start gap-x-3">
             <icons.organization />
-            {isAuthenticated ? (
-              <span className={`text-xs`}>
-                {UserProps.ORGANIZATION_NAME || "Organization name unavailable"}
-              </span>
-            ) : (
-              <BlurText
-                text={
-                  UserProps.ORGANIZATION_NAME || "Organization name unavailable"
-                }
-                blurAmount={1}
-              />
-            )}
+            <div className="text-xs"><p className="font-semibold">Industry house</p>
+              {isAuthenticated ? <span>{memberIndustryHouse(profileFields["PRIMARY INDUSTRY HOUSE"])}</span> :
+                <BlurText text={memberIndustryHouse(profileFields["PRIMARY INDUSTRY HOUSE"])} blurAmount={1} />}
+            </div>
           </div>
         </div>
       </div>
       <div className="mt-2 text-xs leading-4 flex flex-col gap-y-0.5">
+        <MemberOrganizationDetails fields={profileFields} isAuthenticated={isAuthenticated} />
         {isAuthenticated && UserProps.BIO?.trim() ? (
           <BioWithReadMore isAuthenticated={isAuthenticated} bio={UserProps.BIO.trim()} />
         ) : null}
@@ -131,7 +135,7 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, fields, ...UserProps }
           </span>
         </p>
 
-        {isAuthenticated ? (
+        {isAuthenticated && UserProps.WEBSITE?.trim() ? (
           <a
             href={UserProps.WEBSITE}
             target="_blank"
@@ -141,9 +145,9 @@ const InfoCard: React.FC<UserProps> = ({ isAuthenticated, fields, ...UserProps }
             <icons.web_link />
             <span>{UserProps.WEBSITE || "not yet provided"}</span>
           </a>
-        ) : (
+        ) : !isAuthenticated ? (
           <MemberAccessInlineHint className="mt-2" />
-        )}
+        ) : null}
       </div>
     </div>
   );

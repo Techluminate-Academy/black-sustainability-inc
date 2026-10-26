@@ -1,5 +1,7 @@
+import { getMemberOrganization, getMemberAffiliation } from "@/lib/memberOrganizations";
 import type { BsnSessionPayload } from "@/lib/bsnSession";
-import { findAirtableMightyMemberByEmail } from "@/lib/airtableMightyMembers";
+import { invalidateMightyMemberCaches } from "@/lib/mightyCacheInvalidate";
+import { findAirtableMightyMemberByEmail, upsertAirtableMightyMember } from "@/lib/airtableMightyMembers";
 import { HARDCODED_MEMBER_LEVELS } from "@/constants/member-levels";
 import { buildSessionMemberProfile } from "@/lib/domain/members/memberSessionProfile.service";
 import { extractMightyAvatarUrl } from "@/lib/domain/members/mightyAvatar";
@@ -15,6 +17,8 @@ export type MemberMapProfileView = {
   photoUrl: string;
   location: string | null;
   organizationName: string | null;
+  affiliatedEntity?: string | null;
+  industryHouse?: string | string[] | null;
   bio: string | null;
   memberLevelLabel: string | null;
 };
@@ -30,17 +34,6 @@ function memberLevelDisplayLabel(raw: unknown): string | null {
   if (typeof id !== "string" || !id.trim()) return null;
   const found = HARDCODED_MEMBER_LEVELS.find((l) => l.id === id.trim());
   return found?.name ?? null;
-}
-
-function organizationFromDoc(doc: Record<string, unknown> | null): string | null {
-  if (!doc) return null;
-  const top = nonEmptyString(doc.organizationName);
-  if (top) return top;
-  const fields = doc.fields;
-  if (fields && typeof fields === "object") {
-    return nonEmptyString((fields as Record<string, unknown>)["ORGANIZATION NAME"]);
-  }
-  return null;
 }
 
 function memberLevelFromDoc(doc: Record<string, unknown> | null): string | null {
@@ -71,6 +64,8 @@ export async function getMemberMapProfileView(
         location: 1,
         avatarUrl: 1,
         organizationName: 1,
+        affiliatedEntity: 1,
+        industry: 1,
         memberLevel: 1,
         fields: 1,
       },
@@ -90,7 +85,7 @@ export async function getMemberMapProfileView(
   const mongoAvatarUrl = nonEmptyString(doc?.avatarUrl);
 
   const mongoBio = getMemberBio(doc);
-  const mongoOrg = organizationFromDoc(doc);
+  const mongoOrg = getMemberOrganization(doc) || null;
 
   let bio = mongoBio;
   let organizationName = mongoOrg;
@@ -151,7 +146,14 @@ export async function getMemberMapProfileView(
       const recoveredPhoto = mongoAvatarUrl?.startsWith(
         "https://maps.blacksustainability.org/api/member-legacy-asset?"
       );
-      if (mightyAvatar && !recoveredPhoto) {
+      let canReplacePhoto = !recoveredPhoto;
+      if (mightyAvatar && recoveredPhoto) {
+        try {
+          const response = await fetch(mightyAvatar, { method: "HEAD", signal: AbortSignal.timeout(5000) });
+          canReplacePhoto = response.ok && (response.headers.get("content-type") || "").startsWith("image/");
+        } catch { canReplacePhoto = false; }
+      }
+      if (mightyAvatar && canReplacePhoto) {
         photoUrl = mightyAvatar;
         if (mightyAvatar !== mongoAvatarUrl) {
           heal.avatarUrl = mightyAvatar;
@@ -168,6 +170,12 @@ export async function getMemberMapProfileView(
         { $or: [{ mightyId: session.mightyId }, { email: session.email }] },
         { $set: { ...heal, updatedAt: new Date() } }
       );
+      if (typeof heal.avatarUrl === "string") {
+        try {
+          await upsertAirtableMightyMember({ mightyId: session.mightyId, email: session.email, avatarUrl: heal.avatarUrl });
+        } catch { console.warn("[memberMapProfileView] Airtable photo sync failed"); }
+      }
+      await invalidateMightyMemberCaches().catch(() => {});
     }
   }
 
@@ -178,6 +186,8 @@ export async function getMemberMapProfileView(
     photoUrl,
     location: nonEmptyString(doc?.location),
     organizationName,
+    affiliatedEntity: getMemberAffiliation(doc) || null,
+    industryHouse: (doc?.industry ?? (doc?.fields as Record<string, unknown> | undefined)?.["PRIMARY INDUSTRY HOUSE"] ?? null) as string | string[] | null,
     bio,
     memberLevelLabel: memberLevelFromDoc(doc),
   };
